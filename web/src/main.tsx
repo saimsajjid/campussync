@@ -5,7 +5,7 @@ import { AppProvider } from './context/AppContext';
 import './index.css';
 
 // Register Service Worker for Offline App Shell & Self-Hosted Fonts
-if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')
