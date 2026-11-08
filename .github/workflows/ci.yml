@@ -62,14 +62,12 @@ jobs:
           DATABASE_URL=postgres://campussync:change-me@127.0.0.1:5432/campussync npm run db:migrate
           DATABASE_URL=postgres://campussync:change-me@127.0.0.1:5432/campussync npm run db:seed
 
-      - name: Start Server in Background
+      - name: Start Server & Execute Full Test Plan Suite
         run: |
           cd server
           DATABASE_URL=postgres://campussync:change-me@127.0.0.1:5432/campussync PORT=3055 JWT_SECRET=test-secret COOKIE_SECRET=test-cookie-secret-32-chars-long node dist/index.js &
           npx wait-on http://127.0.0.1:3055/health --timeout 30000
-
-      - name: Execute Full Test Plan Suite (VA-11, Invariants, Conflicts, Idempotency)
-        run: |
+          cd ..
           TEST_BASE_URL=http://127.0.0.1:3055 npx tsx scripts/test-plan-suite.ts
 
   build-arm64-ghcr:
