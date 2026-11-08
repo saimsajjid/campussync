@@ -84,7 +84,7 @@ export async function processOperation(
 
     // Check duplicate reg_no or cnic
     const dupCheck = await client.query(
-      'SELECT id, reg_no, cnic FROM students WHERE reg_no = $1 OR cnic = $2',
+      'SELECT id, reg_no, cnic, full_name, campus FROM students WHERE reg_no = $1 OR cnic = $2',
       [s.reg_no, s.cnic]
     );
     if (dupCheck.rows.length > 0) {
@@ -93,8 +93,11 @@ export async function processOperation(
         opId,
         status: 'duplicate_record',
         studentId: existing.id,
-        reason: `A student with ${existing.reg_no === s.reg_no ? 'registration number ' + s.reg_no : 'CNIC ' + s.cnic} already exists.`,
         existingRecordId: existing.id,
+        studentName: existing.full_name,
+        regNo: existing.reg_no,
+        cnic: existing.cnic,
+        reason: `A student with ${existing.reg_no === s.reg_no ? 'registration number ' + s.reg_no : 'CNIC ' + s.cnic} already exists (${existing.full_name}, ${existing.campus}).`,
       });
     }
 

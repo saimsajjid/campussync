@@ -243,11 +243,15 @@ async function runRedesignedChaos() {
   console.log(`Date: ${new Date().toISOString()}`);
   console.log(`======================================================\n`);
 
+  const adminToken = await loginAdmin();
+
   // 1. Reset baseline demo state
   console.log('Resetting demo baseline before chaos run...');
-  await fetch(`${BASE_URL}/demo/reset`, { method: 'POST' });
+  await fetch(`${BASE_URL}/demo/reset`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
 
-  const adminToken = await loginAdmin();
   await initReferenceModel(adminToken);
 
   const studentIds = Object.keys(referenceModel);

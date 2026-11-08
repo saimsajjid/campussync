@@ -4,6 +4,7 @@ import { seedDatabase } from '../db/seed.js';
 import { processOperation } from '../services/applyEdit.js';
 import { eventBroker } from '../services/events.js';
 import { safeJsonParse } from '../utils/json.js';
+import { authenticateUser } from '../middleware/auth.js';
 
 export const demoRoutes: FastifyPluginAsync = async (fastify) => {
   // Liveness & Database Healthcheck (Always public and available)
@@ -25,7 +26,8 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
 
   // Gating hook for all /demo/* endpoints
   fastify.addHook('onRequest', async (request, reply) => {
-    if (request.url.startsWith('/demo/') || request.url === '/demo') {
+    const pathname = request.url.split('?')[0];
+    if (pathname.startsWith('/demo/') || pathname === '/demo') {
       if (process.env.DEMO_MODE !== 'true') {
         return reply.status(404).send({
           error: 'Endpoint not found',
@@ -36,8 +38,20 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  const requireAdmin = async (request: any, reply: any) => {
+    await authenticateUser(request, reply);
+    if (reply.sent) return;
+    if (request.user?.role !== 'admin') {
+      return reply.status(403).send({
+        error: 'Forbidden',
+        message: 'Admin role required for demo actions',
+        statusCode: 403,
+      });
+    }
+  };
+
   // Reset Demo Data (FR-13.6, NFR-14)
-  fastify.post('/demo/reset', async (request, reply) => {
+  fastify.post('/demo/reset', { preHandler: [requireAdmin] }, async (request, reply) => {
     try {
       await seedDatabase(true);
 
@@ -53,7 +67,7 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
 
   // Inject Remote Edit from Another Campus (FR-13.5)
   // E.g. simulates Islamabad Admin editing a Lahore student's address concurrently
-  fastify.post('/demo/inject-edit', async (request, reply) => {
+  fastify.post('/demo/inject-edit', { preHandler: [requireAdmin] }, async (request, reply) => {
     const { studentId, field, newValue } = (request.body as any) || {};
 
     const targetStudentId = studentId || '10000000-0000-0000-0000-000000000001';

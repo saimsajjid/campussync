@@ -33,13 +33,32 @@ interface TestResult {
 
 const results: TestResult[] = [];
 
+let adminToken = '';
+
+async function loginAdmin() {
+  const res = await fetch(`${BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'admin@campussync.local', password: 'password123' }),
+  });
+  const data = await res.json();
+  return data.token;
+}
+
 async function getIntegrityReport() {
-  const res = await fetch(`${BASE_URL}/admin/integrity`);
+  if (!adminToken) adminToken = await loginAdmin();
+  const res = await fetch(`${BASE_URL}/admin/integrity`, {
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
   return res.json();
 }
 
 async function resetDemo() {
-  await fetch(`${BASE_URL}/demo/reset`, { method: 'POST' });
+  if (!adminToken) adminToken = await loginAdmin();
+  await fetch(`${BASE_URL}/demo/reset`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
 }
 
 async function runNegativeSuite() {

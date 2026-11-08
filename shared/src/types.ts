@@ -120,6 +120,9 @@ export interface OperationResult {
   conflictId?: string;
   reason?: string;
   existingRecordId?: string;
+  studentName?: string;
+  regNo?: string;
+  cnic?: string;
 }
 
 export interface PushBatchResponse {

@@ -78,7 +78,10 @@ async function run() {
 
   // SM-9: Reset Demo Data
   try {
-    const resetRes = await fetch(`${BASE_URL}/demo/reset`, { method: 'POST' });
+    const resetRes = await fetch(`${BASE_URL}/demo/reset`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
     const resetData = await resetRes.json();
     record('SM-9', 'Smoke', 'Reset demo data to known clean seeded state', resetRes.status === 200 && resetData.success === true);
   } catch (err: any) {
@@ -950,6 +953,297 @@ async function run() {
     );
   } catch (err: any) {
     record('HI-10', 'History', 'Admin restore', false, null, err.message);
+  }
+
+  // --------------------------------------------------------------------------
+  // SECTION 13: DEMO ENDPOINT RBAC GATING & AUTHORIZATION
+  // --------------------------------------------------------------------------
+  console.log(`\n--- SECTION 13: Demo Endpoint RBAC Gating ---`);
+
+  // DM-1: POST /demo/reset without token returns 401
+  try {
+    const res = await fetch(`${BASE_URL}/demo/reset`, { method: 'POST' });
+    record('DM-1', 'Demo Gating', 'POST /demo/reset with no auth returns 401', res.status === 401);
+  } catch (err: any) {
+    record('DM-1', 'Demo Gating', 'POST /demo/reset no auth', false, null, err.message);
+  }
+
+  // DM-2: POST /demo/reset with student token returns 403
+  try {
+    const res = await fetch(`${BASE_URL}/demo/reset`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${studentToken}` },
+    });
+    record('DM-2', 'Demo Gating', 'POST /demo/reset with student role returns 403', res.status === 403);
+  } catch (err: any) {
+    record('DM-2', 'Demo Gating', 'POST /demo/reset student role', false, null, err.message);
+  }
+
+  // DM-3: POST /demo/reset with faculty token returns 403
+  try {
+    const res = await fetch(`${BASE_URL}/demo/reset`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${facultyToken}` },
+    });
+    record('DM-3', 'Demo Gating', 'POST /demo/reset with faculty role returns 403', res.status === 403);
+  } catch (err: any) {
+    record('DM-3', 'Demo Gating', 'POST /demo/reset faculty role', false, null, err.message);
+  }
+
+  // DM-4: POST /demo/reset with admin token returns 200
+  try {
+    const res = await fetch(`${BASE_URL}/demo/reset`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    record('DM-4', 'Demo Gating', 'POST /demo/reset with admin role returns 200', res.status === 200);
+  } catch (err: any) {
+    record('DM-4', 'Demo Gating', 'POST /demo/reset admin role', false, null, err.message);
+  }
+
+  // DM-5: POST /demo/inject-edit without token returns 401
+  try {
+    const res = await fetch(`${BASE_URL}/demo/inject-edit`, { method: 'POST' });
+    record('DM-5', 'Demo Gating', 'POST /demo/inject-edit with no auth returns 401', res.status === 401);
+  } catch (err: any) {
+    record('DM-5', 'Demo Gating', 'POST /demo/inject-edit no auth', false, null, err.message);
+  }
+
+  // DM-6: POST /demo/inject-edit with student token returns 403
+  try {
+    const res = await fetch(`${BASE_URL}/demo/inject-edit`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${studentToken}` },
+    });
+    record('DM-6', 'Demo Gating', 'POST /demo/inject-edit with student role returns 403', res.status === 403);
+  } catch (err: any) {
+    record('DM-6', 'Demo Gating', 'POST /demo/inject-edit student role', false, null, err.message);
+  }
+
+  // DM-7: POST /demo/inject-edit with faculty token returns 403
+  try {
+    const res = await fetch(`${BASE_URL}/demo/inject-edit`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${facultyToken}` },
+    });
+    record('DM-7', 'Demo Gating', 'POST /demo/inject-edit with faculty role returns 403', res.status === 403);
+  } catch (err: any) {
+    record('DM-7', 'Demo Gating', 'POST /demo/inject-edit faculty role', false, null, err.message);
+  }
+
+  // DM-8: POST /demo/inject-edit with admin token returns 200
+  try {
+    const res = await fetch(`${BASE_URL}/demo/inject-edit`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    record('DM-8', 'Demo Gating', 'POST /demo/inject-edit with admin role returns 200', res.status === 200);
+  } catch (err: any) {
+    record('DM-8', 'Demo Gating', 'POST /demo/inject-edit admin role', false, null, err.message);
+  }
+
+  // --------------------------------------------------------------------------
+  // SECTION 14: SIMULATOR CONTROLS & RESILIENCE (FR-13)
+  // --------------------------------------------------------------------------
+  console.log(`\n--- SECTION 14: Simulator Controls & Resilience ---`);
+
+  // SIM-1: Dropped response simulation (server commits, reply lost, client retries idempotently)
+  try {
+    const simOpId = 'sim-drop-ack-' + Date.now();
+    // Step 1: Server receives and commits edit
+    const firstRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: simOpId,
+          studentId: studentTarget.id,
+          field: 'remarks',
+          newValue: 'Simulated Network Partition Verification',
+          baseVersion: 1,
+          deviceId: 'sim-device-01',
+          type: 'edit',
+        }],
+      }),
+    });
+    const firstData = await firstRes.json();
+    const firstStatus = firstData.results?.[0]?.status;
+
+    // Step 2: Client re-sends identical opId after dropped response
+    const replayRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: simOpId,
+          studentId: studentTarget.id,
+          field: 'remarks',
+          newValue: 'Simulated Network Partition Verification',
+          baseVersion: 1,
+          deviceId: 'sim-device-01',
+          type: 'edit',
+        }],
+      }),
+    });
+    const replayData = await replayRes.json();
+    const replayStatus = replayData.results?.[0]?.status;
+
+    record(
+      'SIM-1',
+      'Simulator',
+      'FR-13.3: Lost-response recovery applies once and replayed op returns duplicate',
+      firstStatus === 'applied' && replayStatus === 'duplicate'
+    );
+  } catch (err: any) {
+    record('SIM-1', 'Simulator', 'Lost response simulation', false, null, err.message);
+  }
+
+  // SIM-2: Remote concurrent edit injection (FR-13.5)
+  try {
+    const injectRes = await fetch(`${BASE_URL}/demo/inject-edit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        studentId: studentTarget.id,
+        field: 'remarks',
+        newValue: 'Injected Concurrent Remote Edit from Simulator',
+      }),
+    });
+    const injectData = await injectRes.json();
+    record(
+      'SIM-2',
+      'Simulator',
+      'FR-13.5: Simulator injects concurrent edit from another campus with SSE broadcast',
+      injectRes.status === 200 && injectData.success === true && injectData.result?.status === 'applied'
+    );
+  } catch (err: any) {
+    record('SIM-2', 'Simulator', 'Concurrent edit simulation', false, null, err.message);
+  }
+
+  // --------------------------------------------------------------------------
+  // SECTION 15: REAL DR-3 TWO-DEVICE OFFLINE DUPLICATE DETECTION
+  // --------------------------------------------------------------------------
+  console.log(`\n--- SECTION 15: Real DR-3 Two-Device Duplicate Creation ---`);
+
+  try {
+    const dr3RegNo = `CS-2026-DR03-${Math.floor(1000 + Math.random() * 9000)}`;
+    const dr3Cnic = `37405-${Math.floor(1000000 + Math.random() * 9000000)}-3`;
+
+    // 1. Device A creates student online
+    const devAId = 'a0000000-0000-0000-0000-' + Date.now();
+    const devAOpId = 'op-dev-a-create-' + Date.now();
+    const devARes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: devAOpId,
+          studentId: devAId,
+          field: '*',
+          newValue: {
+            id: devAId,
+            reg_no: dr3RegNo,
+            cnic: dr3Cnic,
+            full_name: 'Device A Student',
+            program: 'BS CS',
+            campus: 'Lahore',
+            semester: 1,
+            status: 'Active',
+            phone: '0300-1112233',
+            email: 'dev.a@campussync.local',
+            address: 'Device A Campus',
+            emergency_contact: 'Father (0300-0000000)',
+            attendance: 90,
+          },
+          baseVersion: 0,
+          deviceId: 'device-a-online',
+          type: 'create',
+          studentData: {
+            id: devAId,
+            reg_no: dr3RegNo,
+            cnic: dr3Cnic,
+            full_name: 'Device A Student',
+            program: 'BS CS',
+            campus: 'Lahore',
+            semester: 1,
+            status: 'Active',
+            phone: '0300-1112233',
+            email: 'dev.a@campussync.local',
+            address: 'Device A Campus',
+            emergency_contact: 'Father (0300-0000000)',
+            attendance: 90,
+          },
+        }],
+      }),
+    });
+    const devAData = await devARes.json();
+    const devAStatus = devAData.results?.[0]?.status;
+
+    // 2. Device B (was offline) now reconnects and pushes same reg_no
+    const devBId = 'b0000000-0000-0000-0000-' + Date.now();
+    const devBOpId = 'op-dev-b-offline-create-' + Date.now();
+    const devBRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: devBOpId,
+          studentId: devBId,
+          field: '*',
+          newValue: {
+            id: devBId,
+            reg_no: dr3RegNo,
+            cnic: `37405-${Math.floor(1000000 + Math.random() * 9000000)}-4`,
+            full_name: 'Device B Offline Student',
+            program: 'BS CS',
+            campus: 'Islamabad',
+            semester: 1,
+            status: 'Active',
+            phone: '0300-9998877',
+            email: 'dev.b@campussync.local',
+            address: 'Device B Campus',
+            emergency_contact: 'Father (0300-0000000)',
+            attendance: 88,
+          },
+          baseVersion: 0,
+          deviceId: 'device-b-reconnecting',
+          type: 'create',
+          studentData: {
+            id: devBId,
+            reg_no: dr3RegNo,
+            cnic: `37405-${Math.floor(1000000 + Math.random() * 9000000)}-4`,
+            full_name: 'Device B Offline Student',
+            program: 'BS CS',
+            campus: 'Islamabad',
+            semester: 1,
+            status: 'Active',
+            phone: '0300-9998877',
+            email: 'dev.b@campussync.local',
+            address: 'Device B Campus',
+            emergency_contact: 'Father (0300-0000000)',
+            attendance: 88,
+          },
+        }],
+      }),
+    });
+    const devBData = await devBRes.json();
+    const devBResult = devBData.results?.[0];
+
+    record(
+      'DR-3',
+      'Duplicates',
+      'Real DR-3: Device B offline creation caught as duplicate_record upon sync against Device A creation',
+      devAStatus === 'applied' &&
+        devBResult?.status === 'duplicate_record' &&
+        devBResult?.existingRecordId === devAId &&
+        devBResult?.regNo === dr3RegNo,
+      { devAStatus, devBResult }
+    );
+  } catch (err: any) {
+    record('DR-3', 'Duplicates', 'Real DR-3 verification', false, null, err.message);
   }
 
   // --------------------------------------------------------------------------

@@ -315,6 +315,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               errorReason: res.reason,
             });
             addToast(`Server rejected operation: ${res.reason}`, 'danger');
+          } else if (res.status === 'duplicate_record') {
+            await db.outbox.update(res.opId, {
+              status: 'failed',
+              errorReason: res.reason || 'Duplicate record detected on server',
+            });
+            setDuplicateRecordPrompt({
+              isOpen: true,
+              reason: res.reason || 'A student with the same registration number or CNIC already exists on the server.',
+              existingRecordId: res.existingRecordId || res.studentId,
+              studentName: res.studentName,
+              regNo: res.regNo,
+              cnic: res.cnic,
+              opId: res.opId,
+              studentId: res.studentId,
+              isOfflineSync: true,
+            });
+            addToast(`Duplicate record detected: ${res.reason}`, 'warning');
           }
         }
       }

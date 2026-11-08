@@ -15,16 +15,6 @@ export async function authenticateUser(request: FastifyRequest, reply: FastifyRe
     (request.headers.authorization?.replace('Bearer ', ''));
 
   if (!token) {
-    // If running in DEMO_MODE, provide a default Admin user so testing is painless
-    if (process.env.DEMO_MODE === 'true') {
-      request.user = {
-        id: 'c0000000-0000-0000-0000-000000000001',
-        name: 'Central Admin',
-        email: 'admin@campussync.local',
-        role: 'admin',
-      };
-      return;
-    }
     return reply.status(401).send({ error: 'Authentication required' });
   }
 

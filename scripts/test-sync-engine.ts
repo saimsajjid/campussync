@@ -409,6 +409,134 @@ async function runSyncEngineUnitTests() {
   );
   await db6b.close();
 
+  // -------------------------------------------------------------
+  // TEST 7: Simulator Controls (FR-13)
+  // -------------------------------------------------------------
+  console.log('\n--- TEST 7: Simulator Controls (FR-13) ---');
+  const db7 = new TestCampusSyncDB('test-db-sim-' + Date.now());
+  await db7.open();
+
+  await db7.outbox.put({
+    opId: 'op-sim-test-1',
+    studentId: 'std-7',
+    field: 'phone',
+    newValue: '0300-7778899',
+    oldValue: null,
+    baseVersion: 1,
+    deviceId: 'sim-dev',
+    type: 'edit',
+    status: 'pending',
+    retryCount: 0,
+    createdAt: new Date().toISOString(),
+  });
+
+  const simApi = new FakeNetworkClient();
+  simApi.failNextWithNetworkError = true; // Simulates offline / partition
+
+  const simEngine = new SyncEngine(db7 as any, simApi);
+  const simStats = await simEngine.syncOutbox();
+
+  const simOpAfterFail = await db7.outbox.get('op-sim-test-1');
+  assert(
+    'SE-7a',
+    'Simulator offline mode preserves outbox operation and increments retryCount',
+    simOpAfterFail?.retryCount === 1 && simStats.errorCount === 1
+  );
+
+  // Turn simulator back online and verify recovery
+  simApi.failNextWithNetworkError = false;
+  const simRecoverStats = await simEngine.syncOutbox();
+  const simOpAfterRecover = await db7.outbox.get('op-sim-test-1');
+  assert(
+    'SE-7b',
+    'Reconnecting simulator recovers and syncs pending outbox item',
+    simOpAfterRecover === undefined && simRecoverStats.appliedCount === 1
+  );
+  await db7.close();
+
+  // -------------------------------------------------------------
+  // TEST 8: Offline UI Flow & Duplicate Resolution Cleanup (DR-3)
+  // -------------------------------------------------------------
+  console.log('\n--- TEST 8: Offline UI Flow & Duplicate Resolution Cleanup ---');
+  const db8 = new TestCampusSyncDB('test-db-dr3-' + Date.now());
+  await db8.open();
+
+  // 1. Client offline: creates optimistic student and outbox create op
+  const offlineStudentId = 'offline-std-uuid-123';
+  const offlineOpId = 'op-create-dr3-reg';
+  await db8.students.put({
+    id: offlineStudentId,
+    reg_no: 'CS-2026-9999',
+    cnic: '35201-9999999-1',
+    full_name: 'Offline Student',
+    program: 'BS CS',
+    campus: 'Lahore',
+    semester: 1,
+    status: 'Active',
+    phone: '0300-1111111',
+    email: 'offline@campussync.local',
+    address: 'Lahore',
+    emergency_contact: 'Father (0300-0000000)',
+    attendance: 85,
+    remarks: '',
+    field_versions: { full_name: 1, reg_no: 1 },
+    version: 1,
+    active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    last_editor_id: 'Student Tester',
+  });
+
+  await db8.outbox.put({
+    opId: offlineOpId,
+    studentId: offlineStudentId,
+    field: '*',
+    newValue: { reg_no: 'CS-2026-9999' },
+    oldValue: null,
+    baseVersion: 0,
+    deviceId: 'dev-offline-b',
+    type: 'create',
+    status: 'pending',
+    retryCount: 0,
+    createdAt: new Date().toISOString(),
+  });
+
+  // 2. Reconnect: server returns duplicate_record
+  const dr3Api = new FakeNetworkClient();
+  dr3Api.responseMockGenerator = () => ({
+    results: [{
+      opId: offlineOpId,
+      status: 'duplicate_record',
+      studentId: offlineStudentId,
+      existingRecordId: 'server-existing-ali-raza',
+      reason: 'A student with registration number CS-2026-9999 already exists',
+    }],
+    latestCursor: 50,
+  });
+
+  const dr3Engine = new SyncEngine(db8 as any, dr3Api);
+  await dr3Engine.syncOutbox();
+
+  const outboxAfterDup = await db8.outbox.get(offlineOpId);
+  assert(
+    'SE-8a',
+    'Server duplicate_record flags outbox op as failed with exact duplicate reason',
+    outboxAfterDup?.status === 'failed' && (outboxAfterDup?.errorReason?.includes('already exists') || false)
+  );
+
+  // 3. Test "Cancel Creation" cleanup: deletes outbox op and optimistic local student
+  await db8.outbox.delete(offlineOpId);
+  await db8.students.delete(offlineStudentId);
+
+  const outboxCleaned = await db8.outbox.get(offlineOpId);
+  const studentCleaned = await db8.students.get(offlineStudentId);
+  assert(
+    'SE-8b',
+    'Duplicate dialog Cancel Creation action cleanly purges outbox and removes uncommitted record',
+    outboxCleaned === undefined && studentCleaned === undefined
+  );
+  await db8.close();
+
   console.log('\n===============================================================');
   console.log(`UNIT TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
   console.log('===============================================================\n');

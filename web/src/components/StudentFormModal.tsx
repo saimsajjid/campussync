@@ -21,6 +21,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const isEditing = Boolean(studentToEdit);
   const prevIsOpenRef = useRef(false);
   const isDirtyRef = useRef(false);
+  const initialStudentRef = useRef<StudentRecord | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -41,11 +42,14 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [externalUpdateNotice, setExternalUpdateNotice] = useState<boolean>(false);
 
   useEffect(() => {
     // Only re-initialize form state when modal transitions from closed to open
     if (isOpen && !prevIsOpenRef.current) {
       isDirtyRef.current = false;
+      initialStudentRef.current = studentToEdit ? JSON.parse(JSON.stringify(studentToEdit)) : null;
+      setExternalUpdateNotice(false);
       if (studentToEdit) {
         setFormData({
           reg_no: studentToEdit.reg_no,
@@ -84,6 +88,29 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     }
     prevIsOpenRef.current = isOpen;
   }, [studentToEdit, isOpen]);
+
+  // Monitor background database updates to this record while form is open (FR-12.2)
+  useEffect(() => {
+    if (!isOpen || !studentToEdit) return;
+
+    const checkBackgroundUpdate = async () => {
+      const currentInDb = await db.students.get(studentToEdit.id);
+      if (currentInDb && initialStudentRef.current) {
+        if (currentInDb.version > initialStudentRef.current.version) {
+          setExternalUpdateNotice(true);
+        }
+      }
+    };
+
+    const interval = setInterval(checkBackgroundUpdate, 500);
+    const handleSyncEvent = () => checkBackgroundUpdate();
+    window.addEventListener('campussync:sync_event', handleSyncEvent);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('campussync:sync_event', handleSyncEvent);
+    };
+  }, [isOpen, studentToEdit]);
 
   // Real-time duplicate check (FR-10)
   useEffect(() => {
@@ -135,17 +162,18 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     }
 
     if (isEditing && studentToEdit) {
-      // Find modified fields and queue operations
+      // Find modified fields and queue operations using original baseVersion
       let changedCount = 0;
+      const initial = initialStudentRef.current || studentToEdit;
       for (const [key, val] of Object.entries(formData)) {
         const fieldKey = key as keyof typeof formData;
-        if (studentToEdit[fieldKey] !== val) {
+        if (initial[fieldKey] !== val) {
           await queueEditOperation(
             studentToEdit.id,
             fieldKey,
             val,
-            studentToEdit[fieldKey],
-            studentToEdit.field_versions[fieldKey] || 1
+            initial[fieldKey],
+            initial.field_versions[fieldKey] || 1
           );
           changedCount++;
         }
@@ -248,6 +276,17 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1 text-left">
+          {/* Non-blocking External Update Notice (FR-12.2) */}
+          {externalUpdateNotice && (
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-amber-900">
+              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-xs">
+                <span className="font-bold block">Notice:</span>
+                <span>This record was updated by someone else.</span>
+              </div>
+            </div>
+          )}
+
           {/* Duplicate Warning Alert */}
           {duplicateWarning && (
             <div className="p-3.5 rounded-xl bg-[var(--color-status-danger-subtle)] border border-[var(--color-status-conflict-border)] flex items-start gap-3 text-[var(--color-status-danger-text)]">
