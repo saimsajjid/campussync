@@ -435,6 +435,13 @@ async function run() {
   // ID-9: Concurrent identical ops (simulating double-click or simultaneous delivery)
   const concurrentOpId = 'op-concurrent-' + Date.now();
   try {
+    const freshSnapRes = await fetch(`${BASE_URL}/sync/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const freshSnapData = await freshSnapRes.json();
+    const freshTarget = freshSnapData.students?.find((s: any) => s.id === studentTarget.id) || studentTarget;
+    const freshRemarksVer = freshTarget.field_versions?.remarks || 1;
+
     const promises = Array.from({ length: 4 }).map(() =>
       fetch(`${BASE_URL}/sync/push`, {
         method: 'POST',
@@ -449,7 +456,7 @@ async function run() {
               studentId: studentTarget.id,
               field: 'remarks',
               newValue: 'Active concurrent test runner',
-              baseVersion: studentTarget.field_versions?.remarks || 1,
+              baseVersion: freshRemarksVer,
               deviceId: 'device-concurrent-suite',
               type: 'edit',
             },
@@ -1133,7 +1140,7 @@ async function run() {
     const dr3Cnic = `37405-${Math.floor(1000000 + Math.random() * 9000000)}-3`;
 
     // 1. Device A creates student online
-    const devAId = 'a0000000-0000-0000-0000-' + Date.now();
+    const devAId = 'a0000000-0000-0000-0000-' + Date.now().toString(16).padStart(12, '0').slice(-12);
     const devAOpId = 'op-dev-a-create-' + Date.now();
     const devARes = await fetch(`${BASE_URL}/sync/push`, {
       method: 'POST',
@@ -1183,7 +1190,7 @@ async function run() {
     const devAStatus = devAData.results?.[0]?.status;
 
     // 2. Device B (was offline) now reconnects and pushes same reg_no
-    const devBId = 'b0000000-0000-0000-0000-' + Date.now();
+    const devBId = 'b0000000-0000-0000-0000-' + Date.now().toString(16).padStart(12, '0').slice(-12);
     const devBOpId = 'op-dev-b-offline-create-' + Date.now();
     const devBRes = await fetch(`${BASE_URL}/sync/push`, {
       method: 'POST',
