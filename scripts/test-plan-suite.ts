@@ -1,7 +1,7 @@
 import { pool } from '../server/src/db/pool.js';
 import crypto from 'crypto';
 
-const BASE_URL = process.env.TEST_BASE_URL || 'http://150.136.103.208.sslip.io';
+const BASE_URL = process.env.TEST_BASE_URL || process.env.TEST_TARGET || 'http://127.0.0.1:3055';
 
 interface TestResult {
   id: string;
