@@ -205,7 +205,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         return;
       }
 
-      const newId = 'e01a8f90-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now();
+      const newId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'b0000000-0000-0000-0000-' + Date.now().toString(16).padStart(12, '0').slice(-12);
       const initialFieldVersions: Record<string, number> = {};
       Object.keys(formData).forEach((k) => (initialFieldVersions[k] = 1));
 

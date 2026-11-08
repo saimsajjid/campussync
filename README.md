@@ -106,6 +106,24 @@ Pre-seeded accounts are provided for instant evaluation:
 
 ---
 
+## Chaos Engineering Test Runners
+
+CampusSync includes two specialized chaos runners in `scripts/` to validate consistency and conflict isolation under extreme failure conditions:
+
+### 1. Mixed-Field Chaos Runner (`scripts/chaos-runner.ts`)
+- **Purpose:** Verifies eventual consistency across multi-worker campus operations where most edits target distinct fields.
+- **Workload:** 10 distributed workers generating sequential and concurrent batches across different fields (`phone`, `address`, `program`, `remarks`, `attendance`).
+- **Failure Injection:** Simulates network partition packet drops, lost server responses (unacknowledged commits), and offline client retries.
+- **Validation:** Builds an in-memory reference model of expected values and compares every field against PostgreSQL rows, followed by a live 7-invariant SQL integrity check.
+
+### 2. High-Contention Chaos Runner (`scripts/contended-chaos-runner.ts`)
+- **Purpose:** Stress-tests concurrent field collisions, row lock isolation, and conflict queueing under heavy load.
+- **Workload:** 12 simulated campus workers executing 500+ operations rapidly targeted at identical records, with ~25% deliberate same-field collisions.
+- **Failure Injection:** Injects rapid out-of-order deliveries, dropped ACK retries, and high-frequency concurrent pushes.
+- **Validation:** Confirms that all colliding same-field writes are intercepted as open conflict rows without data loss or silent overwrites, verifies disjoint field auto-merging, and ensures 100% pass rate on all database integrity invariants.
+
+---
+
 ## Development & Git Workflow
 
 - **Trunk-Based / PR Workflow:** `main` remains deployable at all times; all features land via short-lived topic branches and pull requests.
