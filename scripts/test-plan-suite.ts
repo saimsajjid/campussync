@@ -1306,6 +1306,16 @@ async function run() {
   console.log(`Success Rate:    ${((passed / total) * 100).toFixed(1)}%`);
   console.log(`======================================================\n`);
 
+  if (failed > 0) {
+    console.log('Failed test details:');
+    for (const r of results) {
+      if (!r.passed) {
+        console.log(`- ${r.id}: ${r.name} -> Details: ${JSON.stringify(r.details)} Error: ${r.error}`);
+      }
+    }
+    console.log('');
+  }
+
   if (process.env.GITHUB_STEP_SUMMARY) {
     try {
       const fs = await import('fs');
