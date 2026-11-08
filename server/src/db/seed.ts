@@ -43,7 +43,7 @@ export async function seedDatabase(forceClean = false) {
 
       const initialStudents = [
         {
-          id: 's0000000-0000-0000-0000-000000000001',
+          id: '10000000-0000-0000-0000-000000000001',
           reg_no: 'CS-2026-0101',
           cnic: '35201-1234567-1',
           full_name: 'Ali Raza',
@@ -76,7 +76,7 @@ export async function seedDatabase(forceClean = false) {
           last_editor_id: 'Central Admin',
         },
         {
-          id: 's0000000-0000-0000-0000-000000000002',
+          id: '10000000-0000-0000-0000-000000000002',
           reg_no: 'SE-2026-0204',
           cnic: '61101-7654321-3',
           full_name: 'Fatima Noor',
@@ -109,7 +109,7 @@ export async function seedDatabase(forceClean = false) {
           last_editor_id: 'Central Admin',
         },
         {
-          id: 's0000000-0000-0000-0000-000000000003',
+          id: '10000000-0000-0000-0000-000000000003',
           reg_no: 'EE-2026-0309',
           cnic: '13101-9988776-5',
           full_name: 'Usman Khan',
@@ -183,7 +183,7 @@ export async function seedDatabase(forceClean = false) {
 
       // Link Ali Raza's student user to his record
       await client.query(
-        `UPDATE users SET student_id = 's0000000-0000-0000-0000-000000000001' WHERE email = 'student@campussync.local'`
+        `UPDATE users SET student_id = '10000000-0000-0000-0000-000000000001' WHERE email = 'student@campussync.local'`
       );
 
       console.log('Seeded 3 students with history audit records.');

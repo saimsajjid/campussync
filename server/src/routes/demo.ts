@@ -43,7 +43,7 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
 
     const { studentId, field, newValue } = (request.body as any) || {};
 
-    const targetStudentId = studentId || 's0000000-0000-0000-0000-000000000001';
+    const targetStudentId = studentId || '10000000-0000-0000-0000-000000000001';
     const targetField = field || 'address';
     const targetValue = newValue || 'Plot 99, Blue Area, Islamabad (Injected via Remote Admin)';
 
