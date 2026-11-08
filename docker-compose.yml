@@ -20,10 +20,10 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://campussync:change-me@db:5432/campussync
-      JWT_SECRET: change-me-to-a-long-random-string
-      COOKIE_SECRET: change-me-cookie-secret-key-32chars
-      DEMO_MODE: "true"
+      DATABASE_URL: ${DATABASE_URL:-postgres://campussync:change-me@db:5432/campussync}
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-string}
+      COOKIE_SECRET: ${COOKIE_SECRET:-change-me-cookie-secret-key-32chars}
+      DEMO_MODE: ${DEMO_MODE:-true}
       PORT: 3050
       HOST: 0.0.0.0
     ports:
