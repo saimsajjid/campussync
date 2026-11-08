@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Production builds
+dist/
+build/
+
+# Test coverage
+coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Secrets & credentials
+*.pem
+*.key
+*.log
+
+# OS & IDE files
+.DS_Store
+.vscode/
+.idea/
+
+# Local databases & volumes
+pgdata/
+*.sqlite
+tmp/
+
+# Specification & internal documents (do not publish to public repo)
+*.md
+!README.md
+!.github/pull_request_template.md
+*.pdf
