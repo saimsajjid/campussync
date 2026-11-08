@@ -188,7 +188,7 @@ export const LoginPage: React.FC = () => {
               type="button"
               onClick={() => {
                 setEmail('admin@campussync.local');
-                setPassword('admin123');
+                setPassword('password123');
               }}
               className="text-slate-400 hover:text-blue-400 transition-colors"
             >

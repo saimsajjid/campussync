@@ -49,7 +49,7 @@ async function loginAdmin(): Promise<string> {
   const res = await fetch(`${BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@campussync.local', password: 'admin' }),
+    body: JSON.stringify({ email: 'admin@campussync.local', password: 'password123' }),
   });
   if (!res.ok) throw new Error(`Admin login failed: ${res.statusText}`);
   const data = await res.json();
