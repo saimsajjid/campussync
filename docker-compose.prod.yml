@@ -5,6 +5,8 @@ services:
   app:
     image: ghcr.io/saimsajjid/campussync:latest
     container_name: campussync-app
+    environment:
+      COOKIE_SECURE: "true"
     networks:
       - default
       - coolify

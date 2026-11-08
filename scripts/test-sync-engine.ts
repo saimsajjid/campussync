@@ -146,7 +146,7 @@ async function runSyncEngineUnitTests() {
   const orderedOps = await getPendingOperationsInOrder(db1 as any);
   const orderedIds = orderedOps.map((o) => o.opId);
   assert(
-    'SE-1',
+    'SYN-1',
     'Pending operations retrieved strictly in FIFO order (op-1 -> op-2 -> op-3)',
     orderedIds[0] === 'op-1-first' && orderedIds[1] === 'op-2-second' && orderedIds[2] === 'op-3-third',
     { orderedIds }
@@ -158,7 +158,7 @@ async function runSyncEngineUnitTests() {
 
   const sentBatch = fakeApi1.receivedOpBatches[0].map((o) => o.opId);
   assert(
-    'SE-1b',
+    'SYN-1b',
     'Sync engine transmits batch to network in identical FIFO sequence',
     sentBatch[0] === 'op-1-first' && sentBatch[1] === 'op-2-second' && sentBatch[2] === 'op-3-third',
     { sentBatch }
@@ -194,7 +194,7 @@ async function runSyncEngineUnitTests() {
 
   const failedOp = await db2.outbox.get('op-transient-fail');
   assert(
-    'SE-2a',
+    'SYN-2a',
     'Network failure increments retryCount without losing outbox operation',
     failedOp?.retryCount === 1 && failedOp?.status === 'pending' && stats2.errorCount === 1,
     { failedOp, stats2 }
@@ -207,7 +207,7 @@ async function runSyncEngineUnitTests() {
   const b3 = calculateExponentialBackoff(3);
   const bMax = calculateExponentialBackoff(10);
   assert(
-    'SE-2b',
+    'SYN-2b',
     'Exponential backoff scales properly with ceiling: 1s -> 2s -> 4s -> 8s -> 30s max',
     b0 === 1000 && b1 === 2000 && b2 === 4000 && b3 === 8000 && bMax === 30000,
     { b0, b1, b2, b3, bMax }
@@ -251,7 +251,7 @@ async function runSyncEngineUnitTests() {
 
   const remainingDup = await db3.outbox.get('op-idempotent-replay');
   assert(
-    'SE-3',
+    'SYN-3',
     'Server duplicate response cleanly removes op from outbox (idempotency confirmed)',
     remainingDup === undefined && stats3.duplicateCount === 1,
     { remainingDup, stats3 }
@@ -302,7 +302,7 @@ async function runSyncEngineUnitTests() {
   const remainingConflict = await db4.outbox.get('op-conflicting-write');
   const storedConflict = await db4.conflicts.get('conflict-uuid-999');
   assert(
-    'SE-4',
+    'SYN-4',
     'Server conflict moves outbox op into local conflicts store and purges from outbox',
     remainingConflict === undefined &&
       storedConflict?.id === 'conflict-uuid-999' &&
@@ -349,7 +349,7 @@ async function runSyncEngineUnitTests() {
 
   const rejectedOp = await db5.outbox.get('op-invalid-field-val');
   assert(
-    'SE-5',
+    'SYN-5',
     'Server rejection marks outbox item as failed with exact reason and halts retry loop',
     rejectedOp?.status === 'failed' &&
       rejectedOp?.errorReason === 'Semester must be between 1 and 8' &&
@@ -390,7 +390,7 @@ async function runSyncEngineUnitTests() {
 
   const persistedPending = await getPendingOperationsInOrder(db6b as any);
   assert(
-    'SE-6a',
+    'SYN-6a',
     'Pending outbox operation survives engine shutdown and persists in IndexedDB',
     persistedPending.length === 1 && persistedPending[0].opId === 'op-persistent-across-reboot',
     { persistedPending }
@@ -402,7 +402,7 @@ async function runSyncEngineUnitTests() {
 
   const remainingAfterReboot = await db6b.outbox.get('op-persistent-across-reboot');
   assert(
-    'SE-6b',
+    'SYN-6b',
     'Rebooted engine successfully resumes, pushes and clears persisted outbox item',
     remainingAfterReboot === undefined && stats6.appliedCount === 1,
     { remainingAfterReboot, stats6 }
@@ -438,7 +438,7 @@ async function runSyncEngineUnitTests() {
 
   const simOpAfterFail = await db7.outbox.get('op-sim-test-1');
   assert(
-    'SE-7a',
+    'SYN-7a',
     'Simulator offline mode preserves outbox operation and increments retryCount',
     simOpAfterFail?.retryCount === 1 && simStats.errorCount === 1
   );
@@ -448,7 +448,7 @@ async function runSyncEngineUnitTests() {
   const simRecoverStats = await simEngine.syncOutbox();
   const simOpAfterRecover = await db7.outbox.get('op-sim-test-1');
   assert(
-    'SE-7b',
+    'SYN-7b',
     'Reconnecting simulator recovers and syncs pending outbox item',
     simOpAfterRecover === undefined && simRecoverStats.appliedCount === 1
   );
@@ -519,7 +519,7 @@ async function runSyncEngineUnitTests() {
 
   const outboxAfterDup = await db8.outbox.get(offlineOpId);
   assert(
-    'SE-8a',
+    'SYN-8a',
     'Server duplicate_record flags outbox op as failed with exact duplicate reason',
     outboxAfterDup?.status === 'failed' && (outboxAfterDup?.errorReason?.includes('already exists') || false)
   );
@@ -531,7 +531,7 @@ async function runSyncEngineUnitTests() {
   const outboxCleaned = await db8.outbox.get(offlineOpId);
   const studentCleaned = await db8.students.get(offlineStudentId);
   assert(
-    'SE-8b',
+    'SYN-8b',
     'Duplicate dialog Cancel Creation action cleanly purges outbox and removes uncommitted record',
     outboxCleaned === undefined && studentCleaned === undefined
   );
@@ -590,7 +590,7 @@ async function runSyncEngineUnitTests() {
   const authoritativeExists = await db8.students.get(existingAuthoritativeId);
 
   assert(
-    'SE-8c',
+    'SYN-8c',
     'Duplicate dialog Open Existing Record action cleans uncommitted outbox item and loads authoritative record',
     outbox2Cleaned === undefined && uncommittedCleaned === undefined && authoritativeExists !== undefined
   );
@@ -648,7 +648,7 @@ async function runSyncEngineUnitTests() {
   const draftPreserved = formDraftAddress === 'DRAFT PENDING LOCAL ADDRESS (Lahore Cantt)';
 
   assert(
-    'SE-9a',
+    'SYN-9a',
     'SSE incoming update increments DB record version, triggers non-blocking notice without overwriting draft form input',
     shouldShowNotice === true && draftPreserved === true
   );
@@ -672,7 +672,7 @@ async function runSyncEngineUnitTests() {
 
   const queuedOp = await db9.outbox.get(editOpId);
   assert(
-    'SE-9b',
+    'SYN-9b',
     'Submitted form edit carries captured original baseVersion (v3) rather than updated background version (v4)',
     queuedOp?.baseVersion === 3
   );
@@ -704,7 +704,7 @@ async function runSyncEngineUnitTests() {
   );
 
   assert(
-    'SE-9c',
+    'SYN-9c',
     'Server conflict response purges outbox op and creates open conflict item in local conflicts store',
     outboxAfterSync === undefined &&
       recordedConflict !== undefined &&
