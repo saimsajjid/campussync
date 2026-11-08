@@ -12,6 +12,7 @@ import { useApp } from '../context/AppContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import type { HistoryItem, StudentRecord } from '../types';
+import { restoreStudentField } from '../services/api';
 
 interface HistoryPageProps {
   initialStudentId?: string;
@@ -87,6 +88,12 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialStudentId }) =>
       opId: 'op-rest-' + Math.random().toString(36).substring(2, 7),
       createdAt: new Date().toISOString(),
     });
+
+    try {
+      await restoreStudentField(entry.studentId, entry.field, entry.oldValue);
+    } catch (e: any) {
+      console.warn('Backend restore sync warning:', e.message);
+    }
 
     addToast(`Restored ${entry.studentName}'s ${entry.field} back to previous value`, 'success');
   };

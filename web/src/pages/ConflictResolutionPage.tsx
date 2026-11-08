@@ -11,6 +11,7 @@ import { useApp } from '../context/AppContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import type { ConflictItem, StudentRecord } from '../types';
+import { resolveConflict } from '../services/api';
 
 export const ConflictResolutionPage: React.FC = () => {
   const { addToast, currentUser } = useApp();
@@ -97,7 +98,17 @@ export const ConflictResolutionPage: React.FC = () => {
       });
     }
 
-    // 3. Mark conflict as resolved
+    // 3. Mark conflict as resolved locally and on VPS
+    try {
+      await resolveConflict(
+        conflict.id,
+        decision.choice === 'current' ? 'theirs' : decision.choice,
+        decision.customValue,
+        conflict.serverVersion
+      );
+    } catch (e: any) {
+      console.warn('Backend conflict resolve sync warning:', e.message);
+    }
     await db.conflicts.update(conflict.id, { status: 'resolved' });
 
     addToast(

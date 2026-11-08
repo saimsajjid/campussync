@@ -46,8 +46,8 @@ export interface OutboxOperation {
 export interface ConflictItem {
   id: string;
   studentId: string;
-  studentName: string;
-  reg_no: string;
+  studentName?: string;
+  reg_no?: string;
   field: string;
   baseVersion: number;
   serverValue: any;

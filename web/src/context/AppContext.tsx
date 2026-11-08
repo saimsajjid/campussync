@@ -1,29 +1,36 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '../db';
-import { initializeSeedData } from '../db/seed';
 import type { CurrentUser, CampusCode, SimulatorState, OutboxOperation, StudentRecord } from '../types';
+import {
+  fetchSnapshot,
+  pushBatch,
+  pullChanges,
+  injectRemoteConflictServer,
+  resetDemoServer,
+} from '../services/api';
 
 export const DEMO_USERS: CurrentUser[] = [
   {
-    id: 'user_admin',
-    name: 'Saim Sajid',
+    id: 'c0000000-0000-0000-0000-000000000001',
+    name: 'Central Admin',
     email: 'admin@campussync.local',
     role: 'admin',
     campus: undefined, // Central Multi-Campus Scope
   },
   {
-    id: 'user_faculty',
-    name: 'Faculty Member',
+    id: 'c0000000-0000-0000-0000-000000000002',
+    name: 'Prof. Ahmed (Lahore)',
     email: 'faculty@campussync.local',
     role: 'faculty',
     campus: 'Lahore',
   },
   {
-    id: 'user_student',
-    name: 'Student Account',
+    id: 'c0000000-0000-0000-0000-000000000004',
+    name: 'Ali Raza (Student)',
     email: 'student@campussync.local',
     role: 'student',
     campus: 'Lahore',
+    student_id: '10000000-0000-0000-0000-000000000001',
   },
 ];
 
@@ -46,7 +53,15 @@ interface AppContextType {
   isSyncing: boolean;
   injectRemoteConflict: () => Promise<void>;
   resetDemoData: () => Promise<void>;
-  queueEditOperation: (studentId: string, field: string, newValue: any, oldValue: any, baseVersion: number) => Promise<void>;
+  queueEditOperation: (
+    studentId: string,
+    field: string,
+    newValue: any,
+    oldValue: any,
+    baseVersion: number,
+    type?: 'edit' | 'create' | 'resolve' | 'restore',
+    studentData?: Partial<StudentRecord>
+  ) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -56,6 +71,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeCampus, setActiveCampus] = useState<CampusCode | 'all'>('all');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const isSyncingRef = useRef(false);
 
   const [simulator, setSimulator] = useState<SimulatorState>({
     isOffline: false,
@@ -65,173 +81,316 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currentDeviceId: 'Device A (Admin/Campus)',
   });
 
-  useEffect(() => {
-    initializeSeedData().catch(console.error);
-  }, []);
-
-  const addToast = (message: string, type: ToastItem['type'] = 'info') => {
+  const addToast = useCallback((message: string, type: ToastItem['type'] = 'info') => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);
-  };
+  }, []);
 
+  // 1. Initial Hydration from Server API
+  const hydrateFromServer = useCallback(async () => {
+    try {
+      const snapshot = await fetchSnapshot();
+      if (snapshot && Array.isArray(snapshot.students)) {
+        // Save authoritative students into local Dexie
+        await db.students.bulkPut(snapshot.students);
+
+        // Save open conflicts
+        if (Array.isArray(snapshot.conflicts) && snapshot.conflicts.length > 0) {
+          await db.conflicts.bulkPut(snapshot.conflicts);
+        }
+
+        // Store sync cursor
+        await db.meta.put({ key: 'syncCursor', value: snapshot.latestCursor });
+        await db.meta.put({ key: 'lastSyncedAt', value: new Date().toISOString() });
+        addToast(`Connected to CampusSync VPS! Loaded ${snapshot.students.length} records.`, 'success');
+      }
+    } catch (err: any) {
+      console.warn('Initial server hydration warning (will use offline local data):', err.message);
+    }
+  }, [addToast]);
+
+  useEffect(() => {
+    hydrateFromServer();
+  }, [hydrateFromServer]);
+
+  // 2. The Core Sync Loop (Outbox Sender + Incremental Pull)
+  const syncNow = useCallback(async () => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    setIsSyncing(true);
+
+    try {
+      if (simulator.isOffline) {
+        addToast('Device is offline. Changes remain safely stored in local Outbox.', 'warning');
+        return;
+      }
+
+      if (simulator.isSlowNetwork) {
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+
+      // Check Outbox for pending operations
+      const pendingOps = await db.outbox.toArray();
+
+      if (pendingOps.length > 0) {
+        // Handle Failure Simulator: Drop Next Request (before reaching server)
+        if (simulator.dropNextRequest) {
+          setSimulator((s) => ({ ...s, dropNextRequest: false }));
+          for (const op of pendingOps) {
+            await db.outbox.update(op.opId, {
+              status: 'failed',
+              errorReason: 'Simulated packet dropped before reaching server',
+            });
+          }
+          addToast('Simulated: Request packet dropped before reaching server. Retaining in Outbox.', 'danger');
+          return;
+        }
+
+        // Handle Failure Simulator: Drop Next Response (KEY DEMO MOMENT: server commits, response lost)
+        if (simulator.dropNextResponse) {
+          setSimulator((s) => ({ ...s, dropNextResponse: false }));
+          // Fire push to server so PostgreSQL COMMITS and records processed_ops
+          await pushBatch({
+            operations: pendingOps.map((op) => ({
+              opId: op.opId,
+              studentId: op.studentId,
+              field: op.field,
+              newValue: op.newValue,
+              baseVersion: op.baseVersion,
+              deviceId: op.deviceId,
+              type: op.type,
+            })),
+          }).catch(() => null);
+
+          // Discard response locally and mark as failed
+          for (const op of pendingOps) {
+            await db.outbox.update(op.opId, {
+              status: 'failed',
+              errorReason: 'Server committed edit, but network dropped response in transit.',
+            });
+          }
+          addToast(
+            'DEMO: Server committed change to Postgres, but reply was lost! Outbox will replay with idempotency.',
+            'danger'
+          );
+          return;
+        }
+
+        // Standard batch push to server
+        const pushRes = await pushBatch({
+          operations: pendingOps.map((op) => ({
+            opId: op.opId,
+            studentId: op.studentId,
+            field: op.field,
+            newValue: op.newValue,
+            baseVersion: op.baseVersion,
+            deviceId: op.deviceId,
+            type: op.type,
+          })),
+        });
+
+        // Process individual results
+        for (const res of pushRes.results) {
+          if (res.status === 'applied' || res.status === 'duplicate') {
+            await db.outbox.delete(res.opId);
+            if (res.status === 'duplicate') {
+              addToast(`Idempotency verified: duplicate opId ${res.opId} safely acknowledged!`, 'info');
+            }
+          } else if (res.status === 'conflict') {
+            await db.outbox.update(res.opId, {
+              status: 'conflict',
+              errorReason: res.reason,
+            });
+            addToast(`Conflict raised on ${res.field}: Server value preserved.`, 'danger');
+          } else if (res.status === 'rejected') {
+            await db.outbox.update(res.opId, {
+              status: 'rejected',
+              errorReason: res.reason,
+            });
+            addToast(`Server rejected operation: ${res.reason}`, 'danger');
+          }
+        }
+      }
+
+      // Pull incremental changes since cursor
+      const cursorMeta = await db.meta.get('syncCursor');
+      const currentCursor = cursorMeta?.value || 0;
+      const pullRes = await pullChanges(currentCursor);
+
+      if (pullRes.changes && pullRes.changes.length > 0) {
+        for (const change of pullRes.changes) {
+          // Merge history entry
+          await db.history.put(change);
+
+          // Update student record if exists locally
+          const s = await db.students.get(change.studentId);
+          if (s && change.field && change.field !== '*') {
+            const fv = { ...s.field_versions, [change.field]: change.fieldVersionAfter };
+            await db.students.update(change.studentId, {
+              [change.field]: change.newValue,
+              field_versions: fv,
+              version: s.version + 1,
+              updated_at: change.createdAt,
+              last_editor_id: change.actorName,
+            });
+          }
+        }
+
+        // Also refresh open conflicts
+        const snapshot = await fetchSnapshot();
+        if (snapshot.conflicts) {
+          await db.conflicts.clear();
+          await db.conflicts.bulkPut(snapshot.conflicts);
+        }
+      }
+
+      // Update sync metadata
+      if (pullRes.latestCursor !== undefined) {
+        await db.meta.put({ key: 'syncCursor', value: pullRes.latestCursor });
+      }
+      await db.meta.put({ key: 'lastSyncedAt', value: new Date().toISOString() });
+      addToast('Sync complete! State synchronized with VPS backend.', 'success');
+    } catch (err: any) {
+      console.error('Sync failed:', err);
+      addToast(`Sync error: ${err.message}`, 'danger');
+    } finally {
+      isSyncingRef.current = false;
+      setIsSyncing(false);
+    }
+  }, [simulator, addToast]);
+
+  // 3. Server-Sent Events (SSE) Live Broadcast Listener
+  useEffect(() => {
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource('/events');
+      es.addEventListener('sync_event', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.reset) {
+            hydrateFromServer();
+          } else {
+            syncNow();
+          }
+        } catch (err) {
+          console.error('Error handling SSE sync_event', err);
+        }
+      });
+    } catch (err) {
+      console.warn('SSE connection warning:', err);
+    }
+
+    return () => {
+      es?.close();
+    };
+  }, [hydrateFromServer, syncNow]);
+
+  // 4. Queue Edit Operation (Offline-First Outbox Pattern)
   const queueEditOperation = async (
     studentId: string,
     field: string,
     newValue: any,
     oldValue: any,
-    baseVersion: number
+    baseVersion: number,
+    type: 'edit' | 'create' | 'resolve' | 'restore' = 'edit',
+    studentData?: Partial<StudentRecord>
   ) => {
     const student = await db.students.get(studentId);
-    if (!student) return;
-
     const opId = 'op-' + Math.random().toString(36).substring(2, 9);
-    const newFieldVersions = {
-      ...student.field_versions,
-      [field]: (student.field_versions[field] || baseVersion) + 1,
-    };
 
-    const updatedStudent: StudentRecord = {
-      ...student,
-      [field]: newValue,
-      field_versions: newFieldVersions,
-      version: student.version + 1,
-      updated_at: new Date().toISOString(),
-      last_editor_id: currentUser.name,
-    };
+    if (student) {
+      const newFieldVersions = {
+        ...student.field_versions,
+        [field]: (student.field_versions[field] || baseVersion) + 1,
+      };
 
-    // 1. Write to local Dexie student table
-    await db.students.put(updatedStudent);
+      const updatedStudent: StudentRecord = {
+        ...student,
+        [field]: newValue,
+        field_versions: newFieldVersions,
+        version: student.version + 1,
+        updated_at: new Date().toISOString(),
+        last_editor_id: currentUser.name,
+      };
 
-    // 2. Queue operation in local Outbox
+      // 1. Optimistic write to local Dexie student table
+      await db.students.put(updatedStudent);
+
+      // 2. Add local audit entry
+      await db.history.add({
+        id: Date.now(),
+        studentId,
+        studentName: student.full_name,
+        reg_no: student.reg_no,
+        field,
+        oldValue,
+        newValue,
+        fieldVersionAfter: newFieldVersions[field],
+        type,
+        actorName: currentUser.name,
+        actorRole: currentUser.role,
+        actorCampus: student.campus,
+        device: simulator.currentDeviceId,
+        opId,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    // 3. Queue in Local Outbox
     const op: OutboxOperation = {
       opId,
       studentId,
       field,
-      newValue,
+      newValue: studentData || newValue,
       oldValue,
       baseVersion,
       deviceId: simulator.currentDeviceId,
-      type: 'edit',
+      type,
       status: simulator.isOffline ? 'pending' : 'syncing',
       retryCount: 0,
       createdAt: new Date().toISOString(),
     };
     await db.outbox.put(op);
 
-    // 3. Add to audit history
-    await db.history.add({
-      id: Date.now(),
-      studentId,
-      studentName: student.full_name,
-      reg_no: student.reg_no,
-      field,
-      oldValue,
-      newValue,
-      fieldVersionAfter: newFieldVersions[field],
-      type: 'edit',
-      actorName: currentUser.name,
-      actorRole: currentUser.role,
-      actorCampus: student.campus,
-      device: simulator.currentDeviceId,
-      opId,
-      createdAt: new Date().toISOString(),
-    });
-
     if (simulator.isOffline) {
-      addToast(`Offline: Edit queued in Outbox (opId: ${opId})`, 'warning');
+      addToast(`Offline: Operation ${opId} safely queued in Outbox.`, 'warning');
       return;
     }
 
-    if (simulator.dropNextRequest) {
-      setSimulator((s) => ({ ...s, dropNextRequest: false }));
-      op.status = 'failed';
-      op.errorReason = 'Network packet dropped before reaching server';
-      await db.outbox.put(op);
-      addToast(`Request dropped before server receipt. Retrying in background.`, 'danger');
-      return;
-    }
-
-    if (simulator.dropNextResponse) {
-      setSimulator((s) => ({ ...s, dropNextResponse: false }));
-      op.status = 'failed';
-      op.errorReason = 'Commit acknowledged on server but response dropped in transit';
-      await db.outbox.put(op);
-      addToast(
-        `Server committed opId ${opId}, but network lost the response. Outbox will replay with idempotency!`,
-        'danger'
-      );
-      return;
-    }
-
-    // Success commit
-    setTimeout(async () => {
-      await db.outbox.delete(opId);
-      addToast(`Sync confirmed: ${field} updated (v${updatedStudent.version})`, 'success');
-    }, simulator.isSlowNetwork ? 2500 : 400);
+    // Trigger sync automatically if online
+    syncNow();
   };
 
-  const syncNow = async () => {
-    setIsSyncing(true);
-    addToast('Contacting sync server...', 'info');
-
-    if (simulator.isOffline) {
-      setTimeout(() => {
-        setIsSyncing(false);
-        addToast('Sync failed: Device is offline.', 'danger');
-      }, 600);
-      return;
-    }
-
-    setTimeout(async () => {
-      const pendingOps = await db.outbox.toArray();
-      for (const op of pendingOps) {
-        await db.outbox.delete(op.opId);
-      }
-      await db.meta.put({ key: 'lastSyncedAt', value: new Date().toISOString() });
-      setIsSyncing(false);
-      addToast(`Sync complete! All pending operations confirmed by server.`, 'success');
-    }, simulator.isSlowNetwork ? 2500 : 800);
-  };
-
+  // 5. Inject Remote Conflict (Calls VPS Backend Demo Endpoint)
   const injectRemoteConflict = async () => {
-    const student = await db.students.toCollection().first();
-    if (!student) {
-      addToast('No student records found in database to simulate conflict on. Please add a student first.', 'warning');
-      return;
+    try {
+      addToast('Injecting remote cross-campus edit from Islamabad...', 'info');
+      await injectRemoteConflictServer();
+      await syncNow();
+      addToast('Remote edit committed on server! Conflict detected and held for resolution.', 'danger');
+    } catch (err: any) {
+      addToast(`Failed to inject remote edit: ${err.message}`, 'danger');
     }
-
-    const conflictId = 'conf-' + Math.random().toString(36).substring(2, 7);
-    await db.conflicts.add({
-      id: conflictId,
-      studentId: student.id,
-      studentName: student.full_name,
-      reg_no: student.reg_no,
-      field: 'phone',
-      baseVersion: student.field_versions['phone'] || 1,
-      serverValue: '0300-9988111',
-      serverVersion: (student.field_versions['phone'] || 1) + 1,
-      incomingValue: student.phone,
-      actor: 'Admin (Remote Campus)',
-      campus: student.campus,
-      device: 'Server Worker',
-      status: 'open',
-      createdAt: new Date().toISOString(),
-    });
-
-    addToast(`Remote Edit Injected! Conflict detected on ${student.full_name} (${student.reg_no})`, 'danger');
   };
 
+  // 6. Reset Demo Data (Calls VPS Backend Reset)
   const resetDemoData = async () => {
-    await db.students.clear();
-    await db.outbox.clear();
-    await db.conflicts.clear();
-    await db.history.clear();
-    await db.meta.clear();
-
-    addToast('All tables cleared. Zero records in local store.', 'info');
+    try {
+      addToast('Resetting VPS database and local caches...', 'info');
+      await resetDemoServer();
+      await db.students.clear();
+      await db.outbox.clear();
+      await db.conflicts.clear();
+      await db.history.clear();
+      await db.meta.clear();
+      await hydrateFromServer();
+      addToast('Database & cache reset to clean 3-campus seeded state!', 'success');
+    } catch (err: any) {
+      addToast(`Reset failed: ${err.message}`, 'danger');
+    }
   };
 
   return (
@@ -259,6 +418,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 export const useApp = () => {
   const context = useContext(AppContext);
-  if (!context) throw new Error('useApp must be used within AppProvider');
+  if (!context) {
+    throw new Error('useApp must be used within an AppProvider');
+  }
   return context;
 };

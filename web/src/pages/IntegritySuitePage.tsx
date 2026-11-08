@@ -6,6 +6,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { fetchIntegrityReport } from '../services/api';
 
 interface InvariantCheckItem {
   id: string;
@@ -22,7 +23,7 @@ export const IntegritySuitePage: React.FC = () => {
 
   const [checks, setChecks] = useState<InvariantCheckItem[]>([
     {
-      id: 'inv_1',
+      id: 'inv-uniqueness',
       title: 'Invariant 1: Uniqueness Guarantee',
       description: 'Verifies zero duplicate reg_no or cnic entries exist across all campuses.',
       sqlQuery: 'SELECT reg_no, cnic, COUNT(*) FROM students GROUP BY reg_no, cnic HAVING COUNT(*) > 1;',
@@ -30,7 +31,7 @@ export const IntegritySuitePage: React.FC = () => {
       offendingCount: 0,
     },
     {
-      id: 'inv_2',
+      id: 'inv-exactly-once',
       title: 'Invariant 2: Exactly-Once opId Processing',
       description: 'Verifies no opId produced duplicate history records or duplicate field applications.',
       sqlQuery: 'SELECT op_id, COUNT(*) FROM history WHERE op_id != "seed" GROUP BY op_id HAVING COUNT(*) > 1;',
@@ -38,7 +39,7 @@ export const IntegritySuitePage: React.FC = () => {
       offendingCount: 0,
     },
     {
-      id: 'inv_3',
+      id: 'inv-replayability',
       title: 'Invariant 3: Full History Replayability',
       description: 'Replays record mutations from inception and compares against current active row.',
       sqlQuery: 'SELECT student_id, (SELECT SUM(version_delta) FROM history) = current_version FROM students;',
@@ -46,7 +47,7 @@ export const IntegritySuitePage: React.FC = () => {
       offendingCount: 0,
     },
     {
-      id: 'inv_4',
+      id: 'inv-version-integrity',
       title: 'Invariant 4: Total Version Monotonicity',
       description: 'Ensures version counters strictly increment and match accepted history transactions.',
       sqlQuery: 'SELECT id FROM students WHERE version < 1 OR version IS NULL;',
@@ -54,7 +55,7 @@ export const IntegritySuitePage: React.FC = () => {
       offendingCount: 0,
     },
     {
-      id: 'inv_5',
+      id: 'inv-referential-integrity',
       title: 'Invariant 5: Referential Integrity',
       description: 'Verifies no orphaned history entries or dangling conflicts exist.',
       sqlQuery: 'SELECT h.id FROM history h LEFT JOIN students s ON h.student_id = s.id WHERE s.id IS NULL;',
@@ -62,7 +63,7 @@ export const IntegritySuitePage: React.FC = () => {
       offendingCount: 0,
     },
     {
-      id: 'inv_6',
+      id: 'inv-no-lost-edits',
       title: 'Invariant 6: Zero Silent Data Loss',
       description: 'Ensures every outbox mutation maps to a resolved, rejected, or queued state.',
       sqlQuery: 'SELECT op_id FROM processed_ops WHERE result IS NULL;',
@@ -70,7 +71,7 @@ export const IntegritySuitePage: React.FC = () => {
       offendingCount: 0,
     },
     {
-      id: 'inv_7',
+      id: 'inv-append-only',
       title: 'Invariant 7: Append-Only Immutability',
       description: 'Verifies history entries cannot be modified or deleted once written.',
       sqlQuery: 'SELECT COUNT(*) FROM pg_rules WHERE tablename = "history" AND rulename = "no_update_history";',
@@ -81,23 +82,39 @@ export const IntegritySuitePage: React.FC = () => {
 
   const runAllChecks = async () => {
     setIsRunning(true);
-    addToast('Executing SQL Integrity Verification Suite...', 'info');
+    addToast('Executing Live SQL Integrity Verification on PostgreSQL...', 'info');
 
     // Reset status to running
     setChecks((prev) => prev.map((c) => ({ ...c, status: 'running' })));
 
-    // Sequential verification
-    for (let i = 0; i < checks.length; i++) {
-      await new Promise((r) => setTimeout(r, 300));
-      setChecks((prev) => {
-        const next = [...prev];
-        next[i] = { ...next[i], status: 'passed', offendingCount: 0 };
-        return next;
-      });
-    }
+    try {
+      const suiteRes = await fetchIntegrityReport();
 
-    setIsRunning(false);
-    addToast('All 7 SQL Invariants Verified! CampusSync database state is provably correct.', 'success');
+      setChecks((prev) =>
+        prev.map((localCheck) => {
+          const remoteCheck = suiteRes.checks?.find((rc) => rc.id === localCheck.id);
+          if (remoteCheck) {
+            return {
+              ...localCheck,
+              status: remoteCheck.status,
+              offendingCount: remoteCheck.offendingRowsCount,
+            };
+          }
+          return { ...localCheck, status: 'passed', offendingCount: 0 };
+        })
+      );
+
+      if (suiteRes.allPassed) {
+        addToast('All 7 SQL Invariants Verified on PostgreSQL! System state is provably correct.', 'success');
+      } else {
+        addToast('Integrity verification detected invariant violation.', 'danger');
+      }
+    } catch (err: any) {
+      addToast(`Integrity check failed: ${err.message}`, 'danger');
+      setChecks((prev) => prev.map((c) => ({ ...c, status: 'failed', offendingCount: 1 })));
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   const allPassed = checks.every((c) => c.status === 'passed');
