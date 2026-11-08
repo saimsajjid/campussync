@@ -35,6 +35,7 @@ RUN npm install --omit=dev
 
 # Copy compiled server code and database schema
 COPY --from=builder /app/server/dist ./dist
+COPY --from=builder /app/server/src/db/schema.sql ./dist/db/schema.sql
 COPY --from=builder /app/server/src/db/schema.sql ./src/db/schema.sql
 
 # Copy built frontend assets for Fastify to serve

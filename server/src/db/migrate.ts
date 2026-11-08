@@ -8,7 +8,19 @@ const __dirname = path.dirname(__filename);
 
 export async function runMigrations() {
   console.log('Running database migrations...');
-  const schemaPath = path.join(__dirname, 'schema.sql');
+  const possiblePaths = [
+    path.join(__dirname, 'schema.sql'),
+    path.join(__dirname, '../src/db/schema.sql'),
+    path.join(__dirname, '../../src/db/schema.sql'),
+    path.resolve(process.cwd(), 'src/db/schema.sql'),
+    path.resolve(process.cwd(), 'dist/db/schema.sql'),
+  ];
+
+  let schemaPath = possiblePaths.find((p) => fs.existsSync(p));
+  if (!schemaPath) {
+    throw new Error(`schema.sql not found in any of: ${possiblePaths.join(', ')}`);
+  }
+
   const sql = fs.readFileSync(schemaPath, 'utf8');
 
   const client = await pool.connect();
