@@ -6,7 +6,7 @@ import { eventBroker } from '../services/events.js';
 import { safeJsonParse } from '../utils/json.js';
 
 export const demoRoutes: FastifyPluginAsync = async (fastify) => {
-  // Liveness & Database Healthcheck
+  // Liveness & Database Healthcheck (Always public and available)
   fastify.get('/health', async (request, reply) => {
     try {
       await pool.query('SELECT 1');
@@ -16,12 +16,28 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // Client configuration: exposes demoMode flag
+  fastify.get('/config', async (request, reply) => {
+    return reply.send({
+      demoMode: process.env.DEMO_MODE === 'true',
+    });
+  });
+
+  // Gating hook for all /demo/* endpoints
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (request.url.startsWith('/demo/') || request.url === '/demo') {
+      if (process.env.DEMO_MODE !== 'true') {
+        return reply.status(404).send({
+          error: 'Endpoint not found',
+          message: 'Demo endpoints are disabled when DEMO_MODE is false',
+          statusCode: 404,
+        });
+      }
+    }
+  });
+
   // Reset Demo Data (FR-13.6, NFR-14)
   fastify.post('/demo/reset', async (request, reply) => {
-    if (process.env.DEMO_MODE !== 'true') {
-      return reply.status(403).send({ error: 'Demo endpoints are disabled in production mode' });
-    }
-
     try {
       await seedDatabase(true);
 
@@ -38,10 +54,6 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
   // Inject Remote Edit from Another Campus (FR-13.5)
   // E.g. simulates Islamabad Admin editing a Lahore student's address concurrently
   fastify.post('/demo/inject-edit', async (request, reply) => {
-    if (process.env.DEMO_MODE !== 'true') {
-      return reply.status(403).send({ error: 'Demo endpoints are disabled in production mode' });
-    }
-
     const { studentId, field, newValue } = (request.body as any) || {};
 
     const targetStudentId = studentId || '10000000-0000-0000-0000-000000000001';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Lock, AlertCircle, CheckCircle2, Save, UserPlus, AlertTriangle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { StatusBadge } from './StatusBadge';
@@ -16,9 +16,11 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   onClose,
   studentToEdit,
 }) => {
-  const { currentUser, queueEditOperation, addToast } = useApp();
+  const { currentUser, queueEditOperation, addToast, simulator, syncNow, setDuplicateRecordPrompt } = useApp();
 
   const isEditing = Boolean(studentToEdit);
+  const prevIsOpenRef = useRef(false);
+  const isDirtyRef = useRef(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -41,41 +43,46 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (studentToEdit) {
-      setFormData({
-        reg_no: studentToEdit.reg_no,
-        cnic: studentToEdit.cnic,
-        full_name: studentToEdit.full_name,
-        program: studentToEdit.program,
-        campus: studentToEdit.campus,
-        semester: studentToEdit.semester,
-        status: studentToEdit.status,
-        phone: studentToEdit.phone,
-        email: studentToEdit.email,
-        address: studentToEdit.address,
-        emergency_contact: studentToEdit.emergency_contact,
-        attendance: studentToEdit.attendance,
-        remarks: studentToEdit.remarks || '',
-      });
-    } else {
-      setFormData({
-        reg_no: `CS-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        cnic: `37405-${Math.floor(1000000 + Math.random() * 9000000)}-1`,
-        full_name: '',
-        program: 'BS CS',
-        campus: 'Islamabad',
-        semester: 1,
-        status: 'Active',
-        phone: '0300-5551234',
-        email: '',
-        address: '',
-        emergency_contact: 'Guardian (0300-0000000)',
-        attendance: 85,
-        remarks: '',
-      });
+    // Only re-initialize form state when modal transitions from closed to open
+    if (isOpen && !prevIsOpenRef.current) {
+      isDirtyRef.current = false;
+      if (studentToEdit) {
+        setFormData({
+          reg_no: studentToEdit.reg_no,
+          cnic: studentToEdit.cnic,
+          full_name: studentToEdit.full_name,
+          program: studentToEdit.program,
+          campus: studentToEdit.campus,
+          semester: studentToEdit.semester,
+          status: studentToEdit.status,
+          phone: studentToEdit.phone,
+          email: studentToEdit.email,
+          address: studentToEdit.address,
+          emergency_contact: studentToEdit.emergency_contact,
+          attendance: studentToEdit.attendance,
+          remarks: studentToEdit.remarks || '',
+        });
+      } else {
+        setFormData({
+          reg_no: `CS-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+          cnic: `37405-${Math.floor(1000000 + Math.random() * 9000000)}-1`,
+          full_name: '',
+          program: 'BS CS',
+          campus: 'Islamabad',
+          semester: 1,
+          status: 'Active',
+          phone: '0300-5551234',
+          email: '',
+          address: '',
+          emergency_contact: 'Guardian (0300-0000000)',
+          attendance: 85,
+          remarks: '',
+        });
+      }
+      setDuplicateWarning(null);
+      setValidationError(null);
     }
-    setDuplicateWarning(null);
-    setValidationError(null);
+    prevIsOpenRef.current = isOpen;
   }, [studentToEdit, isOpen]);
 
   // Real-time duplicate check (FR-10)
@@ -127,11 +134,6 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       return;
     }
 
-    if (duplicateWarning) {
-      setValidationError('Cannot save: Resolve the duplicate registration number or CNIC first.');
-      return;
-    }
-
     if (isEditing && studentToEdit) {
       // Find modified fields and queue operations
       let changedCount = 0;
@@ -152,8 +154,29 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       if (changedCount === 0) {
         addToast('No changes detected', 'info');
       }
+      onClose();
     } else {
       // Create new student record with client-generated UUID (D8)
+      // Check if duplicate exists locally
+      const match = await db.students
+        .filter((s) => s.reg_no === formData.reg_no || s.cnic === formData.cnic)
+        .first();
+
+      if (match) {
+        // Open the Duplicate Record Dialog immediately (FR-6)
+        setDuplicateRecordPrompt({
+          isOpen: true,
+          reason: `A student with ${match.reg_no === formData.reg_no ? 'registration number ' + match.reg_no : 'CNIC ' + match.cnic} already exists (${match.full_name}, ${match.campus}).`,
+          existingRecordId: match.id,
+          studentName: match.full_name,
+          regNo: match.reg_no,
+          cnic: match.cnic,
+          isOfflineSync: false,
+        });
+        onClose();
+        return;
+      }
+
       const newId = 'e01a8f90-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now();
       const initialFieldVersions: Record<string, number> = {};
       Object.keys(formData).forEach((k) => (initialFieldVersions[k] = 1));
@@ -170,11 +193,31 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       };
 
       await db.students.add(newStudent);
-      await queueEditOperation(newId, '*', newStudent, null, 0);
-      addToast(`New student ${newStudent.full_name} (${newStudent.reg_no}) registered offline`, 'success');
-    }
+      await queueEditOperation(newId, '*', newStudent, null, 0, 'create', newStudent);
 
-    onClose();
+      if (!simulator.isOffline) {
+        // Online: sync immediately and check if server flagged duplicate_record
+        await syncNow();
+        const failedOp = await db.outbox.get(newId);
+        if (failedOp && failedOp.status === 'failed' && (failedOp.errorReason?.includes('already exists') || failedOp.errorReason?.includes('Duplicate'))) {
+          setDuplicateRecordPrompt({
+            isOpen: true,
+            reason: failedOp.errorReason,
+            existingRecordId: undefined,
+            opId: newId,
+            studentId: newId,
+            studentName: newStudent.full_name,
+            regNo: newStudent.reg_no,
+            isOfflineSync: false,
+          });
+        } else {
+          addToast(`Student ${newStudent.full_name} (${newStudent.reg_no}) created and synced!`, 'success');
+        }
+      } else {
+        addToast(`New student ${newStudent.full_name} (${newStudent.reg_no}) registered offline`, 'success');
+      }
+      onClose();
+    }
   };
 
   return (

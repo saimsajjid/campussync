@@ -9,6 +9,7 @@ import {
   injectRemoteConflictServer,
   resetDemoServer,
   fetchCurrentUser,
+  fetchServerConfig,
   loginUser,
   logoutUser,
 } from '../services/api';
@@ -38,6 +39,18 @@ export const DEMO_USERS: CurrentUser[] = [
   },
 ];
 
+export interface DuplicateRecordInfo {
+  isOpen: boolean;
+  reason: string;
+  existingRecordId?: string;
+  opId?: string;
+  studentId?: string;
+  studentName?: string;
+  regNo?: string;
+  cnic?: string;
+  isOfflineSync?: boolean;
+}
+
 interface ToastItem {
   id: string;
   message: string;
@@ -49,6 +62,9 @@ interface AppContextType {
   setCurrentUser: (user: CurrentUser | null) => void;
   isLoggedIn: boolean;
   authLoading: boolean;
+  isDemoMode: boolean;
+  duplicateRecordPrompt: DuplicateRecordInfo | null;
+  setDuplicateRecordPrompt: React.Dispatch<React.SetStateAction<DuplicateRecordInfo | null>>;
   login: (email: string, password?: string) => Promise<CurrentUser>;
   logout: () => Promise<void>;
   activeCampus: CampusCode | 'all';
@@ -78,20 +94,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
+  const [duplicateRecordPrompt, setDuplicateRecordPrompt] = useState<DuplicateRecordInfo | null>(null);
   const [activeCampus, setActiveCampus] = useState<CampusCode | 'all'>('all');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const isSyncingRef = useRef(false);
 
-  // 1. Initial Authentication Check from authoritative GET /auth/me
+  // 1. Initial Authentication Check and Server Config
   useEffect(() => {
     let isMounted = true;
     async function checkAuthSession() {
       try {
-        const res = await fetchCurrentUser();
-        if (isMounted && res && res.user) {
-          setCurrentUser(res.user);
-          setIsLoggedIn(true);
+        const [meRes, configRes] = await Promise.allSettled([
+          fetchCurrentUser(),
+          fetchServerConfig(),
+        ]);
+
+        if (isMounted) {
+          if (configRes.status === 'fulfilled') {
+            setIsDemoMode(Boolean(configRes.value.demoMode));
+          }
+          if (meRes.status === 'fulfilled' && meRes.value.user) {
+            setCurrentUser(meRes.value.user);
+            setIsLoggedIn(true);
+            if (meRes.value.demoMode !== undefined) {
+              setIsDemoMode(Boolean(meRes.value.demoMode));
+            }
+          } else {
+            setCurrentUser(null);
+            setIsLoggedIn(false);
+          }
         }
       } catch (err) {
         if (isMounted) {
@@ -108,6 +141,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  // Listen for duplicate_record events from Sync Engine
+  useEffect(() => {
+    const handleDuplicate = (e: any) => {
+      const detail = e.detail;
+      if (detail) {
+        setDuplicateRecordPrompt({
+          isOpen: true,
+          reason: detail.reason || 'Duplicate record detected on server.',
+          existingRecordId: detail.existingRecordId || detail.studentId,
+          opId: detail.opId,
+          studentId: detail.studentId,
+          isOfflineSync: detail.isOfflineSync,
+        });
+      }
+    };
+    window.addEventListener('campussync:duplicate_record', handleDuplicate);
+    return () => window.removeEventListener('campussync:duplicate_record', handleDuplicate);
   }, []);
 
   const login = async (email: string, password = 'password123'): Promise<CurrentUser> => {
@@ -415,6 +467,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentUser,
         isLoggedIn,
         authLoading,
+        isDemoMode,
+        duplicateRecordPrompt,
+        setDuplicateRecordPrompt,
         login,
         logout,
         activeCampus,

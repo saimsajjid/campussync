@@ -12,7 +12,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimulator, onNavigateTab }) => {
-  const { activeCampus, setActiveCampus, simulator, setSimulator, currentUser, logout, addToast } = useApp();
+  const { activeCampus, setActiveCampus, simulator, setSimulator, currentUser, logout, addToast, isDemoMode } = useApp();
 
   const pendingCount = useLiveQuery(
     () => {
@@ -112,15 +112,17 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimula
           </span>
         </button>
 
-        {/* Simulator Drawer Trigger */}
-        <button
-          onClick={onOpenSimulator}
-          className="p-2 rounded-xl border border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] hover:border-[var(--color-primary)]/30 transition-all text-xs font-semibold flex items-center gap-1.5 shadow-xs"
-          title="Open Hackathon Failure Simulator"
-        >
-          <Sliders className="w-4 h-4 text-[var(--color-primary)]" />
-          <span className="hidden md:inline">Simulator</span>
-        </button>
+        {/* Simulator Drawer Trigger (Only in DEMO_MODE) */}
+        {isDemoMode && (
+          <button
+            onClick={onOpenSimulator}
+            className="p-2 rounded-xl border border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] hover:border-[var(--color-primary)]/30 transition-all text-xs font-semibold flex items-center gap-1.5 shadow-xs"
+            title="Open Hackathon Failure Simulator"
+          >
+            <Sliders className="w-4 h-4 text-[var(--color-primary)]" />
+            <span className="hidden md:inline">Simulator</span>
+          </button>
+        )}
 
         {/* User Profile Info & Logout */}
         <div className="flex items-center gap-2 pl-2 border-l border-[var(--color-border-subtle)]">

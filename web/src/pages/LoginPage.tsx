@@ -4,7 +4,7 @@ import { ShieldCheck, GraduationCap, UserCheck, Key, Lock, Mail, ArrowRight, Ser
 import type { CurrentUser } from '../types';
 
 export const LoginPage: React.FC = () => {
-  const { login, addToast } = useApp();
+  const { login, addToast, isDemoMode } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,7 +56,9 @@ export const LoginPage: React.FC = () => {
 
       <div className="w-full max-w-xl bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8">
         {/* Fast Demo Account Access */}
-        <div className="mb-8">
+        {isDemoMode && (
+          <>
+            <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <Key className="w-4 h-4 text-blue-400" /> 1-Click Demo Profiles (Challenge HS-0146)
@@ -135,6 +137,8 @@ export const LoginPage: React.FC = () => {
             Or Sign In With Email
           </span>
         </div>
+          </>
+        )}
 
         {/* Credentials Form */}
         <form onSubmit={handleManualLogin} className="space-y-4">

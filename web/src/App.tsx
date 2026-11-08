@@ -3,6 +3,8 @@ import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { FailureSimulatorDrawer } from './components/FailureSimulatorDrawer';
 import { StudentFormModal } from './components/StudentFormModal';
+import { DuplicateRecordDialog } from './components/DuplicateRecordDialog';
+import { db } from './db';
 import { DashboardPage } from './pages/DashboardPage';
 import { StudentsPage } from './pages/StudentsPage';
 import { ConflictResolutionPage } from './pages/ConflictResolutionPage';
@@ -24,7 +26,17 @@ export const AppContent: React.FC = () => {
   const [studentToEdit, setStudentToEdit] = useState<StudentRecord | null>(null);
   const [selectedStudentHistoryId, setSelectedStudentHistoryId] = useState<string | undefined>(undefined);
 
-  const { simulator, toasts, isLoggedIn, currentUser, authLoading } = useApp();
+  const {
+    simulator,
+    toasts,
+    isLoggedIn,
+    currentUser,
+    authLoading,
+    duplicateRecordPrompt,
+    setDuplicateRecordPrompt,
+    syncNow,
+    addToast,
+  } = useApp();
 
   if (authLoading) {
     return (
@@ -139,6 +151,48 @@ export const AppContent: React.FC = () => {
         onClose={() => setIsStudentModalOpen(false)}
         studentToEdit={studentToEdit}
       />
+
+      {/* Duplicate Record Dialog (FR-6) */}
+      {duplicateRecordPrompt && duplicateRecordPrompt.isOpen && (
+        <DuplicateRecordDialog
+          isOpen={duplicateRecordPrompt.isOpen}
+          reason={duplicateRecordPrompt.reason}
+          existingRecordId={duplicateRecordPrompt.existingRecordId}
+          onOpenExisting={async (recordId) => {
+            if (duplicateRecordPrompt.opId) {
+              await db.outbox.delete(duplicateRecordPrompt.opId);
+            }
+            if (duplicateRecordPrompt.studentId && duplicateRecordPrompt.studentId !== recordId) {
+              await db.students.delete(duplicateRecordPrompt.studentId);
+            }
+            setDuplicateRecordPrompt(null);
+            setIsStudentModalOpen(false);
+
+            // Open existing authoritative record
+            let existing = await db.students.get(recordId);
+            if (!existing) {
+              await syncNow();
+              existing = await db.students.get(recordId);
+            }
+            if (existing) {
+              setStudentToEdit(existing);
+              setIsStudentModalOpen(true);
+            }
+            addToast('Opened existing authoritative record', 'info');
+          }}
+          onCancelCreation={async () => {
+            if (duplicateRecordPrompt.opId) {
+              await db.outbox.delete(duplicateRecordPrompt.opId);
+            }
+            if (duplicateRecordPrompt.studentId) {
+              await db.students.delete(duplicateRecordPrompt.studentId);
+            }
+            setDuplicateRecordPrompt(null);
+            setIsStudentModalOpen(false);
+            addToast('Cancelled duplicate student creation', 'info');
+          }}
+        />
+      )}
 
       {/* Toast Notification Container */}
       <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-md pointer-events-none">

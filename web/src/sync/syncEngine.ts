@@ -130,6 +130,27 @@ export class SyncEngine {
             status: 'failed',
             errorReason: res.reason || 'Server rejected operation',
           });
+        } else if (res.status === 'duplicate_record') {
+          stats.rejectedCount++;
+          // Duplicate student creation: mark failed in outbox and dispatch event for resolution dialog
+          await this.db.outbox.update(res.opId, {
+            status: 'failed',
+            errorReason: res.reason || 'Duplicate record detected on server',
+          });
+
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('campussync:duplicate_record', {
+                detail: {
+                  opId: res.opId,
+                  studentId: res.studentId,
+                  existingRecordId: res.existingRecordId || res.studentId,
+                  reason: res.reason,
+                  isOfflineSync: true,
+                },
+              })
+            );
+          }
         }
       }
 

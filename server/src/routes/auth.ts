@@ -56,9 +56,18 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as CurrentUser;
-      return reply.send({ user: decoded });
+      return reply.send({
+        user: decoded,
+        demoMode: process.env.DEMO_MODE === 'true',
+      });
     } catch (err) {
       return reply.status(401).send({ error: 'Invalid or expired session' });
     }
+  });
+
+  fastify.get('/auth/config', async (request, reply) => {
+    return reply.send({
+      demoMode: process.env.DEMO_MODE === 'true',
+    });
   });
 };

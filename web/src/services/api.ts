@@ -12,7 +12,7 @@ import type {
 // Uses relative URLs by default (same-origin in Docker/Fastify), or Vite proxy in dev
 const API_BASE = '';
 
-export async function fetchCurrentUser(): Promise<{ user: CurrentUser }> {
+export async function fetchCurrentUser(): Promise<{ user: CurrentUser; demoMode?: boolean }> {
   const res = await fetch(`${API_BASE}/auth/me`, {
     credentials: 'include',
   });
@@ -20,6 +20,16 @@ export async function fetchCurrentUser(): Promise<{ user: CurrentUser }> {
     throw new Error(`Not authenticated: ${res.status}`);
   }
   return res.json();
+}
+
+export async function fetchServerConfig(): Promise<{ demoMode: boolean }> {
+  try {
+    const res = await fetch(`${API_BASE}/config`);
+    if (res.ok) {
+      return res.json();
+    }
+  } catch (e) {}
+  return { demoMode: true };
 }
 
 export async function loginUser(email: string, password = 'password123'): Promise<{ user: CurrentUser; token: string }> {

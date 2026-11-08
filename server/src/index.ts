@@ -76,7 +76,7 @@ async function main() {
         const url = req.raw.url || '';
         const isApi = url.startsWith('/sync') || url.startsWith('/auth') || url.startsWith('/conflicts') ||
                       url.startsWith('/students') || url.startsWith('/admin') || url.startsWith('/demo') ||
-                      url.startsWith('/events') || url.startsWith('/health');
+                      url.startsWith('/events') || url.startsWith('/health') || url.startsWith('/config');
 
         if (req.method === 'GET' && accept.includes('text/html') && !isApi) {
           return reply.sendFile('index.html');

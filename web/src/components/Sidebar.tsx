@@ -22,7 +22,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpen, onCloseMobile }) => {
-  const { currentUser, login, addToast } = useApp();
+  const { currentUser, login, addToast, isDemoMode } = useApp();
 
   const openConflictsCount = useLiveQuery(
     () => db.conflicts.where('status').equals('open').count(),
@@ -158,27 +158,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
               </span>
             </div>
 
-            <select
-              value={currentUser?.id || ''}
-              onChange={async (e) => {
-                const user = DEMO_USERS.find((u) => u.id === e.target.value);
-                if (user) {
-                  try {
-                    await login(user.email, 'password123');
-                    addToast(`Switched active session to ${user.name} (${user.role.toUpperCase()})`, 'info');
-                  } catch (err: any) {
-                    addToast(`Failed to switch profile: ${err.message}`, 'danger');
+            {isDemoMode ? (
+              <select
+                value={currentUser?.id || ''}
+                onChange={async (e) => {
+                  const user = DEMO_USERS.find((u) => u.id === e.target.value);
+                  if (user) {
+                    try {
+                      await login(user.email, 'password123');
+                      addToast(`Switched active session to ${user.name} (${user.role.toUpperCase()})`, 'info');
+                    } catch (err: any) {
+                      addToast(`Failed to switch profile: ${err.message}`, 'danger');
+                    }
                   }
-                }
-              }}
-              className="w-full text-xs font-semibold bg-[var(--color-surface-bg)] border border-[var(--color-border-muted)] rounded-lg p-1.5 text-[var(--color-text-dark)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-            >
-              {DEMO_USERS.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.role})
-                </option>
-              ))}
-            </select>
+                }}
+                className="w-full text-xs font-semibold bg-[var(--color-surface-bg)] border border-[var(--color-border-muted)] rounded-lg p-1.5 text-[var(--color-text-dark)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+              >
+                {DEMO_USERS.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} ({u.role})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="py-1">
+                <div className="text-xs font-semibold text-[var(--color-text-dark)] truncate">
+                  {currentUser?.name}
+                </div>
+                <div className="text-[10px] text-[var(--color-text-muted)] truncate">
+                  {currentUser?.email}
+                </div>
+              </div>
+            )}
 
             <p className="text-[10px] text-[var(--color-text-muted)] mt-2 leading-relaxed">
               {currentUser?.role === 'admin' && 'Full multi-campus read/write, conflicts & integrity.'}
