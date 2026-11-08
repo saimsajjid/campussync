@@ -35,5 +35,6 @@ bright-future-university/
 # Specification & internal documents (do not publish to public repo)
 *.md
 !README.md
+!docs/*.md
 !.github/pull_request_template.md
 *.pdf

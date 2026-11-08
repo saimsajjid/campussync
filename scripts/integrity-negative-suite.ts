@@ -7,13 +7,19 @@
 
 import { execSync } from 'child_process';
 
-const BASE_URL = process.env.TEST_TARGET || 'http://150.136.103.208.sslip.io';
+const BASE_URL = process.env.TEST_TARGET || 'http://127.0.0.1:3055';
+const DB_CONTAINER = process.env.TEST_DB_CONTAINER || 'campussync-test-db';
+const DB_NAME = process.env.TEST_DB_NAME || 'campussync_test';
 const SSH_HOST = 'ubuntu@150.136.103.208';
 const SSH_KEY = 'C:\\priv.key';
 
 function runSql(sql: string): string {
   const b64 = Buffer.from(sql).toString('base64');
-  const cmd = `ssh.exe -i "${SSH_KEY}" ${SSH_HOST} "echo ${b64} | base64 -d | sudo docker exec -i campussync-db psql -U campussync -d campussync"`;
+  if (process.platform === 'linux') {
+    const cmd = `echo ${b64} | base64 -d | sudo docker exec -i ${DB_CONTAINER} psql -U campussync -d ${DB_NAME}`;
+    return execSync(cmd, { encoding: 'utf8', shell: '/bin/bash' });
+  }
+  const cmd = `ssh.exe -i "${SSH_KEY}" ${SSH_HOST} "echo ${b64} | base64 -d | sudo docker exec -i ${DB_CONTAINER} psql -U campussync -d ${DB_NAME}"`;
   return execSync(cmd, { encoding: 'utf8' });
 }
 
@@ -165,22 +171,41 @@ async function runNegativeSuite() {
     await resetDemo();
   }
 
-  // IC-9: Detects Lost/Orphaned Processed Op
-  // Insert an op with status 'applied' in processed_ops without corresponding history row
-  console.log('\nTesting IC-9: Insert orphaned applied processed_op with no history record...');
+  // IC-9a: Detects Lost/Orphaned Processed Op without history row
+  console.log('\nTesting IC-9a: Insert orphaned applied processed_op with no history record...');
   try {
     runSql(`INSERT INTO processed_ops (op_id, result) VALUES ('op-phantom-audit-loss', '{"status":"applied","studentId":"10000000-0000-0000-0000-000000000001"}')`);
     const report = await getIntegrityReport();
     const lostCheck = report.checks?.find((c: any) => c.id === 'inv-no-lost-edits');
     const detected = report.allPassed === false && lostCheck?.status === 'failed' && lostCheck?.offendingRowsCount > 0;
     results.push({
-      id: 'IC-9',
-      name: 'Detects Lost Processed Op',
+      id: 'IC-9a',
+      name: 'Detects Applied Op Missing from History',
       detected,
       checkId: 'inv-no-lost-edits',
       details: lostCheck?.details,
     });
-    console.log(detected ? '✅ PASS [IC-9] Silent edit loss correctly detected and flagged' : '❌ FAIL [IC-9]');
+    console.log(detected ? '✅ PASS [IC-9a] Applied op missing from history correctly detected' : '❌ FAIL [IC-9a]');
+  } finally {
+    await resetDemo();
+  }
+
+  // IC-9b: Detects Fraudulent isNoOp attempting to hide a lost edit
+  console.log('\nTesting IC-9b: Verify isNoOp cannot hide missing/mismatched state...');
+  try {
+    // Injects an op falsely claiming isNoOp for a value ("0399-9999999") that does not match current student state
+    runSql(`INSERT INTO processed_ops (op_id, result) VALUES ('op-fake-noop', '{"status":"applied","isNoOp":true,"studentId":"10000000-0000-0000-0000-000000000001","field":"phone","serverValue":"0399-9999999"}')`);
+    const report = await getIntegrityReport();
+    const lostCheck = report.checks?.find((c: any) => c.id === 'inv-no-lost-edits');
+    const detected = report.allPassed === false && lostCheck?.status === 'failed' && lostCheck?.offendingRowsCount > 0;
+    results.push({
+      id: 'IC-9b',
+      name: 'Detects Fraudulent isNoOp Attempt',
+      detected,
+      checkId: 'inv-no-lost-edits',
+      details: lostCheck?.details,
+    });
+    console.log(detected ? '✅ PASS [IC-9b] Fraudulent isNoOp correctly detected and rejected by integrity check' : '❌ FAIL [IC-9b]');
   } finally {
     await resetDemo();
   }

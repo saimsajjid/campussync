@@ -1,18 +1,27 @@
 /**
- * CampusSync Test Plan - Section 19: Concurrency & Chaos Test Runner
+ * CampusSync Test Plan - Section 19: Redesigned Chaos & Concurrency Harness
  *
- * Simulates 30 concurrent client workers firing interleaved edits,
- * conflicting updates, duplicate requests, and batch submissions.
- * Verifies that:
- * 1. Database row locking and serializable transactions prevent deadlocks.
- * 2. Exactly-once idempotency holds under high concurrency.
- * 3. Zero 500 internal server errors occur.
- * 4. All 7 SQL Correctness Invariants pass with 0 violations.
+ * Requirements:
+ * 1. Mixed fields so most ops do not conflict (>80% applied).
+ * 2. Dropped responses: Simulates network drop after commit followed by immediate retry.
+ * 3. Offline reordering: Queues multiple field edits offline and delivers in reversed/interleaved order.
+ * 4. Reference Model Comparison: Verifies actual PostgreSQL state matches reference shadow model exactly.
+ * 5. Runs against local compose environment (http://127.0.0.1:3055).
  */
 
-const BASE_URL = process.env.TEST_TARGET || 'http://150.136.103.208.sslip.io';
-const NUM_WORKERS = 30;
-const OPS_PER_WORKER = 5; // 150 operations total across workers
+const BASE_URL = process.env.TEST_TARGET || 'http://127.0.0.1:3055';
+
+interface ReferenceStudent {
+  id: string;
+  phone: string;
+  address: string;
+  remarks: string;
+  emergency_contact: string;
+  field_versions: Record<string, number>;
+  version: number;
+}
+
+const referenceModel: Record<string, ReferenceStudent> = {};
 
 interface ChaosStats {
   totalSent: number;
@@ -21,6 +30,8 @@ interface ChaosStats {
   conflict: number;
   rejected: number;
   serverErrors: number;
+  droppedRetriesSent: number;
+  reorderedBatchesSent: number;
 }
 
 const stats: ChaosStats = {
@@ -30,6 +41,8 @@ const stats: ChaosStats = {
   conflict: 0,
   rejected: 0,
   serverErrors: 0,
+  droppedRetriesSent: 0,
+  reorderedBatchesSent: 0,
 };
 
 async function loginAdmin(): Promise<string> {
@@ -42,160 +55,284 @@ async function loginAdmin(): Promise<string> {
   return data.token;
 }
 
-async function runWorker(workerId: number, adminToken: string, studentIds: string[]) {
-  const deviceId = `chaos-device-${workerId}`;
+async function initReferenceModel(adminToken: string) {
+  const res = await fetch(`${BASE_URL}/sync/snapshot`, {
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
+  const data = await res.json();
+  for (const s of data.students) {
+    referenceModel[s.id] = {
+      id: s.id,
+      phone: s.phone,
+      address: s.address,
+      remarks: s.remarks || '',
+      emergency_contact: s.emergency_contact,
+      field_versions: { ...s.field_versions },
+      version: s.version,
+    };
+  }
+}
 
-  for (let i = 0; i < OPS_PER_WORKER; i++) {
-    const studentId = studentIds[workerId % studentIds.length];
-    const opId = `chaos-${workerId}-${i}-${Date.now()}`;
-    const fieldChoice = i % 3 === 0 ? 'remarks' : i % 3 === 1 ? 'address' : 'emergency_contact';
-    const newValue = `Worker ${workerId} Update ${i} [${new Date().toISOString()}]`;
+async function runWorker(
+  workerId: number,
+  adminToken: string,
+  studentId: string,
+  assignedField: 'phone' | 'address' | 'remarks' | 'emergency_contact'
+) {
+  const deviceId = `chaos-worker-${workerId}`;
 
-    // Fetch latest snapshot to get baseVersion or deliberately use stale baseVersion
-    let baseVersion = 1;
-    try {
-      const snapRes = await fetch(`${BASE_URL}/sync/snapshot`, {
-        headers: { Authorization: `Bearer ${adminToken}` },
-      });
-      if (snapRes.ok) {
-        const snap = await snapRes.json();
-        const s = snap.students.find((std: any) => std.id === studentId);
-        baseVersion = s?.field_versions?.[fieldChoice] || 1;
-      }
-    } catch {
-      // Use default baseVersion
-    }
+  // 1. Regular Clean Edit (Assigned field unique to this worker per student)
+  const opId1 = `op-clean-${workerId}-${Date.now()}`;
+  let baseVer = referenceModel[studentId].field_versions[assignedField] || 1;
 
-    // Occasionally inject stale baseVersion to induce concurrent conflict handling
-    if (i === 2) {
-      baseVersion = Math.max(1, baseVersion - 1);
-    }
+  let val1 = '';
+  if (assignedField === 'phone') val1 = `0300-555${String(workerId).padStart(4, '0')}`;
+  else if (assignedField === 'address') val1 = `House ${workerId}, Street 7, Model Town`;
+  else if (assignedField === 'remarks') val1 = `Worker ${workerId} verification notes passed`;
+  else val1 = `Guardian ${workerId} - 0300-444${String(workerId).padStart(4, '0')}`;
 
-    try {
-      const pushRes = await fetch(`${BASE_URL}/sync/push`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${adminToken}`,
+  const pushRes1 = await fetch(`${BASE_URL}/sync/push`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({
+      operations: [
+        {
+          opId: opId1,
+          studentId,
+          field: assignedField,
+          newValue: val1,
+          baseVersion: baseVer,
+          deviceId,
+          type: 'edit',
         },
-        body: JSON.stringify({
-          operations: [
-            {
-              opId,
-              studentId,
-              field: fieldChoice,
-              newValue,
-              baseVersion,
-              deviceId,
-              type: 'edit',
-            },
-          ],
-        }),
-      });
+      ],
+    }),
+  });
 
-      stats.totalSent++;
+  stats.totalSent++;
+  if (pushRes1.status >= 500) {
+    stats.serverErrors++;
+  } else {
+    const resData1 = await pushRes1.json();
+    const opRes1 = resData1.results?.[0];
+    if (opRes1?.status === 'applied') {
+      stats.applied++;
+      // Update reference model
+      referenceModel[studentId][assignedField] = val1;
+      referenceModel[studentId].field_versions[assignedField] = (referenceModel[studentId].field_versions[assignedField] || 1) + 1;
+      referenceModel[studentId].version++;
+    } else if (opRes1?.status === 'duplicate') stats.duplicate++;
+    else if (opRes1?.status === 'conflict') stats.conflict++;
+    else stats.rejected++;
+  }
 
-      if (pushRes.status >= 500) {
-        stats.serverErrors++;
-        console.error(`Worker ${workerId} received HTTP ${pushRes.status}`);
-        continue;
-      }
+  // 2. Dropped Response Simulation: Worker retries opId1 simulating lost ACK
+  stats.droppedRetriesSent++;
+  const retryRes = await fetch(`${BASE_URL}/sync/push`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({
+      operations: [
+        {
+          opId: opId1,
+          studentId,
+          field: assignedField,
+          newValue: val1,
+          baseVersion: baseVer,
+          deviceId,
+          type: 'edit',
+        },
+      ],
+    }),
+  });
 
-      const pushData = await pushRes.json();
-      const status = pushData.results?.[0]?.status;
-
-      if (status === 'applied') stats.applied++;
-      else if (status === 'duplicate') stats.duplicate++;
-      else if (status === 'conflict') stats.conflict++;
-      else if (status === 'rejected') stats.rejected++;
-
-      // In 20% of cases, simulate dropped ACK / immediate retry of the same opId
-      if (i === 4) {
-        const retryRes = await fetch(`${BASE_URL}/sync/push`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${adminToken}`,
-          },
-          body: JSON.stringify({
-            operations: [
-              {
-                opId,
-                studentId,
-                field: fieldChoice,
-                newValue,
-                baseVersion,
-                deviceId,
-                type: 'edit',
-              },
-            ],
-          }),
-        });
-
-        stats.totalSent++;
-        if (retryRes.status >= 500) {
-          stats.serverErrors++;
-        } else {
-          const retryData = await retryRes.json();
-          const retryStatus = retryData.results?.[0]?.status;
-          if (retryStatus === 'duplicate') stats.duplicate++;
-          else if (retryStatus === 'applied') stats.applied++;
-          else if (retryStatus === 'conflict') stats.conflict++;
-          else stats.rejected++;
-        }
-      }
-    } catch (err: any) {
-      console.error(`Worker ${workerId} network error:`, err.message);
+  stats.totalSent++;
+  if (retryRes.status >= 500) {
+    stats.serverErrors++;
+  } else {
+    const retryData = await retryRes.json();
+    const retryOpRes = retryData.results?.[0];
+    if (retryOpRes?.status === 'duplicate') {
+      stats.duplicate++;
+    } else if (retryOpRes?.status === 'applied') {
+      stats.applied++;
+    } else if (retryOpRes?.status === 'conflict') {
+      stats.conflict++;
+    } else {
+      stats.rejected++;
     }
   }
 }
 
-async function runChaos() {
+async function runOfflineReorderingTest(adminToken: string, studentId: string) {
+  stats.reorderedBatchesSent++;
+  const deviceId = 'offline-reordering-client';
+
+  // Queue 3 offline edits to different fields on the student
+  const curPhoneVer = referenceModel[studentId].field_versions.phone;
+  const curRemarksVer = referenceModel[studentId].field_versions.remarks;
+  const curAddressVer = referenceModel[studentId].field_versions.address;
+
+  const phoneVal = '0300-8889911';
+  const remarksVal = 'Reordered offline submission applied successfully';
+  const addressVal = 'Reordered Plot 100, Sector H-12, Islamabad';
+
+  const opA = {
+    opId: `op-reorder-A-${Date.now()}`,
+    studentId,
+    field: 'phone',
+    newValue: phoneVal,
+    baseVersion: curPhoneVer,
+    deviceId,
+    type: 'edit' as const,
+  };
+
+  const opB = {
+    opId: `op-reorder-B-${Date.now()}`,
+    studentId,
+    field: 'remarks',
+    newValue: remarksVal,
+    baseVersion: curRemarksVer,
+    deviceId,
+    type: 'edit' as const,
+  };
+
+  const opC = {
+    opId: `op-reorder-C-${Date.now()}`,
+    studentId,
+    field: 'address',
+    newValue: addressVal,
+    baseVersion: curAddressVer,
+    deviceId,
+    type: 'edit' as const,
+  };
+
+  // Submit in reverse order: [opC, opB, opA]
+  const reorderRes = await fetch(`${BASE_URL}/sync/push`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({
+      operations: [opC, opB, opA],
+    }),
+  });
+
+  stats.totalSent += 3;
+  if (reorderRes.status >= 500) {
+    stats.serverErrors += 3;
+  } else {
+    const data = await reorderRes.json();
+    for (const r of data.results || []) {
+      if (r.status === 'applied') {
+        stats.applied++;
+        referenceModel[studentId][r.field as 'phone' | 'remarks' | 'address'] =
+          r.field === 'phone' ? phoneVal : r.field === 'remarks' ? remarksVal : addressVal;
+        referenceModel[studentId].field_versions[r.field] =
+          (referenceModel[studentId].field_versions[r.field] || 1) + 1;
+        referenceModel[studentId].version++;
+      } else if (r.status === 'duplicate') stats.duplicate++;
+      else if (r.status === 'conflict') stats.conflict++;
+      else stats.rejected++;
+    }
+  }
+}
+
+async function runRedesignedChaos() {
   console.log(`\n======================================================`);
-  console.log(`CampusSync Section 19: Concurrency & Chaos Harness`);
+  console.log(`CampusSync Section 19: Redesigned Concurrency & Chaos Harness`);
   console.log(`Target: ${BASE_URL}`);
-  console.log(`Workers: ${NUM_WORKERS} concurrent devices`);
-  console.log(`Operations Target: ~${NUM_WORKERS * OPS_PER_WORKER + NUM_WORKERS}`);
   console.log(`Date: ${new Date().toISOString()}`);
   console.log(`======================================================\n`);
 
-  // 1. Reset demo state to clean baseline
+  // 1. Reset baseline demo state
   console.log('Resetting demo baseline before chaos run...');
   await fetch(`${BASE_URL}/demo/reset`, { method: 'POST' });
 
   const adminToken = await loginAdmin();
+  await initReferenceModel(adminToken);
 
-  // Get available student IDs
-  const snapRes = await fetch(`${BASE_URL}/sync/snapshot`, {
-    headers: { Authorization: `Bearer ${adminToken}` },
-  });
-  const snap = await snapRes.json();
-  const studentIds = snap.students.map((s: any) => s.id);
+  const studentIds = Object.keys(referenceModel);
+  console.log(`Targeting ${studentIds.length} seeded student records.`);
+  console.log(`Starting 12 parallel non-conflicting field workers + dropped ACK retries...`);
 
-  console.log(`Targeting ${studentIds.length} seeded student records across campuses.`);
-  console.log(`Launching ${NUM_WORKERS} concurrent workers in parallel...\n`);
+  const fields: Array<'phone' | 'address' | 'remarks' | 'emergency_contact'> = [
+    'phone',
+    'address',
+    'remarks',
+    'emergency_contact',
+  ];
+
+  // Create 12 parallel tasks: 4 distinct fields across 3 students
+  const tasks: Promise<void>[] = [];
+  let workerId = 0;
+  for (let sIdx = 0; sIdx < studentIds.length; sIdx++) {
+    for (let fIdx = 0; fIdx < fields.length; fIdx++) {
+      tasks.push(runWorker(workerId++, adminToken, studentIds[sIdx], fields[fIdx]));
+    }
+  }
 
   const startTime = Date.now();
-  const workerPromises = Array.from({ length: NUM_WORKERS }).map((_, idx) =>
-    runWorker(idx, adminToken, studentIds)
-  );
+  await Promise.all(tasks);
 
-  await Promise.all(workerPromises);
+  // Run offline reordering on student 1
+  console.log(`Running offline reordering delivery test...`);
+  await runOfflineReorderingTest(adminToken, studentIds[0]);
+
   const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(2);
+  console.log(`\nChaos workload finished in ${elapsedSec}s.\n`);
 
-  console.log(`Chaos workload execution finished in ${elapsedSec}s.\n`);
-  console.log(`--- WORKLOAD ACCOUNTING ---`);
-  console.log(`Total Operations Sent: ${stats.totalSent}`);
-  console.log(`Applied:               ${stats.applied}`);
-  console.log(`Duplicates Handled:    ${stats.duplicate}`);
-  console.log(`Conflicts Held:        ${stats.conflict}`);
-  console.log(`Rejected (Rules):      ${stats.rejected}`);
-  console.log(`Server 500 Errors:     ${stats.serverErrors}`);
+  console.log(`--- WORKLOAD METRICS ---`);
+  console.log(`Total Operations Sent:   ${stats.totalSent}`);
+  console.log(`Applied (Non-conflict):  ${stats.applied}`);
+  console.log(`Duplicates Handled:      ${stats.duplicate}`);
+  console.log(`Conflicts Held:          ${stats.conflict}`);
+  console.log(`Rejected (Rule errors):  ${stats.rejected}`);
+  console.log(`Server 500 Errors:       ${stats.serverErrors}`);
+  console.log(`Dropped ACKs Simulated:  ${stats.droppedRetriesSent}`);
+  console.log(`Reordered Batches Sent:  ${stats.reorderedBatchesSent}`);
 
-  const accountedTotal = stats.applied + stats.duplicate + stats.conflict + stats.rejected;
-  console.log(`Accounted Operations:  ${accountedTotal} / ${stats.totalSent}`);
+  const nonConflictRate = ((stats.applied / (stats.applied + stats.conflict)) * 100).toFixed(1);
+  console.log(`Non-Conflict Rate:       ${nonConflictRate}% (Requirement: Most ops do not conflict)`);
 
-  // Invariant Verification after Chaos
+  // Compare Final Database to Reference Model
+  console.log(`\n--- REFERENCE MODEL COMPARISON ---`);
+  const finalSnapRes = await fetch(`${BASE_URL}/sync/snapshot`, {
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
+  const finalSnap = await finalSnapRes.json();
+
+  let stateDiscrepancies = 0;
+  for (const s of finalSnap.students) {
+    const ref = referenceModel[s.id];
+    if (!ref) {
+      console.error(`❌ Student ${s.id} not found in reference model!`);
+      stateDiscrepancies++;
+      continue;
+    }
+
+    const checkFields: Array<'phone' | 'address' | 'remarks' | 'emergency_contact'> = [
+      'phone',
+      'address',
+      'remarks',
+      'emergency_contact',
+    ];
+
+    for (const f of checkFields) {
+      if (s[f] !== ref[f]) {
+        console.error(`❌ Discrepancy on student ${s.reg_no} field ${f}: Actual="${s[f]}" vs Reference="${ref[f]}"`);
+        stateDiscrepancies++;
+      }
+    }
+
+    if (s.version !== ref.version) {
+      console.error(`❌ Version mismatch on student ${s.reg_no}: Actual=${s.version} vs Reference=${ref.version}`);
+      stateDiscrepancies++;
+    }
+  }
+
+  const modelMatch = stateDiscrepancies === 0;
+  console.log(`Reference Model Comparison: ${modelMatch ? 'PERFECT MATCH (0 discrepancies) ✅' : 'FAILED ❌'}`);
+
+  // Invariant Suite Verification
   console.log(`\n--- POST-CHAOS INTEGRITY AUDIT ---`);
   const integRes = await fetch(`${BASE_URL}/admin/integrity`, {
     headers: { Authorization: `Bearer ${adminToken}` },
@@ -210,11 +347,12 @@ async function runChaos() {
 
   const chaosPassed =
     stats.serverErrors === 0 &&
-    accountedTotal === stats.totalSent &&
+    Number(nonConflictRate) > 80 &&
+    modelMatch &&
     integrityReport.allPassed === true;
 
   console.log(`\n======================================================`);
-  console.log(`CHAOS TEST CONCLUSION: ${chaosPassed ? 'PASSED (0 VIOLATIONS)' : 'FAILED'}`);
+  console.log(`REDESIGNED CHAOS TEST CONCLUSION: ${chaosPassed ? 'PASSED (0 VIOLATIONS, 100% PARITY)' : 'FAILED'}`);
   console.log(`======================================================\n`);
 
   if (!chaosPassed) {
@@ -222,7 +360,7 @@ async function runChaos() {
   }
 }
 
-runChaos().catch((err) => {
+runRedesignedChaos().catch((err) => {
   console.error('Fatal chaos error:', err);
   process.exit(1);
 });
