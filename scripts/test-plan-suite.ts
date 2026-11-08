@@ -1143,7 +1143,7 @@ async function run() {
   console.log(`\n--- SECTION 15: Real DR-3 Two-Device Duplicate Creation ---`);
 
   try {
-    const dr3RegNo = `CS-2026-DR03-${Math.floor(1000 + Math.random() * 9000)}`;
+    const dr3RegNo = `CS-2026-${Math.floor(10000 + Math.random() * 89999)}`;
     const dr3Cnic = `37405-${Math.floor(1000000 + Math.random() * 9000000)}-3`;
 
     // 1. Device A creates student online
