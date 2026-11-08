@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #4F7DF3;
+  --color-primary-hover: #3E6AE1;
+  --color-primary-light: #EBF0FF;
+  --color-surface-bg: #F4F6FA;
+  --color-text-dark: #1E293B;
+  --color-text-muted: #6B7280;
+  --color-border-subtle: #E5E7EB;
+  
+  --color-status-synced-bg: #DCFCE7;
+  --color-status-synced-text: #15803D;
+  --color-status-synced-border: #BBF7D0;
+
+  --color-status-pending-bg: #FEF3C7;
+  --color-status-pending-text: #B45309;
+  --color-status-pending-border: #FDE68A;
+
+  --color-status-conflict-bg: #FEE2E2;
+  --color-status-conflict-text: #B91C1C;
+  --color-status-conflict-border: #FECACA;
+
+  --color-status-rejected-bg: #FFF1F2;
+  --color-status-rejected-text: #9F1239;
+  --color-status-rejected-border: #FECDD3;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #F4F6FA;
+  color: #1E293B;
+}
+
+@keyframes pulse-dot {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+.pulse-green {
+  animation: pulse-dot 2s infinite;
+}

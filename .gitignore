@@ -28,6 +28,10 @@ pgdata/
 *.sqlite
 tmp/
 
+# Archives & unzipped temporary archives
+*.zip
+bright-future-university/
+
 # Specification & internal documents (do not publish to public repo)
 *.md
 !README.md
