@@ -1,7 +1,6 @@
-import { pool } from '../server/src/db/pool.js';
 import crypto from 'crypto';
 
-const BASE_URL = process.env.TEST_BASE_URL || 'http://150.136.103.208.sslip.io';
+const BASE_URL = process.env.TEST_BASE_URL || process.env.TEST_TARGET || 'http://127.0.0.1:3055';
 
 interface TestResult {
   id: string;
@@ -79,7 +78,10 @@ async function run() {
 
   // SM-9: Reset Demo Data
   try {
-    const resetRes = await fetch(`${BASE_URL}/demo/reset`, { method: 'POST' });
+    const resetRes = await fetch(`${BASE_URL}/demo/reset`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
     const resetData = await resetRes.json();
     record('SM-9', 'Smoke', 'Reset demo data to known clean seeded state', resetRes.status === 200 && resetData.success === true);
   } catch (err: any) {
@@ -97,12 +99,26 @@ async function run() {
     record(
       'SM-4',
       'Smoke',
-      'GET /sync/snapshot returns 3 multi-campus records',
-      seededStudents.length === 3 && snapData.latestCursor >= 3,
+      'GET /sync/snapshot returns 12 multi-campus records',
+      seededStudents.length === 12 && snapData.latestCursor >= 12,
       { count: seededStudents.length, cursor: snapData.latestCursor }
     );
   } catch (err: any) {
     record('SM-4', 'Smoke', 'Snapshot initial records', false, null, err.message);
+  }
+
+  // ATT-1: GET /sync/snapshot normalizes attendance as JavaScript number
+  try {
+    const allNumeric = seededStudents.every((s: any) => typeof s.attendance === 'number');
+    record(
+      'ATT-1',
+      'Attendance Normalization',
+      'GET /sync/snapshot returns attendance as JavaScript number for all students',
+      allNumeric && seededStudents.length === 12,
+      { studentCount: seededStudents.length, allNumeric }
+    );
+  } catch (err: any) {
+    record('ATT-1', 'Attendance Normalization', 'Snapshot attendance numeric normalization', false, null, err.message);
   }
 
   // --------------------------------------------------------------------------
@@ -221,6 +237,148 @@ async function run() {
   }
 
   // --------------------------------------------------------------------------
+  // SECTION 7B: EMERGENCY CONTACT VALIDATION (MATRIX VA-11)
+  // --------------------------------------------------------------------------
+  console.log(`\n--- SECTION 7B: Emergency Contact Validation (VA-11) ---`);
+
+  // Refresh target snapshot to guarantee accurate baseVersion
+  const snapRes7B = await fetch(`${BASE_URL}/sync/snapshot`, {
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
+  const snapData7B = await snapRes7B.json();
+  const currentTarget7B = snapData7B.students?.find((s: any) => s.id === studentTarget.id) || studentTarget;
+  let currentEmergencyVer = currentTarget7B.field_versions?.emergency_contact || 1;
+
+  // 1. Phone-only -> MUST REJECT
+  try {
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: 'op-va11-phoneonly-' + Date.now(),
+          studentId: currentTarget7B.id,
+          field: 'emergency_contact',
+          newValue: '0300-1234567',
+          baseVersion: currentEmergencyVer,
+          deviceId: 'admin-client',
+          type: 'edit',
+        }],
+      }),
+    });
+    const data = await res.json();
+    const op = data.results?.[0];
+    record(
+      'VA-11-phone-only',
+      'Validation',
+      'Server rejects phone-only emergency contact',
+      op?.status === 'rejected' && op?.reason?.toLowerCase().includes('name') && op?.reason?.toLowerCase().includes('phone'),
+      op
+    );
+  } catch (err: any) {
+    record('VA-11-phone-only', 'Validation', 'Phone-only rejection', false, null, err.message);
+  }
+
+  // 2. Name-only -> MUST REJECT
+  try {
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: 'op-va11-nameonly-' + Date.now(),
+          studentId: currentTarget7B.id,
+          field: 'emergency_contact',
+          newValue: 'Muhammad Tariq',
+          baseVersion: currentEmergencyVer,
+          deviceId: 'admin-client',
+          type: 'edit',
+        }],
+      }),
+    });
+    const data = await res.json();
+    const op = data.results?.[0];
+    record(
+      'VA-11-name-only',
+      'Validation',
+      'Server rejects name-only emergency contact',
+      op?.status === 'rejected' && op?.reason?.toLowerCase().includes('phone'),
+      op
+    );
+  } catch (err: any) {
+    record('VA-11-name-only', 'Validation', 'Name-only rejection', false, null, err.message);
+  }
+
+  // 3. Empty -> MUST REJECT
+  try {
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: 'op-va11-empty-' + Date.now(),
+          studentId: currentTarget7B.id,
+          field: 'emergency_contact',
+          newValue: '',
+          baseVersion: currentEmergencyVer,
+          deviceId: 'admin-client',
+          type: 'edit',
+        }],
+      }),
+    });
+    const data = await res.json();
+    const op = data.results?.[0];
+    record(
+      'VA-11-empty',
+      'Validation',
+      'Server rejects empty emergency contact',
+      op?.status === 'rejected',
+      op
+    );
+  } catch (err: any) {
+    record('VA-11-empty', 'Validation', 'Empty rejection', false, null, err.message);
+  }
+
+  // 4. Valid (name + phone) -> MUST APPLY
+  try {
+    // Re-check base version in case any mutation occurred
+    const refSnapRes = await fetch(`${BASE_URL}/sync/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const refSnap = await refSnapRes.json();
+    const refSt = refSnap.students?.find((s: any) => s.id === currentTarget7B.id);
+    const validVer = refSt?.field_versions?.emergency_contact || currentEmergencyVer;
+
+    const validContact = 'Tariq Khan (Father) - 0300-9988776';
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: 'op-va11-valid-' + Date.now(),
+          studentId: currentTarget7B.id,
+          field: 'emergency_contact',
+          newValue: validContact,
+          baseVersion: validVer,
+          deviceId: 'admin-client',
+          type: 'edit',
+        }],
+      }),
+    });
+    const data = await res.json();
+    const op = data.results?.[0];
+    record(
+      'VA-11-valid',
+      'Validation',
+      'Server applies valid emergency contact (name + phone)',
+      op?.status === 'applied',
+      op
+    );
+  } catch (err: any) {
+    record('VA-11-valid', 'Validation', 'Valid emergency contact', false, null, err.message);
+  }
+
+  // --------------------------------------------------------------------------
   // SECTION 8: IDEMPOTENCY & EXACTLY-ONCE GUARANTEES
   // --------------------------------------------------------------------------
   console.log(`\n--- SECTION 8: Idempotency & Operation Duplication Prevention ---`);
@@ -291,6 +449,13 @@ async function run() {
   // ID-9: Concurrent identical ops (simulating double-click or simultaneous delivery)
   const concurrentOpId = 'op-concurrent-' + Date.now();
   try {
+    const freshSnapRes = await fetch(`${BASE_URL}/sync/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const freshSnapData = await freshSnapRes.json();
+    const freshTarget = freshSnapData.students?.find((s: any) => s.id === studentTarget.id) || studentTarget;
+    const freshRemarksVer = freshTarget.field_versions?.remarks || 1;
+
     const promises = Array.from({ length: 4 }).map(() =>
       fetch(`${BASE_URL}/sync/push`, {
         method: 'POST',
@@ -305,7 +470,7 @@ async function run() {
               studentId: studentTarget.id,
               field: 'remarks',
               newValue: 'Active concurrent test runner',
-              baseVersion: studentTarget.field_versions?.remarks || 1,
+              baseVersion: freshRemarksVer,
               deviceId: 'device-concurrent-suite',
               type: 'edit',
             },
@@ -328,6 +493,169 @@ async function run() {
     );
   } catch (err: any) {
     record('ID-9', 'Idempotency', 'Concurrent requests', false, null, err.message);
+  }
+
+  // ED-3 / IN-NOOP: No-op edit followed by real edit on same field, verified against history at that point in time
+  try {
+    const snapNoopRes = await fetch(`${BASE_URL}/sync/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const snapNoopData = await snapNoopRes.json();
+    const stNoop = snapNoopData.students.find((s: any) => s.id === studentTarget.id);
+    const originalPhone = stNoop.phone;
+    const originalPhoneVer = stNoop.field_versions?.phone || 1;
+
+    // 1. Submit a no-op edit (same value, divergent/stale baseVersion to trigger convergence check)
+    const opNoopId = 'op-noop-test-' + Date.now();
+    const noopPushRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [
+          {
+            opId: opNoopId,
+            studentId: studentTarget.id,
+            field: 'phone',
+            newValue: originalPhone, // Identical value
+            baseVersion: 999, // Divergent base triggers convergence logic
+            deviceId: 'device-noop-runner',
+            type: 'edit',
+          },
+        ],
+      }),
+    });
+    const noopData = await noopPushRes.json();
+    const noopRes = noopData.results?.[0];
+
+    // 2. Follow immediately with a REAL edit to the SAME field
+    const opRealId = 'op-real-after-noop-' + Date.now();
+    const updatedPhone = '0300-8884433';
+    const realPushRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [
+          {
+            opId: opRealId,
+            studentId: studentTarget.id,
+            field: 'phone',
+            newValue: updatedPhone, // New real value
+            baseVersion: originalPhoneVer,
+            deviceId: 'device-real-runner',
+            type: 'edit',
+          },
+        ],
+      }),
+    });
+    const realData = await realPushRes.json();
+    const realRes = realData.results?.[0];
+
+    // 3. Run integrity check: must pass by checking no-op value against history at that point in time
+    const integCheckRes = await fetch(`${BASE_URL}/admin/integrity`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const integReport = await integCheckRes.json();
+    const noLostEditsCheck = integReport.checks?.find((c: any) => c.id === 'inv-no-lost-edits');
+
+    record(
+      'ED-3 & IN-NOOP',
+      'Integrity',
+      'No-op op followed by real edit to same field passes integrity check against history at that point in time',
+      noopRes?.status === 'applied' &&
+        noopRes?.isNoOp === true &&
+        realRes?.status === 'applied' &&
+        integReport.allPassed === true &&
+        noLostEditsCheck?.status === 'passed',
+      { noopRes, realRes, integCheck: noLostEditsCheck?.status }
+    );
+  } catch (err: any) {
+    record('ED-3', 'Integrity', 'No-op followed by real edit', false, null, err.message);
+  }
+
+  // IN-NOOP-CREATE: No-op op directly following a record creation (field '*') passes integrity
+  try {
+    const newStudentId = '30000000-0000-0000-0000-000000000099';
+    const createOpId = 'op-create-for-noop-' + Date.now();
+    const studentData = {
+      id: newStudentId,
+      reg_no: 'CS-2026-9999',
+      cnic: '35201-9999999-1',
+      full_name: 'Noop Creation Test Student',
+      program: 'BS CS',
+      campus: 'Lahore',
+      semester: 1,
+      status: 'Active',
+      phone: '0300-9991122',
+      email: 'noop.student@campussync.local',
+      address: 'House 99, Sector Y, Phase 8, Lahore',
+      emergency_contact: 'Father - 0321-9998877',
+      attendance: 90,
+      remarks: 'Created to test no-op following wildcard creation row',
+    };
+
+    // 1. Create the student record (field '*')
+    const createRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [
+          {
+            opId: createOpId,
+            studentId: newStudentId,
+            field: '*',
+            newValue: studentData,
+            baseVersion: 0,
+            deviceId: 'device-create-noop-runner',
+            type: 'create',
+          },
+        ],
+      }),
+    });
+    const createJson = await createRes.json();
+    const createdStatus = createJson.results?.[0]?.status;
+
+    // 2. Submit a no-op op immediately following creation (same phone value, divergent baseVersion)
+    const noopAfterCreateId = 'op-noop-after-create-' + Date.now();
+    const noopCreateRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [
+          {
+            opId: noopAfterCreateId,
+            studentId: newStudentId,
+            field: 'phone',
+            newValue: '0300-9991122', // identical to creation value
+            baseVersion: 999, // divergent base version triggers convergence check
+            deviceId: 'device-noop-runner',
+            type: 'edit',
+          },
+        ],
+      }),
+    });
+    const noopCreateJson = await noopCreateRes.json();
+    const noopAfterCreateRes = noopCreateJson.results?.[0];
+
+    // 3. Run integrity check
+    const integCheckRes = await fetch(`${BASE_URL}/admin/integrity`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const integReport = await integCheckRes.json();
+    const noLostEditsCheck = integReport.checks?.find((c: any) => c.id === 'inv-no-lost-edits');
+
+    record(
+      'IN-NOOP-CREATE',
+      'Integrity',
+      'No-op op directly following a record creation (field *) passes integrity against history at that point in time',
+      createdStatus === 'applied' &&
+        noopAfterCreateRes?.status === 'applied' &&
+        noopAfterCreateRes?.isNoOp === true &&
+        integReport.allPassed === true &&
+        noLostEditsCheck?.status === 'passed',
+      { createdStatus, noopAfterCreateRes, integCheck: noLostEditsCheck?.status }
+    );
+  } catch (err: any) {
+    record('IN-NOOP-CREATE', 'Integrity', 'No-op following creation', false, null, err.message);
   }
 
   // --------------------------------------------------------------------------
@@ -648,6 +976,441 @@ async function run() {
     record('HI-10', 'History', 'Admin restore', false, null, err.message);
   }
 
+  // ATT-2: GET /students/:id/history normalizes attendance values to JavaScript numbers
+  try {
+    const sanaId = '10000000-0000-0000-0000-000000000011';
+    const histRes = await fetch(`${BASE_URL}/students/${sanaId}/history`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const histData = await histRes.json();
+    const attEntries = (histData.history || []).filter((h: any) => h.field === 'attendance');
+    const allAttNumbers = attEntries.every(
+      (h: any) => typeof h.newValue === 'number' && (h.oldValue === null || typeof h.oldValue === 'number')
+    );
+    record(
+      'ATT-2',
+      'Attendance Normalization',
+      'GET /students/:id/history normalizes attendance oldValue and newValue to JavaScript numbers',
+      histRes.status === 200 && attEntries.length >= 2 && allAttNumbers,
+      { attEntriesCount: attEntries.length, allAttNumbers }
+    );
+  } catch (err: any) {
+    record('ATT-2', 'Attendance Normalization', 'History attendance numeric normalization', false, null, err.message);
+  }
+
+  // ATT-3: Restore attendance field and verify attendance is normalized to a JavaScript number
+  try {
+    const restoreAttRes = await fetch(`${BASE_URL}/students/${studentTarget.id}/restore`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        field: 'attendance',
+        targetValue: 88.5,
+      }),
+    });
+    const restoreAttData = await restoreAttRes.json();
+    const restoredStudent = restoreAttData.student;
+    record(
+      'ATT-3',
+      'Attendance Normalization',
+      'Restore attendance normalizes value to JavaScript number in API response',
+      restoreAttRes.status === 200 &&
+        restoreAttData.success === true &&
+        typeof restoredStudent?.attendance === 'number' &&
+        restoredStudent.attendance === 88.5,
+      { attendance: restoredStudent?.attendance, type: typeof restoredStudent?.attendance }
+    );
+  } catch (err: any) {
+    record('ATT-3', 'Attendance Normalization', 'Restore attendance number normalization', false, null, err.message);
+  }
+
+  // --------------------------------------------------------------------------
+  // SECTION 13: DEMO ENDPOINT RBAC GATING & AUTHORIZATION
+  // --------------------------------------------------------------------------
+  console.log(`\n--- SECTION 13: Demo Endpoint RBAC Gating ---`);
+
+  // DM-1: POST /demo/reset without token returns 401
+  try {
+    const res = await fetch(`${BASE_URL}/demo/reset`, { method: 'POST' });
+    record('DM-1', 'Demo Gating', 'POST /demo/reset with no auth returns 401', res.status === 401);
+  } catch (err: any) {
+    record('DM-1', 'Demo Gating', 'POST /demo/reset no auth', false, null, err.message);
+  }
+
+  // DM-2: POST /demo/reset with student token returns 403
+  try {
+    const res = await fetch(`${BASE_URL}/demo/reset`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${studentToken}` },
+    });
+    record('DM-2', 'Demo Gating', 'POST /demo/reset with student role returns 403', res.status === 403);
+  } catch (err: any) {
+    record('DM-2', 'Demo Gating', 'POST /demo/reset student role', false, null, err.message);
+  }
+
+  // DM-3: POST /demo/reset with faculty token returns 403
+  try {
+    const res = await fetch(`${BASE_URL}/demo/reset`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${facultyToken}` },
+    });
+    record('DM-3', 'Demo Gating', 'POST /demo/reset with faculty role returns 403', res.status === 403);
+  } catch (err: any) {
+    record('DM-3', 'Demo Gating', 'POST /demo/reset faculty role', false, null, err.message);
+  }
+
+  // DM-4: POST /demo/reset with admin token returns 200
+  try {
+    const res = await fetch(`${BASE_URL}/demo/reset`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    record('DM-4', 'Demo Gating', 'POST /demo/reset with admin role returns 200', res.status === 200);
+  } catch (err: any) {
+    record('DM-4', 'Demo Gating', 'POST /demo/reset admin role', false, null, err.message);
+  }
+
+  // DM-5: POST /demo/inject-edit without token returns 401
+  try {
+    const res = await fetch(`${BASE_URL}/demo/inject-edit`, { method: 'POST' });
+    record('DM-5', 'Demo Gating', 'POST /demo/inject-edit with no auth returns 401', res.status === 401);
+  } catch (err: any) {
+    record('DM-5', 'Demo Gating', 'POST /demo/inject-edit no auth', false, null, err.message);
+  }
+
+  // DM-6: POST /demo/inject-edit with student token returns 403
+  try {
+    const res = await fetch(`${BASE_URL}/demo/inject-edit`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${studentToken}` },
+    });
+    record('DM-6', 'Demo Gating', 'POST /demo/inject-edit with student role returns 403', res.status === 403);
+  } catch (err: any) {
+    record('DM-6', 'Demo Gating', 'POST /demo/inject-edit student role', false, null, err.message);
+  }
+
+  // DM-7: POST /demo/inject-edit with faculty token returns 403
+  try {
+    const res = await fetch(`${BASE_URL}/demo/inject-edit`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${facultyToken}` },
+    });
+    record('DM-7', 'Demo Gating', 'POST /demo/inject-edit with faculty role returns 403', res.status === 403);
+  } catch (err: any) {
+    record('DM-7', 'Demo Gating', 'POST /demo/inject-edit faculty role', false, null, err.message);
+  }
+
+  // DM-8: POST /demo/inject-edit with admin token returns 200
+  try {
+    const res = await fetch(`${BASE_URL}/demo/inject-edit`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    record('DM-8', 'Demo Gating', 'POST /demo/inject-edit with admin role returns 200', res.status === 200);
+  } catch (err: any) {
+    record('DM-8', 'Demo Gating', 'POST /demo/inject-edit admin role', false, null, err.message);
+  }
+
+  // --------------------------------------------------------------------------
+  // SECTION 14: SIMULATOR CONTROLS & RESILIENCE (FR-13)
+  // --------------------------------------------------------------------------
+  console.log(`\n--- SECTION 14: Simulator Controls & Resilience ---`);
+
+  // SIM-1: Dropped response simulation (server commits, reply lost, client retries idempotently)
+  try {
+    const simOpId = 'sim-drop-ack-' + Date.now();
+    const freshSnapSIM = await fetch(`${BASE_URL}/sync/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const freshDataSIM = await freshSnapSIM.json();
+    const freshSIMTarget = freshDataSIM.students?.find((s: any) => s.id === studentTarget.id);
+    const simBaseVersion = freshSIMTarget?.field_versions?.remarks || 1;
+
+    // Step 1: Server receives and commits edit
+    const firstRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: simOpId,
+          studentId: studentTarget.id,
+          field: 'remarks',
+          newValue: 'Simulated Network Partition Verification',
+          baseVersion: simBaseVersion,
+          deviceId: 'sim-device-01',
+          type: 'edit',
+        }],
+      }),
+    });
+    const firstData = await firstRes.json();
+    const firstStatus = firstData.results?.[0]?.status;
+
+    // Step 2: Client re-sends identical opId after dropped response
+    const replayRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: simOpId,
+          studentId: studentTarget.id,
+          field: 'remarks',
+          newValue: 'Simulated Network Partition Verification',
+          baseVersion: simBaseVersion,
+          deviceId: 'sim-device-01',
+          type: 'edit',
+        }],
+      }),
+    });
+    const replayData = await replayRes.json();
+    const replayStatus = replayData.results?.[0]?.status;
+
+    record(
+      'SIM-1',
+      'Simulator',
+      'FR-13.3: Lost-response recovery applies once and replayed op returns duplicate',
+      firstStatus === 'applied' && replayStatus === 'duplicate'
+    );
+  } catch (err: any) {
+    record('SIM-1', 'Simulator', 'Lost response simulation', false, null, err.message);
+  }
+
+  // SIM-2: Remote concurrent edit injection (FR-13.5)
+  try {
+    const injectRes = await fetch(`${BASE_URL}/demo/inject-edit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        studentId: studentTarget.id,
+        field: 'remarks',
+        newValue: 'Injected Concurrent Remote Edit from Simulator',
+      }),
+    });
+    const injectData = await injectRes.json();
+    record(
+      'SIM-2',
+      'Simulator',
+      'FR-13.5: Simulator injects concurrent edit from another campus with SSE broadcast',
+      injectRes.status === 200 && injectData.success === true && injectData.result?.status === 'applied'
+    );
+
+    // SIM-2a: Injected edit applies as seeded "Regional Admin (Islamabad)" with admin role
+    const studentHistRes = await fetch(`${BASE_URL}/students/${studentTarget.id}/history`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const studentHistData = await studentHistRes.json();
+    const latestHist = studentHistData.history?.find((h: any) => h.field === 'remarks') || studentHistData.history?.[0];
+    const isRegionalAdmin =
+      injectData.injectedBy === 'Regional Admin (Islamabad)' &&
+      latestHist?.actorName === 'Regional Admin (Islamabad)' &&
+      latestHist?.actorRole === 'admin';
+    record(
+      'SIM-2a',
+      'Simulator',
+      '/demo/inject-edit applies as seeded Regional Admin (Islamabad) with admin role',
+      isRegionalAdmin,
+      { injectedBy: injectData.injectedBy, latestActor: latestHist?.actorName, role: latestHist?.actorRole }
+    );
+
+    // SIM-2b: Injected edits never come from a role without permission (faculty blocked from editing official field)
+    const unpermittedPushRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${facultyToken}` },
+      body: JSON.stringify({
+        operations: [
+          {
+            opId: 'op-unpermitted-' + Date.now(),
+            studentId: studentTarget.id,
+            field: 'full_name',
+            newValue: 'Hacked Name',
+            baseVersion: 1,
+            deviceId: 'unauth-terminal',
+            type: 'edit',
+          },
+        ],
+      }),
+    });
+    const unpermittedPushData = await unpermittedPushRes.json();
+    const wasRejected = unpermittedPushData.results?.[0]?.status === 'rejected';
+    record(
+      'SIM-2b',
+      'Simulator',
+      'Edits never come from a role without permission (faculty blocked from editing official field)',
+      unpermittedPushRes.status === 200 && wasRejected,
+      unpermittedPushData.results?.[0]
+    );
+  } catch (err: any) {
+    record('SIM-2', 'Simulator', 'Concurrent edit simulation', false, null, err.message);
+  }
+
+  // SIM-3: Stale edit submission against SSE injected record produces server conflict (FR-12.2)
+  try {
+    const staleRemarksVersion = 1; // Prior version before SIM-2 injected edit
+    const staleOpId = 'op-stale-remarks-' + Date.now();
+
+    const stalePushRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: staleOpId,
+          studentId: studentTarget.id,
+          field: 'remarks',
+          newValue: 'Concurrent Local Draft Remarks from Form',
+          baseVersion: staleRemarksVersion,
+          deviceId: 'browser-form-tab',
+          type: 'edit',
+        }],
+      }),
+    });
+    const stalePushData = await stalePushRes.json();
+    const staleResult = stalePushData.results?.[0];
+
+    // Check conflict created in conflicts table
+    const confCheckRes = await fetch(`${BASE_URL}/conflicts`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const confCheckData = await confCheckRes.json();
+    const remarksConflict = confCheckData.conflicts?.find(
+      (c: any) => c.student_id === studentTarget.id && c.field === 'remarks'
+    );
+
+    record(
+      'SIM-3',
+      'Simulator',
+      'FR-12.2 / SIM-3: Submitting open form edit with initial baseVersion after remote inject yields conflict row',
+      staleResult?.status === 'conflict' && remarksConflict !== undefined,
+      { staleResult, remarksConflict }
+    );
+  } catch (err: any) {
+    record('SIM-3', 'Simulator', 'SSE conflict generation verification', false, null, err.message);
+  }
+
+  // --------------------------------------------------------------------------
+  // SECTION 15: REAL DR-3 TWO-DEVICE OFFLINE DUPLICATE DETECTION
+  // --------------------------------------------------------------------------
+  console.log(`\n--- SECTION 15: Real DR-3 Two-Device Duplicate Creation ---`);
+
+  try {
+    const dr3RegNo = `CS-2026-${Math.floor(10000 + Math.random() * 89999)}`;
+    const dr3Cnic = `37405-${Math.floor(1000000 + Math.random() * 9000000)}-3`;
+
+    // 1. Device A creates student online
+    const devAId = 'a0000000-0000-0000-0000-' + Date.now().toString(16).padStart(12, '0').slice(-12);
+    const devAOpId = 'op-dev-a-create-' + Date.now();
+    const devARes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: devAOpId,
+          studentId: devAId,
+          field: '*',
+          newValue: {
+            id: devAId,
+            reg_no: dr3RegNo,
+            cnic: dr3Cnic,
+            full_name: 'Device A Student',
+            program: 'BS CS',
+            campus: 'Lahore',
+            semester: 1,
+            status: 'Active',
+            phone: '0300-1112233',
+            email: 'dev.a@campussync.local',
+            address: 'Device A Campus',
+            emergency_contact: 'Father (0300-0000000)',
+            attendance: 90,
+          },
+          baseVersion: 0,
+          deviceId: 'device-a-online',
+          type: 'create',
+          studentData: {
+            id: devAId,
+            reg_no: dr3RegNo,
+            cnic: dr3Cnic,
+            full_name: 'Device A Student',
+            program: 'BS CS',
+            campus: 'Lahore',
+            semester: 1,
+            status: 'Active',
+            phone: '0300-1112233',
+            email: 'dev.a@campussync.local',
+            address: 'Device A Campus',
+            emergency_contact: 'Father (0300-0000000)',
+            attendance: 90,
+          },
+        }],
+      }),
+    });
+    const devAData = await devARes.json();
+    const devAStatus = devAData.results?.[0]?.status;
+
+    // 2. Device B (was offline) now reconnects and pushes same reg_no
+    const devBId = 'b0000000-0000-0000-0000-' + Date.now().toString(16).padStart(12, '0').slice(-12);
+    const devBOpId = 'op-dev-b-offline-create-' + Date.now();
+    const devBRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: devBOpId,
+          studentId: devBId,
+          field: '*',
+          newValue: {
+            id: devBId,
+            reg_no: dr3RegNo,
+            cnic: `37405-${Math.floor(1000000 + Math.random() * 9000000)}-4`,
+            full_name: 'Device B Offline Student',
+            program: 'BS CS',
+            campus: 'Islamabad',
+            semester: 1,
+            status: 'Active',
+            phone: '0300-9998877',
+            email: 'dev.b@campussync.local',
+            address: 'Device B Campus',
+            emergency_contact: 'Father (0300-0000000)',
+            attendance: 88,
+          },
+          baseVersion: 0,
+          deviceId: 'device-b-reconnecting',
+          type: 'create',
+          studentData: {
+            id: devBId,
+            reg_no: dr3RegNo,
+            cnic: `37405-${Math.floor(1000000 + Math.random() * 9000000)}-4`,
+            full_name: 'Device B Offline Student',
+            program: 'BS CS',
+            campus: 'Islamabad',
+            semester: 1,
+            status: 'Active',
+            phone: '0300-9998877',
+            email: 'dev.b@campussync.local',
+            address: 'Device B Campus',
+            emergency_contact: 'Father (0300-0000000)',
+            attendance: 88,
+          },
+        }],
+      }),
+    });
+    const devBData = await devBRes.json();
+    const devBResult = devBData.results?.[0];
+
+    record(
+      'DR-3',
+      'Duplicates',
+      'Real DR-3: Device B offline creation caught as duplicate_record upon sync against Device A creation',
+      devAStatus === 'applied' &&
+        devBResult?.status === 'duplicate_record' &&
+        devBResult?.existingRecordId === devAId &&
+        devBResult?.regNo === dr3RegNo,
+      { devAStatus, devBResult }
+    );
+  } catch (err: any) {
+    record('DR-3', 'Duplicates', 'Real DR-3 verification', false, null, err.message);
+  }
+
   // --------------------------------------------------------------------------
   // SECTION 12 & 16: DATA CORRECTNESS INVARIANTS (LIVE SUITE)
   // --------------------------------------------------------------------------
@@ -693,6 +1456,30 @@ async function run() {
   console.log(`Failed:          ${failed}`);
   console.log(`Success Rate:    ${((passed / total) * 100).toFixed(1)}%`);
   console.log(`======================================================\n`);
+
+  if (failed > 0) {
+    console.log('Failed test details:');
+    for (const r of results) {
+      if (!r.passed) {
+        console.log(`- ${r.id}: ${r.name} -> Details: ${JSON.stringify(r.details)} Error: ${r.error}`);
+      }
+    }
+    console.log('');
+  }
+
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    try {
+      const fs = await import('fs');
+      let markdown = `## CampusSync Test Plan Suite Results\n\n`;
+      markdown += `| Test ID | Category | Name | Status | Details |\n`;
+      markdown += `|---|---|---|---|---|\n`;
+      for (const r of results) {
+        markdown += `| \`${r.id}\` | ${r.category} | ${r.name} | ${r.passed ? '✅ PASS' : '❌ FAIL'} | ${r.error || ''} |\n`;
+      }
+      markdown += `\n**Total Tests:** ${total} | **Passed:** ${passed} | **Failed:** ${failed}\n`;
+      fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown);
+    } catch (e) {}
+  }
 
   if (failed > 0) {
     process.exit(1);

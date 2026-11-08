@@ -4,9 +4,10 @@ import { seedDatabase } from '../db/seed.js';
 import { processOperation } from '../services/applyEdit.js';
 import { eventBroker } from '../services/events.js';
 import { safeJsonParse } from '../utils/json.js';
+import { authenticateUser } from '../middleware/auth.js';
 
 export const demoRoutes: FastifyPluginAsync = async (fastify) => {
-  // Liveness & Database Healthcheck
+  // Liveness & Database Healthcheck (Always public and available)
   fastify.get('/health', async (request, reply) => {
     try {
       await pool.query('SELECT 1');
@@ -16,12 +17,39 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // Reset Demo Data (FR-13.6, NFR-14)
-  fastify.post('/demo/reset', async (request, reply) => {
-    if (process.env.DEMO_MODE !== 'true') {
-      return reply.status(403).send({ error: 'Demo endpoints are disabled in production mode' });
-    }
+  // Client configuration: exposes demoMode flag
+  fastify.get('/config', async (request, reply) => {
+    return reply.send({
+      demoMode: process.env.DEMO_MODE === 'true',
+    });
+  });
 
+  // Gating hook for all /demo/* endpoints
+  fastify.addHook('onRequest', async (request, reply) => {
+    const pathname = request.url.split('?')[0];
+    if (pathname.startsWith('/demo/') || pathname === '/demo') {
+      if (process.env.DEMO_MODE !== 'true') {
+        return reply.status(404).send({
+          error: 'Endpoint not found',
+          message: 'Demo endpoints are disabled when DEMO_MODE is false',
+          statusCode: 404,
+        });
+      }
+    }
+  });
+
+  const requireAdminRole = async (request: any, reply: any) => {
+    if (request.user?.role !== 'admin') {
+      return reply.status(403).send({
+        error: 'Forbidden',
+        message: 'Admin role required for demo actions',
+        statusCode: 403,
+      });
+    }
+  };
+
+  // Reset Demo Data (FR-13.6, NFR-14)
+  fastify.post('/demo/reset', { preHandler: [authenticateUser, requireAdminRole] }, async (request, reply) => {
     try {
       await seedDatabase(true);
 
@@ -37,11 +65,7 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
 
   // Inject Remote Edit from Another Campus (FR-13.5)
   // E.g. simulates Islamabad Admin editing a Lahore student's address concurrently
-  fastify.post('/demo/inject-edit', async (request, reply) => {
-    if (process.env.DEMO_MODE !== 'true') {
-      return reply.status(403).send({ error: 'Demo endpoints are disabled in production mode' });
-    }
-
+  fastify.post('/demo/inject-edit', { preHandler: [authenticateUser, requireAdminRole] }, async (request, reply) => {
     const { studentId, field, newValue } = (request.body as any) || {};
 
     const targetStudentId = studentId || '10000000-0000-0000-0000-000000000001';
@@ -58,11 +82,11 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
     const currentFieldVersion = fieldVersions[targetField] || 1;
 
     const remoteActor = {
-      id: 'c0000000-0000-0000-0000-000000000003',
-      name: 'Dr. Tariq (Islamabad)',
-      email: 'faculty.isb@campussync.local',
+      id: 'c0000000-0000-0000-0000-000000000012',
+      name: 'Regional Admin (Islamabad)',
+      email: 'admin.regional@campussync.local',
       role: 'admin' as const,
-      campus: 'Islamabad' as const,
+      campus: undefined,
     };
 
     const opId = 'remote-' + Math.random().toString(36).substring(2, 10);

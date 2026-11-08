@@ -6,10 +6,52 @@ import type {
   IntegritySuiteResponse,
   HistoryItem,
   ConflictItem,
+  CurrentUser,
 } from '@campussync/shared';
 
 // Uses relative URLs by default (same-origin in Docker/Fastify), or Vite proxy in dev
 const API_BASE = '';
+
+export async function fetchCurrentUser(): Promise<{ user: CurrentUser; demoMode?: boolean }> {
+  const res = await fetch(`${API_BASE}/auth/me`, {
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    throw new Error(`Not authenticated: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function fetchServerConfig(): Promise<{ demoMode: boolean }> {
+  try {
+    const res = await fetch(`${API_BASE}/config`);
+    if (res.ok) {
+      return res.json();
+    }
+  } catch (e) {}
+  return { demoMode: true };
+}
+
+export async function loginUser(email: string, password = 'password123'): Promise<{ user: CurrentUser; token: string }> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `Login failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function logoutUser(): Promise<void> {
+  await fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  }).catch(() => null);
+}
 
 export async function fetchSnapshot(): Promise<SnapshotResponse> {
   const res = await fetch(`${API_BASE}/sync/snapshot`, {

@@ -6,21 +6,13 @@
  */
 
 import { execSync } from 'child_process';
+import { pool } from '../server/src/db/pool.js';
 
-const BASE_URL = process.env.TEST_TARGET || 'http://127.0.0.1:3055';
-const DB_CONTAINER = process.env.TEST_DB_CONTAINER || 'campussync-test-db';
-const DB_NAME = process.env.TEST_DB_NAME || 'campussync_test';
-const SSH_HOST = 'ubuntu@150.136.103.208';
-const SSH_KEY = 'C:\\priv.key';
+const BASE_URL = process.env.TEST_TARGET || process.env.TEST_BASE_URL || 'http://127.0.0.1:3055';
 
-function runSql(sql: string): string {
-  const b64 = Buffer.from(sql).toString('base64');
-  if (process.platform === 'linux') {
-    const cmd = `echo ${b64} | base64 -d | sudo docker exec -i ${DB_CONTAINER} psql -U campussync -d ${DB_NAME}`;
-    return execSync(cmd, { encoding: 'utf8', shell: '/bin/bash' });
-  }
-  const cmd = `ssh.exe -i "${SSH_KEY}" ${SSH_HOST} "echo ${b64} | base64 -d | sudo docker exec -i ${DB_CONTAINER} psql -U campussync -d ${DB_NAME}"`;
-  return execSync(cmd, { encoding: 'utf8' });
+async function runSql(sql: string): Promise<string> {
+  const res = await pool.query(sql);
+  return JSON.stringify(res.rows);
 }
 
 interface TestResult {
@@ -33,13 +25,32 @@ interface TestResult {
 
 const results: TestResult[] = [];
 
+let adminToken = '';
+
+async function loginAdmin() {
+  const res = await fetch(`${BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'admin@campussync.local', password: 'password123' }),
+  });
+  const data = await res.json();
+  return data.token;
+}
+
 async function getIntegrityReport() {
-  const res = await fetch(`${BASE_URL}/admin/integrity`);
+  if (!adminToken) adminToken = await loginAdmin();
+  const res = await fetch(`${BASE_URL}/admin/integrity`, {
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
   return res.json();
 }
 
 async function resetDemo() {
-  await fetch(`${BASE_URL}/demo/reset`, { method: 'POST' });
+  if (!adminToken) adminToken = await loginAdmin();
+  await fetch(`${BASE_URL}/demo/reset`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
 }
 
 async function runNegativeSuite() {
@@ -60,8 +71,8 @@ async function runNegativeSuite() {
   // IC-4: Detects Duplicate Unique Value
   console.log('Testing IC-4: Duplicate unique natural key injection...');
   try {
-    runSql('ALTER TABLE students DROP CONSTRAINT IF EXISTS students_reg_no_key;');
-    runSql(`INSERT INTO students (id, reg_no, cnic, full_name, program, campus, semester, status, phone, email, address, emergency_contact, attendance, remarks, field_versions, version, active, last_editor_id)
+    await runSql('ALTER TABLE students DROP CONSTRAINT IF EXISTS students_reg_no_key;');
+    await runSql(`INSERT INTO students (id, reg_no, cnic, full_name, program, campus, semester, status, phone, email, address, emergency_contact, attendance, remarks, field_versions, version, active, last_editor_id)
             VALUES ('10000000-0000-0000-0000-999999999999', 'CS-2026-0101', '35201-9999999-9', 'Duplicate Student', 'BS CS', 'Lahore', 4, 'Active', '0300-9999999', 'dup@campussync.local', 'Test Address', 'Test Contact', 90, 'None', '{}', 1, TRUE, 'Tester');`);
     const report = await getIntegrityReport();
     const uniqCheck = report.checks?.find((c: any) => c.id === 'inv-uniqueness');
@@ -76,14 +87,14 @@ async function runNegativeSuite() {
     console.log(detected ? '✅ PASS [IC-4] Duplicate registration number correctly detected and flagged' : '❌ FAIL [IC-4]');
   } finally {
     await resetDemo();
-    runSql('ALTER TABLE students ADD CONSTRAINT students_reg_no_key UNIQUE (reg_no);');
+    await runSql('ALTER TABLE students ADD CONSTRAINT students_reg_no_key UNIQUE (reg_no);');
   }
 
   // IC-5: Detects Replay Mismatch
   // Modify student full_name directly in SQL without appending to history
   console.log('Testing IC-5: Direct database modification bypassing history ledger...');
   try {
-    runSql("UPDATE students SET full_name = 'Corrupted Injected Name' WHERE id = '10000000-0000-0000-0000-000000000001'");
+    await runSql("UPDATE students SET full_name = 'Corrupted Injected Name' WHERE id = '10000000-0000-0000-0000-000000000001'");
     const report = await getIntegrityReport();
     const replayCheck = report.checks?.find((c: any) => c.id === 'inv-replayability');
     const detected = report.allPassed === false && replayCheck?.status === 'failed' && replayCheck?.offendingRowsCount > 0;
@@ -103,7 +114,7 @@ async function runNegativeSuite() {
   // Alter record version number directly so version != count(history)
   console.log('\nTesting IC-6: Alter record version number directly...');
   try {
-    runSql("UPDATE students SET version = 99 WHERE id = '10000000-0000-0000-0000-000000000001'");
+    await runSql("UPDATE students SET version = 99 WHERE id = '10000000-0000-0000-0000-000000000001'");
     const report = await getIntegrityReport();
     const verCheck = report.checks?.find((c: any) => c.id === 'inv-version-integrity');
     const detected = report.allPassed === false && verCheck?.status === 'failed' && verCheck?.offendingRowsCount > 0;
@@ -122,11 +133,11 @@ async function runNegativeSuite() {
   // IC-7: Detects Orphan History Row
   console.log('\nTesting IC-7: Orphan history row referencing non-existent student...');
   try {
-    runSql('ALTER TABLE history DROP CONSTRAINT IF EXISTS history_student_id_fkey;');
-    runSql('ALTER TABLE history DISABLE TRIGGER trg_prevent_history_update;');
-    runSql(`INSERT INTO history (student_id, field, old_value, new_value, field_version_after, type, actor_id, actor_role, actor_campus, device_id, op_id)
+    await runSql('ALTER TABLE history DROP CONSTRAINT IF EXISTS history_student_id_fkey;');
+    await runSql('ALTER TABLE history DISABLE TRIGGER trg_prevent_history_update;');
+    await runSql(`INSERT INTO history (student_id, field, old_value, new_value, field_version_after, type, actor_id, actor_role, actor_campus, device_id, op_id)
             VALUES ('99999999-9999-9999-9999-999999999999', 'phone', '"0300-0000000"', '"0300-1111111"', 1, 'edit', 'Test', 'admin', 'Lahore', 'dev-1', 'op-orphan-test');`);
-    runSql('ALTER TABLE history ENABLE TRIGGER trg_prevent_history_update;');
+    await runSql('ALTER TABLE history ENABLE TRIGGER trg_prevent_history_update;');
 
     const report = await getIntegrityReport();
     const refCheck = report.checks?.find((c: any) => c.id === 'inv-referential-integrity');
@@ -141,7 +152,7 @@ async function runNegativeSuite() {
     console.log(detected ? '✅ PASS [IC-7] Orphan history row correctly detected and flagged' : '❌ FAIL [IC-7]');
   } finally {
     await resetDemo();
-    runSql('ALTER TABLE history ADD CONSTRAINT history_student_id_fkey FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE RESTRICT;');
+    await runSql('ALTER TABLE history ADD CONSTRAINT history_student_id_fkey FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE RESTRICT;');
   }
 
   // IC-8: Detects Double-Applied Operation ID
@@ -149,12 +160,12 @@ async function runNegativeSuite() {
   console.log('\nTesting IC-8: Insert duplicated history entry with same op_id...');
   try {
     // Disable trigger temporarily to test detection
-    runSql('ALTER TABLE history DISABLE TRIGGER trg_prevent_history_update');
-    runSql(`INSERT INTO history (student_id, field, old_value, new_value, field_version_after, type, actor_id, actor_role, actor_campus, device_id, op_id)
+    await runSql('ALTER TABLE history DISABLE TRIGGER trg_prevent_history_update');
+    await runSql(`INSERT INTO history (student_id, field, old_value, new_value, field_version_after, type, actor_id, actor_role, actor_campus, device_id, op_id)
             VALUES ('10000000-0000-0000-0000-000000000001', 'phone', '"0300-1111111"', '"0300-2222222"', 2, 'edit', 'Test', 'admin', 'Lahore', 'dev-1', 'op-dup-test-key');
             INSERT INTO history (student_id, field, old_value, new_value, field_version_after, type, actor_id, actor_role, actor_campus, device_id, op_id)
             VALUES ('10000000-0000-0000-0000-000000000001', 'phone', '"0300-2222222"', '"0300-3333333"', 3, 'edit', 'Test', 'admin', 'Lahore', 'dev-1', 'op-dup-test-key');`);
-    runSql('ALTER TABLE history ENABLE TRIGGER trg_prevent_history_update');
+    await runSql('ALTER TABLE history ENABLE TRIGGER trg_prevent_history_update');
 
     const report = await getIntegrityReport();
     const dupOpCheck = report.checks?.find((c: any) => c.id === 'inv-exactly-once');
@@ -174,7 +185,7 @@ async function runNegativeSuite() {
   // IC-9a: Detects Lost/Orphaned Processed Op without history row
   console.log('\nTesting IC-9a: Insert orphaned applied processed_op with no history record...');
   try {
-    runSql(`INSERT INTO processed_ops (op_id, result) VALUES ('op-phantom-audit-loss', '{"status":"applied","studentId":"10000000-0000-0000-0000-000000000001"}')`);
+    await runSql(`INSERT INTO processed_ops (op_id, result) VALUES ('op-phantom-audit-loss', '{"status":"applied","studentId":"10000000-0000-0000-0000-000000000001"}')`);
     const report = await getIntegrityReport();
     const lostCheck = report.checks?.find((c: any) => c.id === 'inv-no-lost-edits');
     const detected = report.allPassed === false && lostCheck?.status === 'failed' && lostCheck?.offendingRowsCount > 0;
@@ -194,7 +205,7 @@ async function runNegativeSuite() {
   console.log('\nTesting IC-9b: Verify isNoOp cannot hide missing/mismatched state...');
   try {
     // Injects an op falsely claiming isNoOp for a value ("0399-9999999") that does not match current student state
-    runSql(`INSERT INTO processed_ops (op_id, result) VALUES ('op-fake-noop', '{"status":"applied","isNoOp":true,"studentId":"10000000-0000-0000-0000-000000000001","field":"phone","serverValue":"0399-9999999"}')`);
+    await runSql(`INSERT INTO processed_ops (op_id, result) VALUES ('op-fake-noop', '{"status":"applied","isNoOp":true,"studentId":"10000000-0000-0000-0000-000000000001","field":"phone","serverValue":"0399-9999999"}')`);
     const report = await getIntegrityReport();
     const lostCheck = report.checks?.find((c: any) => c.id === 'inv-no-lost-edits');
     const detected = report.allPassed === false && lostCheck?.status === 'failed' && lostCheck?.offendingRowsCount > 0;
@@ -207,6 +218,37 @@ async function runNegativeSuite() {
     });
     console.log(detected ? '✅ PASS [IC-9b] Fraudulent isNoOp correctly detected and rejected by integrity check' : '❌ FAIL [IC-9b]');
   } finally {
+    await resetDemo();
+  }
+
+  // IC-10: Detects Dropped Append-Only Trigger (FR-9.2)
+  console.log('\nTesting IC-10: Drop append-only trigger; integrity check must detect mutation vulnerability...');
+  try {
+    await runSql('DROP TRIGGER IF EXISTS trg_prevent_history_update ON history;');
+    const report = await getIntegrityReport();
+    const appendCheck = report.checks?.find((c: any) => c.id === 'inv-append-only');
+    const detected = report.allPassed === false && appendCheck?.status === 'failed' && appendCheck?.offendingRowsCount > 0;
+    results.push({
+      id: 'IC-10',
+      name: 'Detects Dropped Append-Only Trigger',
+      detected,
+      checkId: 'inv-append-only',
+      details: appendCheck?.details,
+    });
+    console.log(detected ? '✅ PASS [IC-10] Dropped append-only trigger correctly detected and flagged by active mutation check' : '❌ FAIL [IC-10]');
+  } finally {
+    await runSql(`
+      CREATE OR REPLACE FUNCTION prevent_history_tampering()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          RAISE EXCEPTION 'History entries are immutable and append-only. Modifying or deleting is forbidden.';
+      END;
+      $$ LANGUAGE plpgsql;
+      DROP TRIGGER IF EXISTS trg_prevent_history_update ON history;
+      CREATE TRIGGER trg_prevent_history_update
+      BEFORE UPDATE OR DELETE ON history
+      FOR EACH ROW EXECUTE FUNCTION prevent_history_tampering();
+    `);
     await resetDemo();
   }
 
@@ -224,6 +266,8 @@ async function runNegativeSuite() {
   console.log(`Rate:      ${((passed / total) * 100).toFixed(1)}%`);
   console.log(`Restored:  ${restoredClean ? 'PASSED' : 'FAILED'}`);
   console.log(`======================================================\n`);
+
+  if (pool) await pool.end();
 
   if (passed !== total || !restoredClean) {
     process.exit(1);

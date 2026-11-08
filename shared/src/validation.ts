@@ -11,6 +11,27 @@ export const CNIC_REGEX = /^\d{5}-?\d{7}-?\d{1}$/;
 // Pakistani Mobile: starts with 03, 11 digits total (e.g. 0300-1234567 or 03001234567)
 export const PAK_PHONE_REGEX = /^(03\d{2}-?\d{7})$/;
 
+// Emergency Contact Phone pattern (allows standard Pak phone formats with optional prefix and separators)
+export const EMERGENCY_CONTACT_PHONE_REGEX = /(?:(?:\+?92\s?|0)?3\d{2}[-\s]?\d{7})/;
+
+export const EmergencyContactSchema = z
+  .string()
+  .min(3, 'Emergency contact is required')
+  .max(100, 'Emergency contact cannot exceed 100 characters')
+  .refine(
+    (val) => {
+      const trimmed = val.trim();
+      if (!trimmed) return false;
+      const phoneMatch = EMERGENCY_CONTACT_PHONE_REGEX.test(trimmed);
+      if (!phoneMatch) return false;
+      const namePart = trimmed.replace(EMERGENCY_CONTACT_PHONE_REGEX, '').replace(/[^a-zA-Z]/g, '');
+      return namePart.length >= 2;
+    },
+    {
+      message: 'Emergency contact must include both a contact person name and a valid phone number (e.g. "Father - 0300-1234567")',
+    }
+  );
+
 // Reg No: e.g. CS-2026-0147
 export const REG_NO_REGEX = /^[A-Z]{2,4}-\d{4}-\d{3,5}$/;
 
@@ -26,7 +47,7 @@ export const StudentSchema = z.object({
   phone: z.string().regex(PAK_PHONE_REGEX, { message: 'Invalid Pakistani mobile number format (e.g. 0300-1234567)' }),
   email: z.string().email('Invalid email address format'),
   address: z.string().min(5, 'Address must be at least 5 characters').max(200, 'Address cannot exceed 200 characters'),
-  emergency_contact: z.string().min(3, 'Emergency contact name/phone required').max(100),
+  emergency_contact: EmergencyContactSchema,
   attendance: z.number().min(0, 'Attendance must be between 0 and 100').max(100, 'Attendance must be between 0 and 100'),
   remarks: z.string().max(500, 'Remarks cannot exceed 500 characters').optional().nullable(),
 }).refine(
@@ -55,7 +76,7 @@ export const FieldValidators: Record<string, z.ZodType<any>> = {
   phone: z.string().regex(PAK_PHONE_REGEX, 'Must be valid Pakistani mobile (e.g. 0300-1234567)'),
   email: z.string().email('Must be valid email'),
   address: z.string().min(5).max(200),
-  emergency_contact: z.string().min(3).max(100),
+  emergency_contact: EmergencyContactSchema,
   attendance: z.number().min(0).max(100),
   remarks: z.string().max(500).optional().nullable(),
 };

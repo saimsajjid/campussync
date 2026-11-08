@@ -18,6 +18,9 @@ import { demoRoutes } from './routes/demo.js';
 
 dotenv.config();
 
+import { validateProductionSecrets, DEFAULT_JWT_SECRET, INSECURE_JWT_SECRETS } from './config/security.js';
+export { validateProductionSecrets, DEFAULT_JWT_SECRET, INSECURE_JWT_SECRETS };
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -29,6 +32,9 @@ const fastify = Fastify({
 
 async function main() {
   try {
+    // 0. Production Secret Enforcement
+    validateProductionSecrets();
+
     // 1. Database Migrations & Initial Seed
     try {
       await runMigrations();
@@ -63,9 +69,25 @@ async function main() {
       await fastify.register(fastifyStatic, {
         root: webDistPath,
         prefix: '/',
+        setHeaders: (res, pathName) => {
+          if (pathName.endsWith('sw.js') || pathName.includes('workbox-')) {
+            res.setHeader('Service-Worker-Allowed', '/');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          }
+        },
       });
 
       fastify.setNotFoundHandler((req, reply) => {
+        const accept = req.headers.accept || '';
+        const url = req.raw.url || '';
+        const isApi = url.startsWith('/sync') || url.startsWith('/auth') || url.startsWith('/conflicts') ||
+                      url.startsWith('/students') || url.startsWith('/admin') || url.startsWith('/demo') ||
+                      url.startsWith('/events') || url.startsWith('/health') || url.startsWith('/config');
+
+        if (req.method === 'GET' && accept.includes('text/html') && !isApi) {
+          return reply.sendFile('index.html');
+        }
+
         return reply.status(404).send({
           error: 'Endpoint not found',
           path: req.raw.url,
@@ -86,4 +108,7 @@ async function main() {
   }
 }
 
-main();
+const isMain = process.argv[1] && (process.argv[1].endsWith('index.ts') || process.argv[1].endsWith('index.js'));
+if (isMain) {
+  main();
+}

@@ -1,12 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '../db';
-import type { CurrentUser, CampusCode, SimulatorState, OutboxOperation, StudentRecord } from '../types';
+import type { CurrentUser, CampusCode, SimulatorState, StudentRecord } from '../types';
+import { queueOperationAtomically } from '../sync/outbox';
 import {
   fetchSnapshot,
   pushBatch,
   pullChanges,
   injectRemoteConflictServer,
   resetDemoServer,
+  fetchCurrentUser,
+  fetchServerConfig,
+  loginUser,
+  logoutUser,
 } from '../services/api';
 
 export const DEMO_USERS: CurrentUser[] = [
@@ -34,6 +39,18 @@ export const DEMO_USERS: CurrentUser[] = [
   },
 ];
 
+export interface DuplicateRecordInfo {
+  isOpen: boolean;
+  reason: string;
+  existingRecordId?: string;
+  opId?: string;
+  studentId?: string;
+  studentName?: string;
+  regNo?: string;
+  cnic?: string;
+  isOfflineSync?: boolean;
+}
+
 interface ToastItem {
   id: string;
   message: string;
@@ -41,8 +58,15 @@ interface ToastItem {
 }
 
 interface AppContextType {
-  currentUser: CurrentUser;
-  setCurrentUser: (user: CurrentUser) => void;
+  currentUser: CurrentUser | null;
+  setCurrentUser: (user: CurrentUser | null) => void;
+  isLoggedIn: boolean;
+  authLoading: boolean;
+  isDemoMode: boolean;
+  duplicateRecordPrompt: DuplicateRecordInfo | null;
+  setDuplicateRecordPrompt: React.Dispatch<React.SetStateAction<DuplicateRecordInfo | null>>;
+  login: (email: string, password?: string) => Promise<CurrentUser>;
+  logout: () => Promise<void>;
   activeCampus: CampusCode | 'all';
   setActiveCampus: (campus: CampusCode | 'all') => void;
   simulator: SimulatorState;
@@ -67,11 +91,90 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<CurrentUser>(DEMO_USERS[0]);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
+  const [duplicateRecordPrompt, setDuplicateRecordPrompt] = useState<DuplicateRecordInfo | null>(null);
   const [activeCampus, setActiveCampus] = useState<CampusCode | 'all'>('all');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const isSyncingRef = useRef(false);
+
+  // 1. Initial Authentication Check and Server Config
+  useEffect(() => {
+    let isMounted = true;
+    async function checkAuthSession() {
+      try {
+        const [meRes, configRes] = await Promise.allSettled([
+          fetchCurrentUser(),
+          fetchServerConfig(),
+        ]);
+
+        if (isMounted) {
+          if (configRes.status === 'fulfilled') {
+            setIsDemoMode(Boolean(configRes.value.demoMode));
+          }
+          if (meRes.status === 'fulfilled' && meRes.value.user) {
+            setCurrentUser(meRes.value.user);
+            setIsLoggedIn(true);
+            if (meRes.value.demoMode !== undefined) {
+              setIsDemoMode(Boolean(meRes.value.demoMode));
+            }
+          } else {
+            setCurrentUser(null);
+            setIsLoggedIn(false);
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setCurrentUser(null);
+          setIsLoggedIn(false);
+        }
+      } finally {
+        if (isMounted) {
+          setAuthLoading(false);
+        }
+      }
+    }
+    checkAuthSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Listen for duplicate_record events from Sync Engine
+  useEffect(() => {
+    const handleDuplicate = (e: any) => {
+      const detail = e.detail;
+      if (detail) {
+        setDuplicateRecordPrompt({
+          isOpen: true,
+          reason: detail.reason || 'Duplicate record detected on server.',
+          existingRecordId: detail.existingRecordId || detail.studentId,
+          opId: detail.opId,
+          studentId: detail.studentId,
+          isOfflineSync: detail.isOfflineSync,
+        });
+      }
+    };
+    window.addEventListener('campussync:duplicate_record', handleDuplicate);
+    return () => window.removeEventListener('campussync:duplicate_record', handleDuplicate);
+  }, []);
+
+  const login = async (email: string, password = 'password123'): Promise<CurrentUser> => {
+    const res = await loginUser(email, password);
+    setCurrentUser(res.user);
+    setIsLoggedIn(true);
+    await hydrateFromServer();
+    return res.user;
+  };
+
+  const logout = async () => {
+    await logoutUser();
+    setCurrentUser(null);
+    setIsLoggedIn(false);
+  };
 
   const [simulator, setSimulator] = useState<SimulatorState>({
     isOffline: false,
@@ -196,6 +299,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         for (const res of pushRes.results) {
           if (res.status === 'applied' || res.status === 'duplicate') {
             await db.outbox.delete(res.opId);
+            await db.history.filter((h) => h.opId === res.opId).modify({ isPending: false });
             if (res.status === 'duplicate') {
               addToast(`Idempotency verified: duplicate opId ${res.opId} safely acknowledged!`, 'info');
             }
@@ -211,6 +315,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               errorReason: res.reason,
             });
             addToast(`Server rejected operation: ${res.reason}`, 'danger');
+          } else if (res.status === 'duplicate_record') {
+            await db.outbox.update(res.opId, {
+              status: 'failed',
+              errorReason: res.reason || 'Duplicate record detected on server',
+            });
+            setDuplicateRecordPrompt({
+              isOpen: true,
+              reason: res.reason || 'A student with the same registration number or CNIC already exists on the server.',
+              existingRecordId: res.existingRecordId || res.studentId,
+              studentName: res.studentName,
+              regNo: res.regNo,
+              cnic: res.cnic,
+              opId: res.opId,
+              studentId: res.studentId,
+              isOfflineSync: true,
+            });
+            addToast(`Duplicate record detected: ${res.reason}`, 'warning');
           }
         }
       }
@@ -223,7 +344,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (pullRes.changes && pullRes.changes.length > 0) {
         for (const change of pullRes.changes) {
           // Merge history entry
-          await db.history.put(change);
+          await db.history.put({
+            ...change,
+            isPending: false,
+          });
 
           // Update student record if exists locally
           const s = await db.students.get(change.studentId);
@@ -288,7 +412,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [hydrateFromServer, syncNow]);
 
-  // 4. Queue Edit Operation (Offline-First Outbox Pattern)
+  // 4. Queue Edit Operation (Offline-First Outbox Pattern via Pure Outbox Module)
   const queueEditOperation = async (
     studentId: string,
     field: string,
@@ -298,65 +422,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     type: 'edit' | 'create' | 'resolve' | 'restore' = 'edit',
     studentData?: Partial<StudentRecord>
   ) => {
-    const student = await db.students.get(studentId);
-    const opId = 'op-' + Math.random().toString(36).substring(2, 9);
-
-    if (student) {
-      const newFieldVersions = {
-        ...student.field_versions,
-        [field]: (student.field_versions[field] || baseVersion) + 1,
-      };
-
-      const updatedStudent: StudentRecord = {
-        ...student,
-        [field]: newValue,
-        field_versions: newFieldVersions,
-        version: student.version + 1,
-        updated_at: new Date().toISOString(),
-        last_editor_id: currentUser.name,
-      };
-
-      // 1. Optimistic write to local Dexie student table
-      await db.students.put(updatedStudent);
-
-      // 2. Add local audit entry
-      await db.history.add({
-        id: Date.now(),
-        studentId,
-        studentName: student.full_name,
-        reg_no: student.reg_no,
-        field,
-        oldValue,
-        newValue,
-        fieldVersionAfter: newFieldVersions[field],
-        type,
-        actorName: currentUser.name,
-        actorRole: currentUser.role,
-        actorCampus: student.campus,
-        device: simulator.currentDeviceId,
-        opId,
-        createdAt: new Date().toISOString(),
-      });
-    }
-
-    // 3. Queue in Local Outbox
-    const op: OutboxOperation = {
-      opId,
+    // Atomically commit local student record mutation, local audit log, and outbox queue entry
+    // in a single IndexedDB (Dexie) transaction using pure outbox module
+    const op = await queueOperationAtomically(db, {
       studentId,
       field,
-      newValue: studentData || newValue,
+      newValue,
       oldValue,
       baseVersion,
       deviceId: simulator.currentDeviceId,
       type,
-      status: simulator.isOffline ? 'pending' : 'syncing',
-      retryCount: 0,
-      createdAt: new Date().toISOString(),
-    };
-    await db.outbox.put(op);
+      studentData,
+      actorName: currentUser?.name || 'Local User',
+      actorRole: currentUser?.role || 'student',
+      actorCampus: currentUser?.campus,
+      isOffline: simulator.isOffline,
+    });
 
     if (simulator.isOffline) {
-      addToast(`Offline: Operation ${opId} safely queued in Outbox.`, 'warning');
+      addToast(`Offline: Operation ${op.opId} safely queued in Outbox.`, 'warning');
       return;
     }
 
@@ -398,6 +482,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         currentUser,
         setCurrentUser,
+        isLoggedIn,
+        authLoading,
+        isDemoMode,
+        duplicateRecordPrompt,
+        setDuplicateRecordPrompt,
+        login,
+        logout,
         activeCampus,
         setActiveCampus,
         simulator,

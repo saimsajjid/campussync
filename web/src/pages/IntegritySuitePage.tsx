@@ -126,11 +126,11 @@ export const IntegritySuitePage: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-6 h-6 text-emerald-600" />
-            <h1 className="text-xl sm:text-2xl font-bold text-[#1E293B] tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-text-dark)] tracking-tight">
               SQL Integrity Suite (The Proof Moment)
             </h1>
           </div>
-          <p className="text-xs text-[#6B7280] mt-1">
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">
             FR-12 & Architecture §8: Automated SQL queries proving data correctness under all network failures.
           </p>
         </div>
@@ -138,7 +138,7 @@ export const IntegritySuitePage: React.FC = () => {
         <button
           onClick={runAllChecks}
           disabled={isRunning}
-          className="px-5 py-2.5 bg-[#4F7DF3] hover:bg-[#3E6AE1] disabled:opacity-40 text-white rounded-xl text-xs font-bold shadow-md shadow-[#4F7DF3]/20 flex items-center gap-2 transition-all self-start sm:self-auto"
+          className="px-5 py-2.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] disabled:opacity-40 text-white rounded-xl text-xs font-bold shadow-md shadow-[var(--color-primary)]/20 flex items-center gap-2 transition-all self-start sm:self-auto"
         >
           {isRunning ? (
             <RotateCcw className="w-4 h-4 animate-spin" />
@@ -176,17 +176,17 @@ export const IntegritySuitePage: React.FC = () => {
         {checks.map((chk, idx) => (
           <div
             key={chk.id}
-            className="bg-white rounded-2xl border border-[#E5E7EB] p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
+            className="bg-white rounded-2xl border border-[var(--color-border-subtle)] p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
           >
             <div className="space-y-1 flex-1">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[11px] font-bold text-[#6B7280] bg-[#F1F5F9] px-2 py-0.5 rounded">
+                <span className="font-mono text-[11px] font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-slate-100)] px-2 py-0.5 rounded">
                   #{idx + 1}
                 </span>
-                <span className="font-bold text-sm text-[#1E293B]">{chk.title}</span>
+                <span className="font-bold text-sm text-[var(--color-text-dark)]">{chk.title}</span>
               </div>
-              <p className="text-xs text-[#6B7280]">{chk.description}</p>
-              <div className="font-mono text-[11px] text-[#475569] bg-[#F8FAFC] border border-[#E2E8F0] p-2 rounded-lg mt-2 overflow-x-auto">
+              <p className="text-xs text-[var(--color-text-muted)]">{chk.description}</p>
+              <div className="font-mono text-[11px] text-[var(--color-text-secondary)] bg-[var(--color-surface-muted)] border border-[var(--color-border-light)] p-2 rounded-lg mt-2 overflow-x-auto">
                 {chk.sqlQuery}
               </div>
             </div>
@@ -199,13 +199,13 @@ export const IntegritySuitePage: React.FC = () => {
                 </div>
               )}
               {chk.status === 'running' && (
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[#4F7DF3] bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-xl">
-                  <RotateCcw className="w-4 h-4 animate-spin text-[#4F7DF3]" />
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-primary)] bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-xl">
+                  <RotateCcw className="w-4 h-4 animate-spin text-[var(--color-primary)]" />
                   <span>Checking...</span>
                 </div>
               )}
               {chk.status === 'idle' && (
-                <span className="text-xs font-semibold text-[#94A3B8] bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
+                <span className="text-xs font-semibold text-[var(--color-text-light)] bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
                   Ready to test
                 </span>
               )}

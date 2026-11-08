@@ -33,23 +33,35 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
     );
 
     return reply.send({
-      history: historyRes.rows.map((r) => ({
-        id: parseInt(r.id, 10),
-        studentId: r.student_id,
-        studentName: r.studentName,
-        reg_no: r.reg_no,
-        field: r.field,
-        oldValue: safeJsonParse(r.old_value),
-        newValue: safeJsonParse(r.new_value),
-        fieldVersionAfter: r.field_version_after,
-        type: r.type,
-        actorName: r.actor_id,
-        actorRole: r.actor_role,
-        actorCampus: r.actor_campus,
-        device: r.device_id,
-        opId: r.op_id,
-        createdAt: r.created_at,
-      })),
+      history: historyRes.rows.map((r) => {
+        let oldVal = safeJsonParse(r.old_value);
+        let newVal = safeJsonParse(r.new_value);
+        if (r.field === 'attendance') {
+          if (oldVal !== null && oldVal !== undefined) oldVal = Number(oldVal);
+          if (newVal !== null && newVal !== undefined) newVal = Number(newVal);
+        } else if (r.type === 'create' && newVal && typeof newVal === 'object') {
+          if (newVal.attendance !== undefined && newVal.attendance !== null) {
+            newVal.attendance = Number(newVal.attendance);
+          }
+        }
+        return {
+          id: parseInt(r.id, 10),
+          studentId: r.student_id,
+          studentName: r.studentName,
+          reg_no: r.reg_no,
+          field: r.field,
+          oldValue: oldVal,
+          newValue: newVal,
+          fieldVersionAfter: r.field_version_after,
+          type: r.type,
+          actorName: r.actor_id,
+          actorRole: r.actor_role,
+          actorCampus: r.actor_campus,
+          device: r.device_id,
+          opId: r.op_id,
+          createdAt: r.created_at,
+        };
+      }),
     });
   });
 
@@ -94,6 +106,12 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
     const cursorRes = await pool.query('SELECT COALESCE(MAX(id), 0) as max_cursor FROM history');
     eventBroker.broadcast('sync_event', { cursor: parseInt(cursorRes.rows[0].max_cursor, 10) });
 
-    return reply.send({ success: true, result });
+    const updatedStudentRes = await pool.query('SELECT * FROM students WHERE id = $1', [id]);
+    const updatedStudent = updatedStudentRes.rows[0];
+    if (updatedStudent && updatedStudent.attendance !== null && updatedStudent.attendance !== undefined) {
+      updatedStudent.attendance = Number(updatedStudent.attendance);
+    }
+
+    return reply.send({ success: true, result, student: updatedStudent });
   });
 };

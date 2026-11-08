@@ -2,6 +2,22 @@ import { pool } from '../db/pool.js';
 import { safeJsonParse } from '../utils/json.js';
 import type { IntegrityCheckResult, IntegritySuiteResponse, StudentRecord } from '@campussync/shared';
 
+const ALLOWED_FIELDS = new Set([
+  'reg_no',
+  'cnic',
+  'full_name',
+  'program',
+  'campus',
+  'semester',
+  'status',
+  'phone',
+  'email',
+  'address',
+  'emergency_contact',
+  'attendance',
+  'remarks',
+]);
+
 export async function runIntegritySuite(): Promise<IntegritySuiteResponse> {
   const client = await pool.connect();
   const checks: IntegrityCheckResult[] = [];
@@ -148,25 +164,44 @@ export async function runIntegritySuite(): Promise<IntegritySuiteResponse> {
 
     // 6. Invariant 6: No Silent Edit Loss
     // Every operation in processed_ops maps to an applied history row, an open/resolved conflict, or a rejection
-    const processedOpsRes = await client.query('SELECT op_id, result FROM processed_ops');
+    const processedOpsRes = await client.query('SELECT op_id, result, created_at FROM processed_ops');
     const lostEdits: any[] = [];
     for (const op of processedOpsRes.rows) {
       const res = safeJsonParse(op.result);
       if (res?.status === 'applied') {
         if (res.isNoOp) {
-          // Verify that isNoOp cannot hide lost edits: student must exist and value must match
-          if (!res.studentId || !res.field) {
-            lostEdits.push({ opId: op.op_id, reason: 'Invalid no-op operation missing student or field reference' });
+          // Whitelist field names strictly; never interpolate into SQL
+          if (!res.studentId || !res.field || !ALLOWED_FIELDS.has(res.field)) {
+            lostEdits.push({ opId: op.op_id, reason: 'Invalid or disallowed field in no-op operation' });
             continue;
           }
-          const sCheck = await client.query(`SELECT ${res.field} FROM students WHERE id = $1`, [res.studentId]);
-          if (sCheck.rows.length === 0) {
-            lostEdits.push({ opId: op.op_id, reason: 'No-op operation references non-existent student' });
+
+          // Verify no-op value against the field's history at that point in time
+          const histCheck = await client.query(
+            `SELECT field, new_value FROM history
+             WHERE student_id = $1 AND (field = $2 OR field = '*') AND created_at <= COALESCE($3, NOW())
+             ORDER BY id DESC LIMIT 1`,
+            [res.studentId, res.field, op.created_at]
+          );
+
+          if (histCheck.rows.length === 0) {
+            lostEdits.push({ opId: op.op_id, reason: 'No prior history ledger entry found at time of no-op op' });
             continue;
           }
-          const currentVal = sCheck.rows[0][res.field];
-          if (JSON.stringify(currentVal) !== JSON.stringify(res.serverValue)) {
-            lostEdits.push({ opId: op.op_id, reason: 'No-op operation value does not match current student state' });
+
+          let valAtTime: any;
+          if (histCheck.rows[0].field === '*') {
+            const parsed = safeJsonParse(histCheck.rows[0].new_value);
+            valAtTime = parsed ? parsed[res.field] : undefined;
+          } else {
+            valAtTime = safeJsonParse(histCheck.rows[0].new_value);
+          }
+
+          if (JSON.stringify(valAtTime) !== JSON.stringify(res.serverValue)) {
+            lostEdits.push({
+              opId: op.op_id,
+              reason: `No-op value discrepancy at time of operation: expected ${JSON.stringify(valAtTime)}, recorded ${JSON.stringify(res.serverValue)}`,
+            });
             continue;
           }
           continue;
@@ -193,19 +228,77 @@ export async function runIntegritySuite(): Promise<IntegritySuiteResponse> {
     });
 
     // 7. Invariant 7: Append-Only History Tampering Guard
+    // Active verification: actually attempt UPDATE and DELETE on a history row in a rolled-back transaction.
+    // Both operations MUST throw an exception from the trigger. If either succeeds, or if the trigger is missing, check fails.
+    let updateBlocked = false;
+    let deleteBlocked = false;
+    const mutationErrors: string[] = [];
+
+    const sampleRowRes = await client.query('SELECT id FROM history ORDER BY id ASC LIMIT 1');
+    const sampleRowId = sampleRowRes.rows[0]?.id;
+
+    if (sampleRowId) {
+      await client.query('BEGIN');
+      try {
+        // 1. Attempt UPDATE
+        await client.query('SAVEPOINT sp_update');
+        let updateSucceeded = false;
+        try {
+          await client.query("UPDATE history SET field = 'tampered' WHERE id = $1", [sampleRowId]);
+          updateSucceeded = true;
+        } catch (e: any) {
+          updateBlocked = true;
+          mutationErrors.push(`UPDATE blocked as expected: ${e.message}`);
+        } finally {
+          await client.query('ROLLBACK TO SAVEPOINT sp_update');
+        }
+        if (updateSucceeded) {
+          updateBlocked = false;
+        }
+
+        // 2. Attempt DELETE
+        await client.query('SAVEPOINT sp_delete');
+        let deleteSucceeded = false;
+        try {
+          await client.query('DELETE FROM history WHERE id = $1', [sampleRowId]);
+          deleteSucceeded = true;
+        } catch (e: any) {
+          deleteBlocked = true;
+          mutationErrors.push(`DELETE blocked as expected: ${e.message}`);
+        } finally {
+          await client.query('ROLLBACK TO SAVEPOINT sp_delete');
+        }
+        if (deleteSucceeded) {
+          deleteBlocked = false;
+        }
+      } finally {
+        await client.query('ROLLBACK');
+      }
+    }
+
+    // Also verify trigger catalog presence
     const triggerRes = await client.query(`
       SELECT tgname, tgenabled FROM pg_trigger
       WHERE tgname = 'trg_prevent_history_update'
     `);
     const isTriggerActive = triggerRes.rows.length > 0 && triggerRes.rows[0].tgenabled === 'O';
+
+    const appendOnlyPassed = isTriggerActive && updateBlocked && deleteBlocked;
     checks.push({
       id: 'inv-append-only',
       name: 'Append-Only Ledger Enforcement',
       invariant: 'History entries cannot be edited or deleted by any user or database role',
-      description: 'Verifies database trigger prevents UPDATE or DELETE actions on history rows.',
-      status: isTriggerActive ? 'passed' : 'failed',
-      offendingRowsCount: isTriggerActive ? 0 : 1,
-      details: isTriggerActive ? [{ status: 'Active DB Trigger trg_prevent_history_update' }] : [{ error: 'Trigger inactive' }],
+      description: 'Active mutation verification: attempts UPDATE and DELETE on history in a rolled-back transaction; both must fail.',
+      status: appendOnlyPassed ? 'passed' : 'failed',
+      offendingRowsCount: appendOnlyPassed ? 0 : (!updateBlocked ? 1 : 0) + (!deleteBlocked ? 1 : 0) + (!isTriggerActive ? 1 : 0),
+      details: [
+        {
+          triggerActive: isTriggerActive,
+          updateBlocked,
+          deleteBlocked,
+          mutationErrors,
+        },
+      ],
     });
 
     const allPassed = checks.every((c) => c.status === 'passed');

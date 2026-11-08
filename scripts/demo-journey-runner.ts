@@ -47,11 +47,15 @@ async function executeSingleJourney(runNumber: number): Promise<RunSummary> {
   console.log(`Executing Demo Journey Rehearsal - Run #${runNumber}`);
   console.log(`======================================================\n`);
 
-  // Step 0: Clean reset
-  await fetch(`${BASE_URL}/demo/reset`, { method: 'POST' });
-
   const adminToken = await login('admin@campussync.local');
   const studentToken = await login('student@campussync.local');
+
+  // Step 0: Clean reset
+  await fetch(`${BASE_URL}/demo/reset`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
+
   const targetStudentId = '10000000-0000-0000-0000-000000000001'; // Ali Raza
 
   // Step 1: Setup - Record exists on student and admin devices

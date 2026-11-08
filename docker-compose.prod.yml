@@ -1,66 +1,16 @@
-version: "3.8"
-
 services:
   db:
-    image: postgres:16-alpine
     container_name: campussync-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: campussync
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-campussync_secure_pwd_2026}
-      POSTGRES_DB: campussync
-    # Postgres is purely internal to prevent host port conflict
-    expose:
-      - "5432"
-    volumes:
-      - campussync_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U campussync -d campussync"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 1024M
-          cpus: '1.0'
-    networks:
-      - campussync-net
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/saimsajjid/campussync:latest
     container_name: campussync-app
-    restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://campussync:${DB_PASSWORD:-campussync_secure_pwd_2026}@db:5432/campussync
-      JWT_SECRET: ${JWT_SECRET:-campussync-hackathon-supersecret-jwt-key-2026}
-      COOKIE_SECRET: ${COOKIE_SECRET:-campussync-hackathon-cookie-secret-key-32chars}
-      DEMO_MODE: "true"
-      PORT: 3050
-      HOST: 0.0.0.0
-    ports:
-      - "3050:3050"
-    depends_on:
-      db:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 1024M
-          cpus: '1.0'
+      COOKIE_SECURE: "true"
     networks:
-      - campussync-net
+      - default
       - coolify
 
-volumes:
-  campussync_pgdata:
-    name: campussync_pgdata
-
 networks:
-  campussync-net:
-    name: campussync-net
-    driver: bridge
   coolify:
     external: true

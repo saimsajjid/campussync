@@ -86,6 +86,25 @@ describe('Section 4: Field Validation (Zod Schemas)', () => {
     assert.equal(FieldValidators.email.safeParse('@missinguser.com').success, false);
   });
 
+  it('VA-11: Emergency contact must be name + valid phone (matrix VA-11)', () => {
+    // Phone-only -> MUST FAIL
+    assert.equal(FieldValidators.emergency_contact.safeParse('0300-1234567').success, false);
+    assert.equal(FieldValidators.emergency_contact.safeParse('03219998877').success, false);
+
+    // Name-only -> MUST FAIL
+    assert.equal(FieldValidators.emergency_contact.safeParse('Muhammad Tariq').success, false);
+    assert.equal(FieldValidators.emergency_contact.safeParse('Mother').success, false);
+
+    // Empty -> MUST FAIL
+    assert.equal(FieldValidators.emergency_contact.safeParse('').success, false);
+    assert.equal(FieldValidators.emergency_contact.safeParse('   ').success, false);
+
+    // Valid (name + phone) -> MUST PASS
+    assert.equal(FieldValidators.emergency_contact.safeParse('Tariq Khan (Father) - 0300-9988776').success, true);
+    assert.equal(FieldValidators.emergency_contact.safeParse('Guardian 0321-9998877').success, true);
+    assert.equal(FieldValidators.emergency_contact.safeParse('Mrs. Noor - 03338889900').success, true);
+  });
+
   it('VA-12: Attendance range 0 to 100', () => {
     assert.equal(FieldValidators.attendance.safeParse(0).success, true);
     assert.equal(FieldValidators.attendance.safeParse(100).success, true);

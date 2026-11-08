@@ -1,37 +1,38 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
 
 @theme {
-  --color-primary: #4F7DF3;
-  --color-primary-hover: #3E6AE1;
-  --color-primary-light: #EBF0FF;
-  --color-surface-bg: #F4F6FA;
-  --color-text-dark: #1E293B;
-  --color-text-muted: #6B7280;
-  --color-border-subtle: #E5E7EB;
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-primary-light: var(--color-primary-light);
+  --color-surface-bg: var(--color-surface-bg);
+  --color-text-dark: var(--color-text-dark);
+  --color-text-muted: var(--color-text-muted);
+  --color-border-subtle: var(--color-border-subtle);
   
-  --color-status-synced-bg: #DCFCE7;
-  --color-status-synced-text: #15803D;
-  --color-status-synced-border: #BBF7D0;
+  --color-status-synced-bg: var(--color-status-synced-bg);
+  --color-status-synced-text: var(--color-status-synced-text);
+  --color-status-synced-border: var(--color-status-synced-border);
 
-  --color-status-pending-bg: #FEF3C7;
-  --color-status-pending-text: #B45309;
-  --color-status-pending-border: #FDE68A;
+  --color-status-pending-bg: var(--color-status-pending-bg);
+  --color-status-pending-text: var(--color-status-pending-text);
+  --color-status-pending-border: var(--color-status-pending-border);
 
-  --color-status-conflict-bg: #FEE2E2;
-  --color-status-conflict-text: #B91C1C;
-  --color-status-conflict-border: #FECACA;
+  --color-status-conflict-bg: var(--color-status-conflict-bg);
+  --color-status-conflict-text: var(--color-status-conflict-text);
+  --color-status-conflict-border: var(--color-status-conflict-border);
 
-  --color-status-rejected-bg: #FFF1F2;
-  --color-status-rejected-text: #9F1239;
-  --color-status-rejected-border: #FECDD3;
+  --color-status-rejected-bg: var(--color-status-rejected-bg);
+  --color-status-rejected-text: var(--color-status-rejected-text);
+  --color-status-rejected-border: var(--color-status-rejected-border);
 }
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0;
   padding: 0;
-  background-color: #F4F6FA;
-  color: #1E293B;
+  background-color: var(--color-surface-bg);
+  color: var(--color-text-dark);
 }
 
 @keyframes pulse-dot {

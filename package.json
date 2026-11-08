@@ -1,0 +1,14 @@
+{
+  "name": "campussync",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "tsx scripts/test-sync-engine.ts"
+  },
+  "devDependencies": {
+    "dexie": "^4.4.7",
+    "fake-indexeddb": "^6.2.7",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}

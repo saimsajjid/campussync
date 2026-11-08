@@ -1,16 +1,11 @@
-version: "3.8"
-
 services:
   db:
     image: postgres:16-alpine
-    container_name: campussync-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: campussync
       POSTGRES_PASSWORD: change-me
       POSTGRES_DB: campussync
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -23,17 +18,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: campussync-app
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://campussync:change-me@db:5432/campussync
-      JWT_SECRET: change-me-to-a-long-random-string
-      COOKIE_SECRET: change-me-cookie-secret-key-32chars
-      DEMO_MODE: "true"
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: ${DATABASE_URL:-postgres://campussync:change-me@db:5432/campussync}
+      JWT_SECRET: ${JWT_SECRET:-9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e}
+      COOKIE_SECRET: ${COOKIE_SECRET:-3a1b4c7d0e2f5a8b1c4d7e0f2a5b8c1d4e7f0a2b5c8d1e4f7a0b2c5d8e1f4a7b}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      DEMO_MODE: ${DEMO_MODE:-true}
       PORT: 3050
       HOST: 0.0.0.0
     ports:
-      - "3050:3050"
+      - "${CAMPUSSYNC_PORT:-3050}:3050"
     depends_on:
       db:
         condition: service_healthy

@@ -1,0 +1,76 @@
+:root {
+  /* Brand / Primary */
+  --color-primary: #4F7DF3;
+  --color-primary-hover: #3E6AE1;
+  --color-primary-light: #EBF0FF;
+  --color-primary-dark: #1E40AF;
+  --color-primary-deep: #1E3A8A;
+  --color-primary-blue-500: #3B82F6;
+  --color-primary-blue-600: #2563EB;
+  --color-primary-10: rgba(79, 125, 243, 0.1);
+  --color-primary-20: rgba(79, 125, 243, 0.2);
+  --color-primary-30: rgba(79, 125, 243, 0.3);
+
+  /* Surfaces & Backgrounds */
+  --color-surface-bg: #F4F6FA;
+  --color-surface-card: #FFFFFF;
+  --color-surface-muted: #F8FAFC;
+  --color-surface-slate-100: #F1F5F9;
+  --color-surface-dark: #0F172A;
+  --color-surface-slate-800: #1E293B;
+
+  /* Text Colors */
+  --color-text-dark: #1E293B;
+  --color-text-muted: #6B7280;
+  --color-text-secondary: #475569;
+  --color-text-subtle: #64748B;
+  --color-text-light: #94A3B8;
+
+  /* Borders */
+  --color-border-subtle: #E5E7EB;
+  --color-border-muted: #CBD5E1;
+  --color-border-light: #E2E8F0;
+
+  /* Status: Synced / Success */
+  --color-status-synced-bg: #DCFCE7;
+  --color-status-synced-text: #15803D;
+  --color-status-synced-border: #BBF7D0;
+  --color-status-synced-dark: #166534;
+  --color-status-success-green: #22C55E;
+  --color-status-success-emerald: #16A34A;
+  --color-status-success-bg: #F0FDF4;
+
+  /* Status: Pending / Warning */
+  --color-status-pending-bg: #FEF3C7;
+  --color-status-pending-text: #B45309;
+  --color-status-pending-border: #FDE68A;
+  --color-status-pending-dark: #92400E;
+  --color-status-warning-amber: #F59E0B;
+  --color-status-warning-orange: #D97706;
+  --color-status-orange-light: #FFEDD5;
+  --color-status-orange-border: #FED7AA;
+  --color-status-orange-text: #9A3412;
+
+  /* Status: Conflict / Danger */
+  --color-status-conflict-bg: #FEE2E2;
+  --color-status-conflict-text: #B91C1C;
+  --color-status-conflict-border: #FECACA;
+  --color-status-danger-red: #EF4444;
+  --color-status-danger-dark: #DC2626;
+  --color-status-danger-subtle: #FEF2F2;
+  --color-status-danger-text: #991B1B;
+
+  /* Status: Rejected / Rose */
+  --color-status-rejected-bg: #FFF1F2;
+  --color-status-rejected-text: #9F1239;
+  --color-status-rejected-border: #FECDD3;
+
+  /* Status: Info / Role */
+  --color-status-info-bg: #EFF6FF;
+  --color-status-info-text: #1D4ED8;
+  --color-status-info-light: #DBEAFE;
+  --color-status-info-border: #BFDBFE;
+  --color-status-sky-light: #F0F9FF;
+  --color-status-sky-border: #BAE6FD;
+  --color-status-sky-text: #0369A1;
+}

@@ -30,10 +30,12 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     const user: CurrentUser = userRes.rows[0];
     const token = jwt.sign(user, JWT_SECRET, { expiresIn: '7d' });
 
+    const isSecure = process.env.COOKIE_SECURE === 'true';
+
     reply.setCookie('campussync_token', token, {
       path: '/',
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60,
     });
@@ -56,9 +58,18 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as CurrentUser;
-      return reply.send({ user: decoded });
+      return reply.send({
+        user: decoded,
+        demoMode: process.env.DEMO_MODE === 'true',
+      });
     } catch (err) {
       return reply.status(401).send({ error: 'Invalid or expired session' });
     }
+  });
+
+  fastify.get('/auth/config', async (request, reply) => {
+    return reply.send({
+      demoMode: process.env.DEMO_MODE === 'true',
+    });
   });
 };
