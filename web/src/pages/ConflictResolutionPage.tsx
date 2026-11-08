@@ -52,19 +52,24 @@ export const ConflictResolutionPage: React.FC = () => {
       return;
     }
 
-    let finalValue = conflict.serverValue;
+    const studentId = conflict.studentId || (conflict as any).student_id;
+    const serverVal = conflict.serverValue !== undefined ? conflict.serverValue : (conflict as any).server_value;
+    const incomingVal = conflict.incomingValue !== undefined ? conflict.incomingValue : (conflict as any).incoming_value;
+    const sVersion = conflict.serverVersion !== undefined ? conflict.serverVersion : (conflict as any).server_version;
+
+    let finalValue = serverVal;
     if (decision.choice === 'mine') {
-      finalValue = conflict.incomingValue;
+      finalValue = incomingVal;
     } else if (decision.choice === 'custom') {
-      finalValue = decision.customValue || conflict.serverValue;
+      finalValue = decision.customValue || serverVal;
     }
 
     // 1. Update Student Record in Dexie
-    const student = await db.students.get(conflict.studentId);
+    const student = await db.students.get(studentId);
     if (student) {
       const updatedFieldVersions = {
         ...student.field_versions,
-        [conflict.field]: (student.field_versions[conflict.field] || conflict.serverVersion) + 1,
+        [conflict.field]: (student.field_versions[conflict.field] || sVersion) + 1,
       };
 
       const updatedStudent: StudentRecord = {
@@ -85,7 +90,7 @@ export const ConflictResolutionPage: React.FC = () => {
         studentName: student.full_name,
         reg_no: student.reg_no,
         field: conflict.field,
-        oldValue: conflict.serverValue,
+        oldValue: serverVal,
         newValue: finalValue,
         fieldVersionAfter: updatedFieldVersions[conflict.field],
         type: 'resolve',
@@ -104,7 +109,7 @@ export const ConflictResolutionPage: React.FC = () => {
         conflict.id,
         decision.choice === 'current' ? 'theirs' : decision.choice,
         decision.customValue,
-        conflict.serverVersion
+        sVersion
       );
     } catch (e: any) {
       console.warn('Backend conflict resolve sync warning:', e.message);
@@ -192,12 +197,12 @@ export const ConflictResolutionPage: React.FC = () => {
                       </div>
 
                       <div className="p-3 bg-white border border-[#E5E7EB] rounded-lg text-sm font-semibold text-[#1E293B] break-all">
-                        {String(c.incomingValue)}
+                        {String(c.incomingValue ?? (c as any).incoming_value ?? '')}
                       </div>
 
                       <div className="mt-3 text-[11px] text-[#6B7280] space-y-0.5">
-                        <div>Base Version: v{c.baseVersion}</div>
-                        <div>Edited on: {c.device}</div>
+                        <div>Base Version: v{c.baseVersion ?? (c as any).base_version ?? 1}</div>
+                        <div>Edited on: {c.device ?? (c as any).device_id ?? 'Client'}</div>
                         <div className="text-gray-400">Captured locally during offline transit</div>
                       </div>
                     </div>
@@ -225,12 +230,12 @@ export const ConflictResolutionPage: React.FC = () => {
                       </div>
 
                       <div className="p-3 bg-white border border-[#E5E7EB] rounded-lg text-sm font-semibold text-[#1E293B] break-all">
-                        {String(c.serverValue)}
+                        {String(c.serverValue ?? (c as any).server_value ?? '')}
                       </div>
 
                       <div className="mt-3 text-[11px] text-[#6B7280] space-y-0.5">
-                        <div>Server Version: v{c.serverVersion}</div>
-                        <div>Committed by: {c.actor}</div>
+                        <div>Server Version: v{c.serverVersion ?? (c as any).server_version ?? 1}</div>
+                        <div>Committed by: {c.actor ?? (c as any).actor_id ?? 'Server'}</div>
                         <div className="text-gray-400">Received concurrently from other campus</div>
                       </div>
                     </div>
