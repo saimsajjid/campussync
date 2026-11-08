@@ -20,6 +20,7 @@ export interface ApplyEditInput {
   type: OperationType;
   studentData?: Partial<StudentRecord>;
   actor: CurrentUser;
+  timestamp?: string | Date;
 }
 
 export async function processOperation(
@@ -43,10 +44,17 @@ export async function processOperation(
 
   // Helper to record result in processed_ops before returning
   const recordAndReturn = async (res: OperationResult): Promise<OperationResult> => {
-    await client.query(
-      'INSERT INTO processed_ops (op_id, result) VALUES ($1, $2)',
-      [opId, JSON.stringify(res)]
-    );
+    if (input.timestamp) {
+      await client.query(
+        'INSERT INTO processed_ops (op_id, result, created_at) VALUES ($1, $2, $3)',
+        [opId, JSON.stringify(res), input.timestamp]
+      );
+    } else {
+      await client.query(
+        'INSERT INTO processed_ops (op_id, result) VALUES ($1, $2)',
+        [opId, JSON.stringify(res)]
+      );
+    }
     return res;
   };
 
@@ -143,13 +151,23 @@ export async function processOperation(
       ]
     );
 
-    await client.query(
-      `INSERT INTO history (
-        student_id, field, old_value, new_value, field_version_after,
-        type, actor_id, actor_role, actor_campus, device_id, op_id
-      ) VALUES ($1, '*', NULL, $2, 1, 'create', $3, $4, $5, $6, $7)`,
-      [s.id, JSON.stringify(s), actor.name, actor.role, s.campus, deviceId, opId]
-    );
+    if (input.timestamp) {
+      await client.query(
+        `INSERT INTO history (
+          student_id, field, old_value, new_value, field_version_after,
+          type, actor_id, actor_role, actor_campus, device_id, op_id, created_at
+        ) VALUES ($1, '*', NULL, $2, 1, 'create', $3, $4, $5, $6, $7, $8)`,
+        [s.id, JSON.stringify(s), actor.name, actor.role, s.campus, deviceId, opId, input.timestamp]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO history (
+          student_id, field, old_value, new_value, field_version_after,
+          type, actor_id, actor_role, actor_campus, device_id, op_id
+        ) VALUES ($1, '*', NULL, $2, 1, 'create', $3, $4, $5, $6, $7)`,
+        [s.id, JSON.stringify(s), actor.name, actor.role, s.campus, deviceId, opId]
+      );
+    }
 
     return recordAndReturn({
       opId,
@@ -175,6 +193,12 @@ export async function processOperation(
 
   const student = studentRes.rows[0];
 
+  // Normalize attendance to a JavaScript number
+  let normalizedNewValue = newValue;
+  if (field === 'attendance' && newValue !== null && newValue !== undefined) {
+    normalizedNewValue = typeof newValue === 'number' ? newValue : parseFloat(newValue);
+  }
+
   // 4. Server-Side Permission Check (FR-1.2, FR-4.1)
   const perm = canUserEditField(actor.role, actor.campus, actor.student_id, field, student);
   if (!perm.allowed) {
@@ -190,7 +214,7 @@ export async function processOperation(
   // 5. Server-Side Field Validation (FR-3.3, FR-3.4)
   const validator = FieldValidators[field];
   if (validator) {
-    const valCheck = validator.safeParse(newValue);
+    const valCheck = validator.safeParse(normalizedNewValue);
     if (!valCheck.success) {
       return recordAndReturn({
         opId,
@@ -203,7 +227,7 @@ export async function processOperation(
   }
 
   // Cross-Field Check: Graduated requires semester 8
-  if (field === 'status' && newValue === 'Graduated' && student.semester !== 8) {
+  if (field === 'status' && normalizedNewValue === 'Graduated' && student.semester !== 8) {
     return recordAndReturn({
       opId,
       status: 'rejected',
@@ -212,7 +236,7 @@ export async function processOperation(
       reason: 'Cross-field invariant failed: Graduated students must be in Semester 8',
     });
   }
-  if (field === 'semester' && newValue !== 8 && student.status === 'Graduated') {
+  if (field === 'semester' && normalizedNewValue !== 8 && student.status === 'Graduated') {
     return recordAndReturn({
       opId,
       status: 'rejected',
@@ -226,7 +250,7 @@ export async function processOperation(
   if (field === 'reg_no' || field === 'cnic') {
     const dupCheck = await client.query(
       `SELECT id FROM students WHERE ${field} = $1 AND id != $2`,
-      [newValue, studentId]
+      [normalizedNewValue, studentId]
     );
     if (dupCheck.rows.length > 0) {
       return recordAndReturn({
@@ -244,13 +268,16 @@ export async function processOperation(
   const fieldVersions = safeJsonParse(student.field_versions) || {};
 
   const currentFieldVersion = fieldVersions[field] || 1;
-  const currentFieldValue = (student as any)[field];
+  let currentFieldValue = (student as any)[field];
+  if (field === 'attendance' && currentFieldValue !== null && currentFieldValue !== undefined) {
+    currentFieldValue = typeof currentFieldValue === 'number' ? currentFieldValue : parseFloat(currentFieldValue);
+  }
 
   if (type === 'edit') {
     if (baseVersion !== currentFieldVersion) {
       // Divergence detected!
       // Sub-rule: If incoming value equals the current value, it is a no-op convergence!
-      if (JSON.stringify(newValue) === JSON.stringify(currentFieldValue)) {
+      if (JSON.stringify(normalizedNewValue) === JSON.stringify(currentFieldValue)) {
         return recordAndReturn({
           opId,
           status: 'applied',
@@ -276,7 +303,7 @@ export async function processOperation(
           baseVersion,
           JSON.stringify(currentFieldValue),
           currentFieldVersion,
-          JSON.stringify(newValue),
+          JSON.stringify(normalizedNewValue),
           opId,
           actor.name,
           deviceId,
@@ -319,29 +346,52 @@ export async function processOperation(
       updated_at = NOW(),
       last_editor_id = $4
     WHERE id = $5`,
-    [newValue, JSON.stringify(fieldVersions), newRecordVersion, actor.name, studentId]
+    [normalizedNewValue, JSON.stringify(fieldVersions), newRecordVersion, actor.name, studentId]
   );
 
   // Append to History
-  await client.query(
-    `INSERT INTO history (
-      student_id, field, old_value, new_value, field_version_after,
-      type, actor_id, actor_role, actor_campus, device_id, op_id
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-    [
-      studentId,
-      field,
-      JSON.stringify(currentFieldValue),
-      JSON.stringify(newValue),
-      newFieldVersion,
-      type,
-      actor.name,
-      actor.role,
-      student.campus,
-      deviceId,
-      opId,
-    ]
-  );
+  if (input.timestamp) {
+    await client.query(
+      `INSERT INTO history (
+        student_id, field, old_value, new_value, field_version_after,
+        type, actor_id, actor_role, actor_campus, device_id, op_id, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [
+        studentId,
+        field,
+        JSON.stringify(currentFieldValue),
+        JSON.stringify(normalizedNewValue),
+        newFieldVersion,
+        type,
+        actor.name,
+        actor.role,
+        student.campus,
+        deviceId,
+        opId,
+        input.timestamp,
+      ]
+    );
+  } else {
+    await client.query(
+      `INSERT INTO history (
+        student_id, field, old_value, new_value, field_version_after,
+        type, actor_id, actor_role, actor_campus, device_id, op_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [
+        studentId,
+        field,
+        JSON.stringify(currentFieldValue),
+        JSON.stringify(normalizedNewValue),
+        newFieldVersion,
+        type,
+        actor.name,
+        actor.role,
+        student.campus,
+        deviceId,
+        opId,
+      ]
+    );
+  }
 
   return recordAndReturn({
     opId,

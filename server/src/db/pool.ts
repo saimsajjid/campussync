@@ -3,6 +3,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Ensure PostgreSQL NUMERIC (type 1700, e.g. attendance) parses as JavaScript number
+pg.types.setTypeParser(1700, (val: string) => (val === null ? null : parseFloat(val)));
+
 const { Pool } = pg;
 
 export const pool = new Pool({

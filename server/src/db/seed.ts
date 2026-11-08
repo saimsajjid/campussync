@@ -210,15 +210,15 @@ export async function seedDatabase(forceClean = false) {
           id: '10000000-0000-0000-0000-000000000010',
           reg_no: 'CS-2026-0302',
           cnic: '13101-8877665-6',
-          full_name: 'Maryam Nawaz',
+          full_name: 'Sadia Malik',
           program: 'BS CS',
           campus: 'Abbottabad',
           semester: 3,
           status: 'Active',
           phone: '0346-8899001',
-          email: 'maryam.nawaz@campussync.local',
+          email: 'sadia.malik@campussync.local',
           address: 'Pine View Road, Jinnahabad, Abbottabad',
-          emergency_contact: 'Nawaz Sharif (Father) - 0346-3344556',
+          emergency_contact: 'Tariq Malik (Father) - 0346-3344556',
           attendance: 89.0,
           remarks: 'Competitive programming team finalist.',
         },
@@ -311,12 +311,16 @@ export async function seedDatabase(forceClean = false) {
         const createOpId = 'op-seed-' + s.reg_no.toLowerCase();
 
         // Record initial create in history
+        const createTimestamp = s.id === '10000000-0000-0000-0000-000000000011'
+          ? new Date(Date.now() - 35 * 86400000)
+          : new Date();
+
         await client.query(
           `INSERT INTO history (
             student_id, field, old_value, new_value, field_version_after,
-            type, actor_id, actor_role, actor_campus, device_id, op_id
-          ) VALUES ($1, '*', NULL, $2, 1, 'create', 'Central Admin', 'admin', $3, 'System Seed', $4)`,
-          [s.id, JSON.stringify(studentPayload), s.campus, createOpId]
+            type, actor_id, actor_role, actor_campus, device_id, op_id, created_at
+          ) VALUES ($1, '*', NULL, $2, 1, 'create', 'Central Admin', 'admin', $3, 'System Seed', $4, $5)`,
+          [s.id, JSON.stringify(studentPayload), s.campus, createOpId, createTimestamp]
         );
 
         // Record create op in processed_ops for complete ledger invariant
@@ -341,24 +345,114 @@ export async function seedDatabase(forceClean = false) {
       );
 
       // 3. Create 8 sequential history entries on Student 11 (Sana Javed) via processOperation
-      // This guarantees every single invariant (monotonicity, replayability, ledger accounting) holds.
+      // Spread over the last 5 weeks with mixed actors: student (Sana), faculty (Dr. Zafar), admin (Central & Regional)
       const targetStudent11Id = '10000000-0000-0000-0000-000000000011';
-      const adminActor: CurrentUser = {
+      const now = Date.now();
+
+      const sanaStudentActor: CurrentUser = {
+        id: 'c0000000-0000-0000-0000-000000000013',
+        name: 'Sana Javed (Student)',
+        email: 'sana.javed@campussync.local',
+        role: 'student',
+        campus: 'Abbottabad',
+        student_id: targetStudent11Id,
+      };
+
+      const drZafarFacultyActor: CurrentUser = {
+        id: 'c0000000-0000-0000-0000-000000000005',
+        name: 'Dr. Zafar (Abbottabad)',
+        email: 'faculty.atd@campussync.local',
+        role: 'faculty',
+        campus: 'Abbottabad',
+      };
+
+      const centralAdminActor: CurrentUser = {
         id: 'c0000000-0000-0000-0000-000000000001',
         name: 'Central Admin',
         email: 'admin@campussync.local',
         role: 'admin',
       };
 
+      const regionalAdminActor: CurrentUser = {
+        id: 'c0000000-0000-0000-0000-000000000012',
+        name: 'Regional Admin (Islamabad)',
+        email: 'admin.regional@campussync.local',
+        role: 'admin',
+      };
+
       const sequentialEdits = [
-        { field: 'phone', newValue: '0347-1111222', baseVersion: 1, opId: 'op-seed-hist-01' },
-        { field: 'address', newValue: 'House 85, PMA Road, Kakul, Abbottabad', baseVersion: 1, opId: 'op-seed-hist-02' },
-        { field: 'attendance', newValue: 90.5, baseVersion: 1, opId: 'op-seed-hist-03' },
-        { field: 'remarks', newValue: 'Transferred to Software Architecture research group.', baseVersion: 1, opId: 'op-seed-hist-04' },
-        { field: 'emergency_contact', newValue: 'Dr. Javed Iqbal (Father) - 0347-9988112', baseVersion: 1, opId: 'op-seed-hist-05' },
-        { field: 'phone', newValue: '0347-2222333', baseVersion: 2, opId: 'op-seed-hist-06' },
-        { field: 'attendance', newValue: 93.0, baseVersion: 2, opId: 'op-seed-hist-07' },
-        { field: 'remarks', newValue: 'Appointed peer tutor for distributed databases.', baseVersion: 2, opId: 'op-seed-hist-08' },
+        {
+          field: 'phone',
+          newValue: '0347-1111222',
+          baseVersion: 1,
+          opId: 'op-seed-hist-01',
+          actor: sanaStudentActor,
+          deviceId: 'Sana Mobile',
+          timestamp: new Date(now - 32 * 86400000), // ~4.5 weeks ago
+        },
+        {
+          field: 'remarks',
+          newValue: 'Midterm progress review: satisfactory participation in lab work.',
+          baseVersion: 1,
+          opId: 'op-seed-hist-02',
+          actor: drZafarFacultyActor,
+          deviceId: 'Abbottabad Lab Terminal',
+          timestamp: new Date(now - 27 * 86400000), // ~3.8 weeks ago
+        },
+        {
+          field: 'address',
+          newValue: 'House 85, PMA Road, Kakul, Abbottabad',
+          baseVersion: 1,
+          opId: 'op-seed-hist-03',
+          actor: centralAdminActor,
+          deviceId: 'Central Admin Console',
+          timestamp: new Date(now - 21 * 86400000), // 3 weeks ago
+        },
+        {
+          field: 'address',
+          newValue: 'Apartment 4, Pine Heights, Supply Area, Abbottabad',
+          baseVersion: 2,
+          opId: 'op-seed-hist-04',
+          actor: sanaStudentActor,
+          deviceId: 'Sana Laptop',
+          timestamp: new Date(now - 16 * 86400000), // ~2.3 weeks ago
+        },
+        {
+          field: 'attendance',
+          newValue: 91.5,
+          baseVersion: 1,
+          opId: 'op-seed-hist-05',
+          actor: drZafarFacultyActor,
+          deviceId: 'Abbottabad Lab Terminal',
+          timestamp: new Date(now - 12 * 86400000), // ~1.7 weeks ago
+        },
+        {
+          field: 'emergency_contact',
+          newValue: 'Dr. Javed Iqbal (Father) - 0347-9988112',
+          baseVersion: 1,
+          opId: 'op-seed-hist-06',
+          actor: sanaStudentActor,
+          deviceId: 'Sana Mobile',
+          timestamp: new Date(now - 8 * 86400000), // ~1.1 weeks ago
+        },
+        {
+          field: 'attendance',
+          newValue: 94.0,
+          baseVersion: 2,
+          opId: 'op-seed-hist-07',
+          actor: drZafarFacultyActor,
+          deviceId: 'Abbottabad Lab Terminal',
+          timestamp: new Date(now - 4 * 86400000), // 4 days ago
+        },
+        {
+          field: 'remarks',
+          newValue: 'Appointed peer tutor for distributed databases lab.',
+          baseVersion: 2,
+          opId: 'op-seed-hist-08',
+          actor: regionalAdminActor,
+          deviceId: 'Islamabad Regional Terminal',
+          timestamp: new Date(now - 1 * 86400000), // 1 day ago
+        },
       ];
 
       for (const edit of sequentialEdits) {
@@ -368,9 +462,10 @@ export async function seedDatabase(forceClean = false) {
           field: edit.field,
           newValue: edit.newValue,
           baseVersion: edit.baseVersion,
-          deviceId: 'Audit Station (Abbottabad)',
+          deviceId: edit.deviceId,
           type: 'edit',
-          actor: adminActor,
+          actor: edit.actor,
+          timestamp: edit.timestamp,
         });
 
         if (opRes.status !== 'applied') {

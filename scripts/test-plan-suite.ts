@@ -107,6 +107,20 @@ async function run() {
     record('SM-4', 'Smoke', 'Snapshot initial records', false, null, err.message);
   }
 
+  // ATT-1: GET /sync/snapshot normalizes attendance as JavaScript number
+  try {
+    const allNumeric = seededStudents.every((s: any) => typeof s.attendance === 'number');
+    record(
+      'ATT-1',
+      'Attendance Normalization',
+      'GET /sync/snapshot returns attendance as JavaScript number for all students',
+      allNumeric && seededStudents.length === 12,
+      { studentCount: seededStudents.length, allNumeric }
+    );
+  } catch (err: any) {
+    record('ATT-1', 'Attendance Normalization', 'Snapshot attendance numeric normalization', false, null, err.message);
+  }
+
   // --------------------------------------------------------------------------
   // SECTION 3 & 4: PERMISSION MATRIX & VALIDATION
   // --------------------------------------------------------------------------
@@ -962,6 +976,54 @@ async function run() {
     record('HI-10', 'History', 'Admin restore', false, null, err.message);
   }
 
+  // ATT-2: GET /students/:id/history normalizes attendance values to JavaScript numbers
+  try {
+    const sanaId = '10000000-0000-0000-0000-000000000011';
+    const histRes = await fetch(`${BASE_URL}/students/${sanaId}/history`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const histData = await histRes.json();
+    const attEntries = (histData.history || []).filter((h: any) => h.field === 'attendance');
+    const allAttNumbers = attEntries.every(
+      (h: any) => typeof h.newValue === 'number' && (h.oldValue === null || typeof h.oldValue === 'number')
+    );
+    record(
+      'ATT-2',
+      'Attendance Normalization',
+      'GET /students/:id/history normalizes attendance oldValue and newValue to JavaScript numbers',
+      histRes.status === 200 && attEntries.length >= 2 && allAttNumbers,
+      { attEntriesCount: attEntries.length, allAttNumbers }
+    );
+  } catch (err: any) {
+    record('ATT-2', 'Attendance Normalization', 'History attendance numeric normalization', false, null, err.message);
+  }
+
+  // ATT-3: Restore attendance field and verify attendance is normalized to a JavaScript number
+  try {
+    const restoreAttRes = await fetch(`${BASE_URL}/students/${studentTarget.id}/restore`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        field: 'attendance',
+        targetValue: 88.5,
+      }),
+    });
+    const restoreAttData = await restoreAttRes.json();
+    const restoredStudent = restoreAttData.student;
+    record(
+      'ATT-3',
+      'Attendance Normalization',
+      'Restore attendance normalizes value to JavaScript number in API response',
+      restoreAttRes.status === 200 &&
+        restoreAttData.success === true &&
+        typeof restoredStudent?.attendance === 'number' &&
+        restoredStudent.attendance === 88.5,
+      { attendance: restoredStudent?.attendance, type: typeof restoredStudent?.attendance }
+    );
+  } catch (err: any) {
+    record('ATT-3', 'Attendance Normalization', 'Restore attendance number normalization', false, null, err.message);
+  }
+
   // --------------------------------------------------------------------------
   // SECTION 13: DEMO ENDPOINT RBAC GATING & AUTHORIZATION
   // --------------------------------------------------------------------------
@@ -1132,6 +1194,52 @@ async function run() {
       'Simulator',
       'FR-13.5: Simulator injects concurrent edit from another campus with SSE broadcast',
       injectRes.status === 200 && injectData.success === true && injectData.result?.status === 'applied'
+    );
+
+    // SIM-2a: Injected edit applies as seeded "Regional Admin (Islamabad)" with admin role
+    const studentHistRes = await fetch(`${BASE_URL}/students/${studentTarget.id}/history`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const studentHistData = await studentHistRes.json();
+    const latestHist = studentHistData.history?.find((h: any) => h.field === 'remarks') || studentHistData.history?.[0];
+    const isRegionalAdmin =
+      injectData.injectedBy === 'Regional Admin (Islamabad)' &&
+      latestHist?.actorName === 'Regional Admin (Islamabad)' &&
+      latestHist?.actorRole === 'admin';
+    record(
+      'SIM-2a',
+      'Simulator',
+      '/demo/inject-edit applies as seeded Regional Admin (Islamabad) with admin role',
+      isRegionalAdmin,
+      { injectedBy: injectData.injectedBy, latestActor: latestHist?.actorName, role: latestHist?.actorRole }
+    );
+
+    // SIM-2b: Injected edits never come from a role without permission (faculty blocked from editing official field)
+    const unpermittedPushRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${facultyToken}` },
+      body: JSON.stringify({
+        operations: [
+          {
+            opId: 'op-unpermitted-' + Date.now(),
+            studentId: studentTarget.id,
+            field: 'full_name',
+            newValue: 'Hacked Name',
+            baseVersion: 1,
+            deviceId: 'unauth-terminal',
+            type: 'edit',
+          },
+        ],
+      }),
+    });
+    const unpermittedPushData = await unpermittedPushRes.json();
+    const wasRejected = unpermittedPushData.results?.[0]?.status === 'rejected';
+    record(
+      'SIM-2b',
+      'Simulator',
+      'Edits never come from a role without permission (faculty blocked from editing official field)',
+      unpermittedPushRes.status === 200 && wasRejected,
+      unpermittedPushData.results?.[0]
     );
   } catch (err: any) {
     record('SIM-2', 'Simulator', 'Concurrent edit simulation', false, null, err.message);

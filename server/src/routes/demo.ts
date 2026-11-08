@@ -82,11 +82,11 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
     const currentFieldVersion = fieldVersions[targetField] || 1;
 
     const remoteActor = {
-      id: 'c0000000-0000-0000-0000-000000000003',
-      name: 'Dr. Tariq (Islamabad)',
-      email: 'faculty.isb@campussync.local',
+      id: 'c0000000-0000-0000-0000-000000000012',
+      name: 'Regional Admin (Islamabad)',
+      email: 'admin.regional@campussync.local',
       role: 'admin' as const,
-      campus: 'Islamabad' as const,
+      campus: undefined,
     };
 
     const opId = 'remote-' + Math.random().toString(36).substring(2, 10);
