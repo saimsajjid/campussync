@@ -1057,6 +1057,13 @@ async function run() {
   // SIM-1: Dropped response simulation (server commits, reply lost, client retries idempotently)
   try {
     const simOpId = 'sim-drop-ack-' + Date.now();
+    const freshSnapSIM = await fetch(`${BASE_URL}/sync/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const freshDataSIM = await freshSnapSIM.json();
+    const freshSIMTarget = freshDataSIM.students?.find((s: any) => s.id === studentTarget.id);
+    const simBaseVersion = freshSIMTarget?.field_versions?.remarks || 1;
+
     // Step 1: Server receives and commits edit
     const firstRes = await fetch(`${BASE_URL}/sync/push`, {
       method: 'POST',
@@ -1067,7 +1074,7 @@ async function run() {
           studentId: studentTarget.id,
           field: 'remarks',
           newValue: 'Simulated Network Partition Verification',
-          baseVersion: 1,
+          baseVersion: simBaseVersion,
           deviceId: 'sim-device-01',
           type: 'edit',
         }],
@@ -1086,7 +1093,7 @@ async function run() {
           studentId: studentTarget.id,
           field: 'remarks',
           newValue: 'Simulated Network Partition Verification',
-          baseVersion: 1,
+          baseVersion: simBaseVersion,
           deviceId: 'sim-device-01',
           type: 'edit',
         }],

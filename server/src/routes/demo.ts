@@ -38,9 +38,7 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  const requireAdmin = async (request: any, reply: any) => {
-    await authenticateUser(request, reply);
-    if (reply.sent) return;
+  const requireAdminRole = async (request: any, reply: any) => {
     if (request.user?.role !== 'admin') {
       return reply.status(403).send({
         error: 'Forbidden',
@@ -51,7 +49,7 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
   };
 
   // Reset Demo Data (FR-13.6, NFR-14)
-  fastify.post('/demo/reset', { preHandler: [requireAdmin] }, async (request, reply) => {
+  fastify.post('/demo/reset', { preHandler: [authenticateUser, requireAdminRole] }, async (request, reply) => {
     try {
       await seedDatabase(true);
 
@@ -67,7 +65,7 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
 
   // Inject Remote Edit from Another Campus (FR-13.5)
   // E.g. simulates Islamabad Admin editing a Lahore student's address concurrently
-  fastify.post('/demo/inject-edit', { preHandler: [requireAdmin] }, async (request, reply) => {
+  fastify.post('/demo/inject-edit', { preHandler: [authenticateUser, requireAdminRole] }, async (request, reply) => {
     const { studentId, field, newValue } = (request.body as any) || {};
 
     const targetStudentId = studentId || '10000000-0000-0000-0000-000000000001';
