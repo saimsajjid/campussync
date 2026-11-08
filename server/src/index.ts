@@ -63,9 +63,25 @@ async function main() {
       await fastify.register(fastifyStatic, {
         root: webDistPath,
         prefix: '/',
+        setHeaders: (res, pathName) => {
+          if (pathName.endsWith('sw.js')) {
+            res.setHeader('Service-Worker-Allowed', '/');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          }
+        },
       });
 
       fastify.setNotFoundHandler((req, reply) => {
+        const accept = req.headers.accept || '';
+        const url = req.raw.url || '';
+        const isApi = url.startsWith('/sync') || url.startsWith('/auth') || url.startsWith('/conflicts') ||
+                      url.startsWith('/students') || url.startsWith('/admin') || url.startsWith('/demo') ||
+                      url.startsWith('/events') || url.startsWith('/health');
+
+        if (req.method === 'GET' && accept.includes('text/html') && !isApi) {
+          return reply.sendFile('index.html');
+        }
+
         return reply.status(404).send({
           error: 'Endpoint not found',
           path: req.raw.url,

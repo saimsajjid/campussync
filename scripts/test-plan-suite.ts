@@ -330,6 +330,83 @@ async function run() {
     record('ID-9', 'Idempotency', 'Concurrent requests', false, null, err.message);
   }
 
+  // ED-3 / IN-NOOP: No-op edit followed by real edit on same field, verified against history at that point in time
+  try {
+    const snapNoopRes = await fetch(`${BASE_URL}/sync/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const snapNoopData = await snapNoopRes.json();
+    const stNoop = snapNoopData.students.find((s: any) => s.id === studentTarget.id);
+    const originalPhone = stNoop.phone;
+    const originalPhoneVer = stNoop.field_versions?.phone || 1;
+
+    // 1. Submit a no-op edit (same value, divergent/stale baseVersion to trigger convergence check)
+    const opNoopId = 'op-noop-test-' + Date.now();
+    const noopPushRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [
+          {
+            opId: opNoopId,
+            studentId: studentTarget.id,
+            field: 'phone',
+            newValue: originalPhone, // Identical value
+            baseVersion: 999, // Divergent base triggers convergence logic
+            deviceId: 'device-noop-runner',
+            type: 'edit',
+          },
+        ],
+      }),
+    });
+    const noopData = await noopPushRes.json();
+    const noopRes = noopData.results?.[0];
+
+    // 2. Follow immediately with a REAL edit to the SAME field
+    const opRealId = 'op-real-after-noop-' + Date.now();
+    const updatedPhone = '0300-8884433';
+    const realPushRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [
+          {
+            opId: opRealId,
+            studentId: studentTarget.id,
+            field: 'phone',
+            newValue: updatedPhone, // New real value
+            baseVersion: originalPhoneVer,
+            deviceId: 'device-real-runner',
+            type: 'edit',
+          },
+        ],
+      }),
+    });
+    const realData = await realPushRes.json();
+    const realRes = realData.results?.[0];
+
+    // 3. Run integrity check: must pass by checking no-op value against history at that point in time
+    const integCheckRes = await fetch(`${BASE_URL}/admin/integrity`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const integReport = await integCheckRes.json();
+    const noLostEditsCheck = integReport.checks?.find((c: any) => c.id === 'inv-no-lost-edits');
+
+    record(
+      'ED-3 & IN-NOOP',
+      'Integrity',
+      'No-op op followed by real edit to same field passes integrity check against history at that point in time',
+      noopRes?.status === 'applied' &&
+        noopRes?.isNoOp === true &&
+        realRes?.status === 'applied' &&
+        integReport.allPassed === true &&
+        noLostEditsCheck?.status === 'passed',
+      { noopRes, realRes, integCheck: noLostEditsCheck?.status }
+    );
+  } catch (err: any) {
+    record('ED-3', 'Integrity', 'No-op followed by real edit', false, null, err.message);
+  }
+
   // --------------------------------------------------------------------------
   // SECTION 9: CONFLICT DETECTION & AUTO-MERGE
   // --------------------------------------------------------------------------

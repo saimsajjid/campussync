@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Wifi, WifiOff, Sliders, Building2, UserCircle2 } from 'lucide-react';
+import { Menu, Wifi, WifiOff, Sliders, Building2, UserCircle2, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import type { CampusCode } from '../types';
 
@@ -9,7 +9,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimulator }) => {
-  const { activeCampus, setActiveCampus, simulator, setSimulator, currentUser, addToast } = useApp();
+  const { activeCampus, setActiveCampus, simulator, setSimulator, currentUser, logout, addToast } = useApp();
 
   const campuses: Array<CampusCode | 'all'> = ['all', 'Islamabad', 'Lahore', 'Abbottabad'];
 
@@ -89,15 +89,22 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimula
           <span className="hidden md:inline">Simulator</span>
         </button>
 
-        {/* User Profile Info */}
+        {/* User Profile Info & Logout */}
         <div className="flex items-center gap-2 pl-2 border-l border-[#E5E7EB]">
           <UserCircle2 className="w-8 h-8 text-[#4F7DF3]" />
           <div className="hidden sm:flex flex-col text-left">
-            <span className="text-xs font-bold text-[#1E293B] leading-tight">{currentUser.name}</span>
+            <span className="text-xs font-bold text-[#1E293B] leading-tight">{currentUser?.name || 'User'}</span>
             <span className="text-[10px] text-[#6B7280] uppercase tracking-wider font-semibold">
-              {currentUser.role} {currentUser.campus ? `• ${currentUser.campus}` : '• Central'}
+              {currentUser?.role || 'Guest'} {currentUser?.campus ? `• ${currentUser.campus}` : '• Central'}
             </span>
           </div>
+          <button
+            onClick={logout}
+            className="p-1.5 ml-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+            title="Sign Out / Switch Demo Profile"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </header>

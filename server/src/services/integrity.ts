@@ -2,6 +2,22 @@ import { pool } from '../db/pool.js';
 import { safeJsonParse } from '../utils/json.js';
 import type { IntegrityCheckResult, IntegritySuiteResponse, StudentRecord } from '@campussync/shared';
 
+const ALLOWED_FIELDS = new Set([
+  'reg_no',
+  'cnic',
+  'full_name',
+  'program',
+  'campus',
+  'semester',
+  'status',
+  'phone',
+  'email',
+  'address',
+  'emergency_contact',
+  'attendance',
+  'remarks',
+]);
+
 export async function runIntegritySuite(): Promise<IntegritySuiteResponse> {
   const client = await pool.connect();
   const checks: IntegrityCheckResult[] = [];
@@ -148,25 +164,44 @@ export async function runIntegritySuite(): Promise<IntegritySuiteResponse> {
 
     // 6. Invariant 6: No Silent Edit Loss
     // Every operation in processed_ops maps to an applied history row, an open/resolved conflict, or a rejection
-    const processedOpsRes = await client.query('SELECT op_id, result FROM processed_ops');
+    const processedOpsRes = await client.query('SELECT op_id, result, created_at FROM processed_ops');
     const lostEdits: any[] = [];
     for (const op of processedOpsRes.rows) {
       const res = safeJsonParse(op.result);
       if (res?.status === 'applied') {
         if (res.isNoOp) {
-          // Verify that isNoOp cannot hide lost edits: student must exist and value must match
-          if (!res.studentId || !res.field) {
-            lostEdits.push({ opId: op.op_id, reason: 'Invalid no-op operation missing student or field reference' });
+          // Whitelist field names strictly; never interpolate into SQL
+          if (!res.studentId || !res.field || !ALLOWED_FIELDS.has(res.field)) {
+            lostEdits.push({ opId: op.op_id, reason: 'Invalid or disallowed field in no-op operation' });
             continue;
           }
-          const sCheck = await client.query(`SELECT ${res.field} FROM students WHERE id = $1`, [res.studentId]);
-          if (sCheck.rows.length === 0) {
-            lostEdits.push({ opId: op.op_id, reason: 'No-op operation references non-existent student' });
+
+          // Verify no-op value against the field's history at that point in time
+          const histCheck = await client.query(
+            `SELECT field, new_value FROM history
+             WHERE student_id = $1 AND (field = $2 OR field = '*') AND created_at <= COALESCE($3, NOW())
+             ORDER BY id DESC LIMIT 1`,
+            [res.studentId, res.field, op.created_at]
+          );
+
+          if (histCheck.rows.length === 0) {
+            lostEdits.push({ opId: op.op_id, reason: 'No prior history ledger entry found at time of no-op op' });
             continue;
           }
-          const currentVal = sCheck.rows[0][res.field];
-          if (JSON.stringify(currentVal) !== JSON.stringify(res.serverValue)) {
-            lostEdits.push({ opId: op.op_id, reason: 'No-op operation value does not match current student state' });
+
+          let valAtTime: any;
+          if (histCheck.rows[0].field === '*') {
+            const parsed = safeJsonParse(histCheck.rows[0].new_value);
+            valAtTime = parsed ? parsed[res.field] : undefined;
+          } else {
+            valAtTime = safeJsonParse(histCheck.rows[0].new_value);
+          }
+
+          if (JSON.stringify(valAtTime) !== JSON.stringify(res.serverValue)) {
+            lostEdits.push({
+              opId: op.op_id,
+              reason: `No-op value discrepancy at time of operation: expected ${JSON.stringify(valAtTime)}, recorded ${JSON.stringify(res.serverValue)}`,
+            });
             continue;
           }
           continue;

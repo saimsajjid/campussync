@@ -43,6 +43,8 @@ interface ToastItem {
 interface AppContextType {
   currentUser: CurrentUser;
   setCurrentUser: (user: CurrentUser) => void;
+  isLoggedIn: boolean;
+  logout: () => void;
   activeCampus: CampusCode | 'all';
   setActiveCampus: (campus: CampusCode | 'all') => void;
   simulator: SimulatorState;
@@ -68,10 +70,24 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<CurrentUser>(DEMO_USERS[0]);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem('campussync_auth') !== 'false';
+  });
   const [activeCampus, setActiveCampus] = useState<CampusCode | 'all'>('all');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const isSyncingRef = useRef(false);
+
+  const handleSetCurrentUser = (user: CurrentUser) => {
+    localStorage.setItem('campussync_auth', 'true');
+    setCurrentUser(user);
+    setIsLoggedIn(true);
+  };
+
+  const logout = () => {
+    localStorage.setItem('campussync_auth', 'false');
+    setIsLoggedIn(false);
+  };
 
   const [simulator, setSimulator] = useState<SimulatorState>({
     isOffline: false,
@@ -301,59 +317,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const student = await db.students.get(studentId);
     const opId = 'op-' + Math.random().toString(36).substring(2, 9);
 
-    if (student) {
-      const newFieldVersions = {
-        ...student.field_versions,
-        [field]: (student.field_versions[field] || baseVersion) + 1,
-      };
+    // Atomically commit local student record mutation, local audit log, and outbox queue entry
+    // in a single IndexedDB (Dexie) transaction (FR-5.8, FR-5.9, offline durability)
+    await db.transaction('rw', db.students, db.history, db.outbox, async () => {
+      if (student) {
+        const newFieldVersions = {
+          ...student.field_versions,
+          [field]: (student.field_versions[field] || baseVersion) + 1,
+        };
 
-      const updatedStudent: StudentRecord = {
-        ...student,
-        [field]: newValue,
-        field_versions: newFieldVersions,
-        version: student.version + 1,
-        updated_at: new Date().toISOString(),
-        last_editor_id: currentUser.name,
-      };
+        const updatedStudent: StudentRecord = {
+          ...student,
+          [field]: newValue,
+          field_versions: newFieldVersions,
+          version: student.version + 1,
+          updated_at: new Date().toISOString(),
+          last_editor_id: currentUser?.name || 'Local User',
+        };
 
-      // 1. Optimistic write to local Dexie student table
-      await db.students.put(updatedStudent);
+        // 1. Optimistic write to local Dexie student table
+        await db.students.put(updatedStudent);
 
-      // 2. Add local audit entry
-      await db.history.add({
-        id: Date.now(),
-        studentId,
-        studentName: student.full_name,
-        reg_no: student.reg_no,
-        field,
-        oldValue,
-        newValue,
-        fieldVersionAfter: newFieldVersions[field],
-        type,
-        actorName: currentUser.name,
-        actorRole: currentUser.role,
-        actorCampus: student.campus,
-        device: simulator.currentDeviceId,
+        // 2. Add local audit entry
+        await db.history.add({
+          id: Date.now(),
+          studentId,
+          studentName: student.full_name,
+          reg_no: student.reg_no,
+          field,
+          oldValue,
+          newValue,
+          fieldVersionAfter: newFieldVersions[field],
+          type,
+          actorName: currentUser?.name || 'Local User',
+          actorRole: currentUser?.role || 'student',
+          actorCampus: student.campus,
+          device: simulator.currentDeviceId,
+          opId,
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      // 3. Queue in Local Outbox
+      const op: OutboxOperation = {
         opId,
+        studentId,
+        field,
+        newValue: studentData || newValue,
+        oldValue,
+        baseVersion,
+        deviceId: simulator.currentDeviceId,
+        type,
+        status: simulator.isOffline ? 'pending' : 'syncing',
+        retryCount: 0,
         createdAt: new Date().toISOString(),
-      });
-    }
-
-    // 3. Queue in Local Outbox
-    const op: OutboxOperation = {
-      opId,
-      studentId,
-      field,
-      newValue: studentData || newValue,
-      oldValue,
-      baseVersion,
-      deviceId: simulator.currentDeviceId,
-      type,
-      status: simulator.isOffline ? 'pending' : 'syncing',
-      retryCount: 0,
-      createdAt: new Date().toISOString(),
-    };
-    await db.outbox.put(op);
+      };
+      await db.outbox.put(op);
+    });
 
     if (simulator.isOffline) {
       addToast(`Offline: Operation ${opId} safely queued in Outbox.`, 'warning');
@@ -397,7 +417,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         currentUser,
-        setCurrentUser,
+        setCurrentUser: handleSetCurrentUser,
+        isLoggedIn,
+        logout,
         activeCampus,
         setActiveCampus,
         simulator,

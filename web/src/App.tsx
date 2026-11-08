@@ -9,6 +9,7 @@ import { ConflictResolutionPage } from './pages/ConflictResolutionPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { SyncCenterPage } from './pages/SyncCenterPage';
 import { IntegritySuitePage } from './pages/IntegritySuitePage';
+import { LoginPage } from './pages/LoginPage';
 import { useApp } from './context/AppContext';
 import { WifiOff, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import type { StudentRecord } from './types';
@@ -23,7 +24,11 @@ export const AppContent: React.FC = () => {
   const [studentToEdit, setStudentToEdit] = useState<StudentRecord | null>(null);
   const [selectedStudentHistoryId, setSelectedStudentHistoryId] = useState<string | undefined>(undefined);
 
-  const { simulator, toasts } = useApp();
+  const { simulator, toasts, isLoggedIn } = useApp();
+
+  if (!isLoggedIn) {
+    return <LoginPage />;
+  }
 
   const handleOpenAddStudent = () => {
     setStudentToEdit(null);
