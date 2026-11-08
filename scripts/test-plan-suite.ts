@@ -1137,6 +1137,49 @@ async function run() {
     record('SIM-2', 'Simulator', 'Concurrent edit simulation', false, null, err.message);
   }
 
+  // SIM-3: Stale edit submission against SSE injected record produces server conflict (FR-12.2)
+  try {
+    const staleRemarksVersion = 1; // Prior version before SIM-2 injected edit
+    const staleOpId = 'op-stale-remarks-' + Date.now();
+
+    const stalePushRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: staleOpId,
+          studentId: studentTarget.id,
+          field: 'remarks',
+          newValue: 'Concurrent Local Draft Remarks from Form',
+          baseVersion: staleRemarksVersion,
+          deviceId: 'browser-form-tab',
+          type: 'edit',
+        }],
+      }),
+    });
+    const stalePushData = await stalePushRes.json();
+    const staleResult = stalePushData.results?.[0];
+
+    // Check conflict created in conflicts table
+    const confCheckRes = await fetch(`${BASE_URL}/conflicts`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const confCheckData = await confCheckRes.json();
+    const remarksConflict = confCheckData.conflicts?.find(
+      (c: any) => c.student_id === studentTarget.id && c.field === 'remarks'
+    );
+
+    record(
+      'SIM-3',
+      'Simulator',
+      'FR-12.2 / SIM-3: Submitting open form edit with initial baseVersion after remote inject yields conflict row',
+      staleResult?.status === 'conflict' && remarksConflict !== undefined,
+      { staleResult, remarksConflict }
+    );
+  } catch (err: any) {
+    record('SIM-3', 'Simulator', 'SSE conflict generation verification', false, null, err.message);
+  }
+
   // --------------------------------------------------------------------------
   // SECTION 15: REAL DR-3 TWO-DEVICE OFFLINE DUPLICATE DETECTION
   // --------------------------------------------------------------------------

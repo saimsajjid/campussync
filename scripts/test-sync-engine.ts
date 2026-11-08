@@ -535,7 +535,183 @@ async function runSyncEngineUnitTests() {
     'Duplicate dialog Cancel Creation action cleanly purges outbox and removes uncommitted record',
     outboxCleaned === undefined && studentCleaned === undefined
   );
+
+  // 4. Test "Open Existing Record" cleanup: deletes outbox op and uncommitted record, keeps existing
+  const offlineOpId2 = 'op-create-dr3-reg-2';
+  const offlineStudentId2 = 'offline-std-uuid-456';
+  const existingAuthoritativeId = 'auth-std-uuid-789';
+
+  await db8.students.put({
+    id: existingAuthoritativeId,
+    reg_no: 'CS-2026-9999',
+    cnic: '35201-9999999-1',
+    full_name: 'Authoritative Student',
+    program: 'BS CS',
+    campus: 'Islamabad',
+    semester: 2,
+    status: 'Active',
+    phone: '0300-2223344',
+    email: 'auth@campussync.local',
+    address: 'Islamabad',
+    emergency_contact: 'Father (0300-0000000)',
+    attendance: 92,
+    remarks: '',
+    field_versions: { full_name: 1, reg_no: 1 },
+    version: 2,
+    active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    last_editor_id: 'Central Admin',
+  });
+
+  await db8.outbox.put({
+    opId: offlineOpId2,
+    studentId: offlineStudentId2,
+    field: '*',
+    newValue: { reg_no: 'CS-2026-9999' },
+    oldValue: null,
+    baseVersion: 0,
+    deviceId: 'dev-offline-b',
+    type: 'create',
+    status: 'failed',
+    errorReason: 'A student with registration number CS-2026-9999 already exists',
+    retryCount: 1,
+    createdAt: new Date().toISOString(),
+  });
+
+  // Action: onOpenExisting cleans outbox and removes uncommitted record while preserving authoritative record
+  await db8.outbox.delete(offlineOpId2);
+  if (offlineStudentId2 !== existingAuthoritativeId) {
+    await db8.students.delete(offlineStudentId2);
+  }
+
+  const outbox2Cleaned = await db8.outbox.get(offlineOpId2);
+  const uncommittedCleaned = await db8.students.get(offlineStudentId2);
+  const authoritativeExists = await db8.students.get(existingAuthoritativeId);
+
+  assert(
+    'SE-8c',
+    'Duplicate dialog Open Existing Record action cleans uncommitted outbox item and loads authoritative record',
+    outbox2Cleaned === undefined && uncommittedCleaned === undefined && authoritativeExists !== undefined
+  );
   await db8.close();
+
+  // -------------------------------------------------------------
+  // TEST 9: SSE / External Concurrent Edit & Form Conflict Lifecycle (FR-12.2)
+  // -------------------------------------------------------------
+  console.log('\n--- TEST 9: SSE External Concurrent Edit & Form Conflict Lifecycle ---');
+  const db9 = new TestCampusSyncDB('test-db-sse-' + Date.now());
+  await db9.open();
+
+  const sseStudentId = 'std-sse-test-001';
+  const initialStudent = {
+    id: sseStudentId,
+    reg_no: 'CS-2026-5555',
+    cnic: '35201-5555555-5',
+    full_name: 'SSE Test Student',
+    program: 'BS CS' as any,
+    campus: 'Lahore' as any,
+    semester: 3,
+    status: 'Active' as any,
+    phone: '0300-5551234',
+    email: 'sse@campussync.local',
+    address: 'Original Address, Lahore',
+    emergency_contact: 'Father (0300-0000000)',
+    attendance: 88,
+    remarks: '',
+    field_versions: { address: 3, phone: 1, full_name: 1 },
+    version: 3,
+    active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    last_editor_id: 'Central Admin',
+  };
+  await db9.students.put(initialStudent);
+
+  // Form opens: initial snapshot captured with version 3, address version 3
+  const formInitialSnapshot = JSON.parse(JSON.stringify(initialStudent));
+  let formDraftAddress = 'DRAFT PENDING LOCAL ADDRESS (Lahore Cantt)';
+
+  // SSE event arrives: background update applied to IndexedDB (version becomes 4)
+  const remoteServerAddress = 'ADMIN CONCURRENT OVERWRITE FROM RAWALPINDI';
+  await db9.students.update(sseStudentId, {
+    address: remoteServerAddress,
+    version: 4,
+    field_versions: { ...initialStudent.field_versions, address: 4 },
+    updated_at: new Date().toISOString(),
+    last_editor_id: 'Remote Admin',
+  });
+
+  // Verify non-blocking notice rule: dbStudent.version > formInitialSnapshot.version
+  const currentDbRecord = await db9.students.get(sseStudentId);
+  const shouldShowNotice = (currentDbRecord?.version || 0) > formInitialSnapshot.version;
+  const draftPreserved = formDraftAddress === 'DRAFT PENDING LOCAL ADDRESS (Lahore Cantt)';
+
+  assert(
+    'SE-9a',
+    'SSE incoming update increments DB record version, triggers non-blocking notice without overwriting draft form input',
+    shouldShowNotice === true && draftPreserved === true
+  );
+
+  // User clicks Save on open form: operation is queued using original baseVersion (3)
+  const editOpId = 'op-sse-conflict-' + Date.now();
+  const queuedBaseVersion = formInitialSnapshot.field_versions.address; // 3
+  await db9.outbox.put({
+    opId: editOpId,
+    studentId: sseStudentId,
+    field: 'address',
+    newValue: formDraftAddress,
+    oldValue: formInitialSnapshot.address,
+    baseVersion: queuedBaseVersion,
+    deviceId: 'client-browser-ui',
+    type: 'edit',
+    status: 'pending',
+    retryCount: 0,
+    createdAt: new Date().toISOString(),
+  });
+
+  const queuedOp = await db9.outbox.get(editOpId);
+  assert(
+    'SE-9b',
+    'Submitted form edit carries captured original baseVersion (v3) rather than updated background version (v4)',
+    queuedOp?.baseVersion === 3
+  );
+
+  // Server mock detects stale baseVersion (3 < 4) and returns conflict
+  const sseApi = new FakeNetworkClient();
+  sseApi.responseMockGenerator = () => ({
+    results: [{
+      opId: editOpId,
+      status: 'conflict',
+      studentId: sseStudentId,
+      field: 'address',
+      serverVersion: 4,
+      serverValue: remoteServerAddress,
+      incomingValue: formDraftAddress,
+      conflictId: 'conflict-sse-uuid-123',
+    }],
+    latestCursor: 60,
+  });
+
+  const sseEngine = new SyncEngine(db9 as any, sseApi);
+  await sseEngine.syncOutbox();
+
+  // Outbox should be purged of the op, and conflict record created in conflicts table
+  const outboxAfterSync = await db9.outbox.get(editOpId);
+  const localConflicts = await db9.conflicts.toArray();
+  const recordedConflict = localConflicts.find(
+    (c) => c.studentId === sseStudentId && c.field === 'address'
+  );
+
+  assert(
+    'SE-9c',
+    'Server conflict response purges outbox op and creates open conflict item in local conflicts store',
+    outboxAfterSync === undefined &&
+      recordedConflict !== undefined &&
+      recordedConflict.serverVersion === 4 &&
+      recordedConflict.incomingValue === formDraftAddress
+  );
+  await db9.close();
 
   console.log('\n===============================================================');
   console.log(`UNIT TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);

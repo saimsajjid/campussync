@@ -543,10 +543,11 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   type="number"
                   min="0"
                   max="100"
+                  step="any"
                   required
                   disabled={!canEditAcademic}
                   value={formData.attendance}
-                  onChange={(e) => setFormData({ ...formData, attendance: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setFormData({ ...formData, attendance: parseFloat(e.target.value) || 0 })}
                   className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                 />
               </div>
