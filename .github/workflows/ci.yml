@@ -65,10 +65,34 @@ jobs:
       - name: Start Server & Execute Full Test Plan Suite
         run: |
           cd server
-          DATABASE_URL=postgres://campussync:change-me@127.0.0.1:5432/campussync PORT=3055 JWT_SECRET=test-secret COOKIE_SECRET=test-cookie-secret-32-chars-long node dist/index.js &
-          npx wait-on http://127.0.0.1:3055/health --timeout 30000
+          DATABASE_URL="postgres://campussync:change-me@127.0.0.1:5432/campussync" PORT=3055 JWT_SECRET=test-secret COOKIE_SECRET=test-cookie-secret-32-chars-long node dist/index.js > server.log 2>&1 &
+          SERVER_PID=$!
+          echo "Started CampusSync test server with PID: $SERVER_PID"
+          
+          echo "Waiting for server /health endpoint to respond..."
+          HEALTHY=0
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:3055/health | grep -q "ok"; then
+              echo "Server is healthy on attempt $i!"
+              HEALTHY=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ $HEALTHY -eq 0 ]; then
+            echo "Server failed to become healthy. Server output log:"
+            cat server.log
+            exit 1
+          fi
+
           cd ..
-          TEST_BASE_URL=http://127.0.0.1:3055 npx tsx scripts/test-plan-suite.ts
+          echo "Running CampusSync Full Test Plan Suite against http://127.0.0.1:3055..."
+          TEST_BASE_URL=http://127.0.0.1:3055 npx tsx scripts/test-plan-suite.ts || {
+            echo "Test suite failed! Dumping server logs:"
+            cat server/server.log
+            exit 1
+          }
 
   build-arm64-ghcr:
     name: Build & Push ARM64 Image to GHCR

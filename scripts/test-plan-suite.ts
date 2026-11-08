@@ -225,7 +225,9 @@ async function run() {
   console.log(`\n--- SECTION 7B: Emergency Contact Validation (VA-11) ---`);
 
   // Refresh target snapshot to guarantee accurate baseVersion
-  const snapRes7B = await fetch(`${BASE_URL}/sync/snapshot`);
+  const snapRes7B = await fetch(`${BASE_URL}/sync/snapshot`, {
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
   const snapData7B = await snapRes7B.json();
   const currentTarget7B = snapData7B.students?.find((s: any) => s.id === studentTarget.id) || studentTarget;
   let currentEmergencyVer = currentTarget7B.field_versions?.emergency_contact || 1;
@@ -323,7 +325,10 @@ async function run() {
   // 4. Valid (name + phone) -> MUST APPLY
   try {
     // Re-check base version in case any mutation occurred
-    const refSnap = await (await fetch(`${BASE_URL}/sync/snapshot`)).json();
+    const refSnapRes = await fetch(`${BASE_URL}/sync/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const refSnap = await refSnapRes.json();
     const refSt = refSnap.students?.find((s: any) => s.id === currentTarget7B.id);
     const validVer = refSt?.field_versions?.emergency_contact || currentEmergencyVer;
 
