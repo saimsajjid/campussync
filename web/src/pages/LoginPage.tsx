@@ -4,14 +4,21 @@ import { ShieldCheck, GraduationCap, UserCheck, Key, Lock, Mail, ArrowRight, Ser
 import type { CurrentUser } from '../types';
 
 export const LoginPage: React.FC = () => {
-  const { setCurrentUser, addToast } = useApp();
+  const { login, addToast } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleDemoLogin = (user: CurrentUser) => {
-    setCurrentUser(user);
-    addToast(`Signed in as ${user.name} (${user.role.toUpperCase()})`, 'success');
+  const handleDemoLogin = async (user: CurrentUser) => {
+    setIsSubmitting(true);
+    try {
+      await login(user.email, 'password123');
+      addToast(`Signed in as ${user.name} (${user.role.toUpperCase()})`, 'success');
+    } catch (err: any) {
+      addToast(`Login failed: ${err.message}`, 'danger');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleManualLogin = async (e: React.FormEvent) => {
@@ -23,28 +30,8 @@ export const LoginPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Invalid email or password');
-      }
-
-      const data = await res.json();
-      const matched = DEMO_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase()) || {
-        id: data.user?.id || 'custom-user-' + Date.now(),
-        name: data.user?.name || email.split('@')[0],
-        email: email,
-        role: data.user?.role || 'student',
-        campus: data.user?.campus || 'Lahore',
-      };
-
-      setCurrentUser(matched);
-      addToast(`Signed in successfully as ${matched.name}`, 'success');
+      const u = await login(email, password);
+      addToast(`Signed in successfully as ${u.name}`, 'success');
     } catch (err: any) {
       addToast(`Login failed: ${err.message}`, 'danger');
     } finally {
@@ -53,7 +40,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] flex flex-col justify-center items-center p-4 sm:p-6 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-[var(--color-surface-dark)] via-[var(--color-text-dark)] to-[var(--color-surface-dark)] flex flex-col justify-center items-center p-4 sm:p-6 text-white">
       {/* Brand Header */}
       <div className="text-center mb-8 max-w-md">
         <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-xl shadow-blue-500/25 mb-4">

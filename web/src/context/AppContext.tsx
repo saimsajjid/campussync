@@ -8,6 +8,9 @@ import {
   pullChanges,
   injectRemoteConflictServer,
   resetDemoServer,
+  fetchCurrentUser,
+  loginUser,
+  logoutUser,
 } from '../services/api';
 
 export const DEMO_USERS: CurrentUser[] = [
@@ -42,10 +45,12 @@ interface ToastItem {
 }
 
 interface AppContextType {
-  currentUser: CurrentUser;
-  setCurrentUser: (user: CurrentUser) => void;
+  currentUser: CurrentUser | null;
+  setCurrentUser: (user: CurrentUser | null) => void;
   isLoggedIn: boolean;
-  logout: () => void;
+  authLoading: boolean;
+  login: (email: string, password?: string) => Promise<CurrentUser>;
+  logout: () => Promise<void>;
   activeCampus: CampusCode | 'all';
   setActiveCampus: (campus: CampusCode | 'all') => void;
   simulator: SimulatorState;
@@ -70,23 +75,52 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<CurrentUser>(DEMO_USERS[0]);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem('campussync_auth') !== 'false';
-  });
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [activeCampus, setActiveCampus] = useState<CampusCode | 'all'>('all');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const isSyncingRef = useRef(false);
 
-  const handleSetCurrentUser = (user: CurrentUser) => {
-    localStorage.setItem('campussync_auth', 'true');
-    setCurrentUser(user);
+  // 1. Initial Authentication Check from authoritative GET /auth/me
+  useEffect(() => {
+    let isMounted = true;
+    async function checkAuthSession() {
+      try {
+        const res = await fetchCurrentUser();
+        if (isMounted && res && res.user) {
+          setCurrentUser(res.user);
+          setIsLoggedIn(true);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setCurrentUser(null);
+          setIsLoggedIn(false);
+        }
+      } finally {
+        if (isMounted) {
+          setAuthLoading(false);
+        }
+      }
+    }
+    checkAuthSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const login = async (email: string, password = 'password123'): Promise<CurrentUser> => {
+    const res = await loginUser(email, password);
+    setCurrentUser(res.user);
     setIsLoggedIn(true);
+    await hydrateFromServer();
+    return res.user;
   };
 
-  const logout = () => {
-    localStorage.setItem('campussync_auth', 'false');
+  const logout = async () => {
+    await logoutUser();
+    setCurrentUser(null);
     setIsLoggedIn(false);
   };
 
@@ -378,8 +412,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         currentUser,
-        setCurrentUser: handleSetCurrentUser,
+        setCurrentUser,
         isLoggedIn,
+        authLoading,
+        login,
         logout,
         activeCampus,
         setActiveCampus,

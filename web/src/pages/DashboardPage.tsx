@@ -47,15 +47,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
 
   const totalCampusesCount = 3;
 
+  if (!currentUser) return null;
+
   return (
     <div className="space-y-6 text-left">
       {/* Top Banner / Welcome Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-[#1E293B] tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-text-dark)] tracking-tight">
             Multi-Campus Sync Dashboard
           </h1>
-          <p className="text-xs text-[#6B7280] mt-1">
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">
             Challenge HS-0146: Real-time conflict resolution, offline outbox, and proven data consistency.
           </p>
         </div>
@@ -64,7 +66,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
           {currentUser.role === 'admin' && (
             <button
               onClick={onOpenAddStudent}
-              className="px-4 py-2 bg-[#4F7DF3] hover:bg-[#3E6AE1] text-white text-xs font-bold rounded-xl shadow-md shadow-[#4F7DF3]/20 flex items-center gap-1.5 transition-all"
+              className="px-4 py-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-xs font-bold rounded-xl shadow-md shadow-[var(--color-primary)]/20 flex items-center gap-1.5 transition-all"
             >
               <UserPlus className="w-4 h-4" /> Add Student
             </button>
@@ -73,9 +75,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
           <button
             onClick={() => syncNow()}
             disabled={isSyncing}
-            className="px-4 py-2 bg-white border border-[#CBD5E1] hover:bg-gray-50 text-[#1E293B] text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
+            className="px-4 py-2 bg-white border border-[var(--color-border-muted)] hover:bg-gray-50 text-[var(--color-text-dark)] text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 text-[#4F7DF3] ${isSyncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-[var(--color-primary)] ${isSyncing ? 'animate-spin' : ''}`} />
             <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
           </button>
         </div>
@@ -84,20 +86,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
       {/* Status Summary Row (Design-Spec §6.2) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Tile 1: Connection State */}
-        <div className="bg-white p-5 rounded-2xl border border-[#E5E7EB] shadow-xs flex items-center justify-between">
+        <div className="bg-white p-5 rounded-2xl border border-[var(--color-border-subtle)] shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-[#6B7280]">Connection State</span>
+            <span className="text-xs font-semibold text-[var(--color-text-muted)]">Connection State</span>
             <div className="flex items-center gap-2 mt-1">
               <span
                 className={`w-2.5 h-2.5 rounded-full ${
-                  simulator.isOffline ? 'bg-[#EF4444]' : 'bg-[#22C55E] pulse-green'
+                  simulator.isOffline ? 'bg-[var(--color-status-danger-red)]' : 'bg-[var(--color-status-success-green)] pulse-green'
                 }`}
               />
-              <span className="text-lg font-bold text-[#1E293B]">
+              <span className="text-lg font-bold text-[var(--color-text-dark)]">
                 {simulator.isOffline ? 'Offline Mode' : 'Online / Live'}
               </span>
             </div>
-            <p className="text-[11px] text-[#6B7280] mt-1">
+            <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
               {simulator.isOffline ? 'Local IndexedDB active' : 'Connected to Fastify'}
             </p>
           </div>
@@ -113,12 +115,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
         {/* Tile 2: Outbox Pending Mutations */}
         <div
           onClick={() => onNavigate('sync')}
-          className="bg-white p-5 rounded-2xl border border-[#E5E7EB] shadow-xs flex items-center justify-between cursor-pointer hover:border-[#F59E0B]/50 transition-all"
+          className="bg-white p-5 rounded-2xl border border-[var(--color-border-subtle)] shadow-xs flex items-center justify-between cursor-pointer hover:border-[var(--color-status-warning-amber)]/50 transition-all"
         >
           <div>
-            <span className="text-xs font-semibold text-[#6B7280]">Outbox Queue</span>
-            <div className="text-lg font-bold text-[#1E293B] mt-1">
-              {pendingOutboxCount} <span className="text-xs font-normal text-[#6B7280]">pending</span>
+            <span className="text-xs font-semibold text-[var(--color-text-muted)]">Outbox Queue</span>
+            <div className="text-lg font-bold text-[var(--color-text-dark)] mt-1">
+              {pendingOutboxCount} <span className="text-xs font-normal text-[var(--color-text-muted)]">pending</span>
             </div>
             <p className="text-[11px] text-amber-700 font-medium mt-1 flex items-center gap-1">
               <Clock className="w-3 h-3" /> Unsent local edits
@@ -132,12 +134,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
         {/* Tile 3: Open Conflicts */}
         <div
           onClick={() => onNavigate('conflicts')}
-          className="bg-white p-5 rounded-2xl border border-[#E5E7EB] shadow-xs flex items-center justify-between cursor-pointer hover:border-[#EF4444]/50 transition-all"
+          className="bg-white p-5 rounded-2xl border border-[var(--color-border-subtle)] shadow-xs flex items-center justify-between cursor-pointer hover:border-[var(--color-status-danger-red)]/50 transition-all"
         >
           <div>
-            <span className="text-xs font-semibold text-[#6B7280]">Needs Attention</span>
-            <div className="text-lg font-bold text-[#1E293B] mt-1">
-              {openConflictsCount} <span className="text-xs font-normal text-[#6B7280]">conflicts</span>
+            <span className="text-xs font-semibold text-[var(--color-text-muted)]">Needs Attention</span>
+            <div className="text-lg font-bold text-[var(--color-text-dark)] mt-1">
+              {openConflictsCount} <span className="text-xs font-normal text-[var(--color-text-muted)]">conflicts</span>
             </div>
             <p className="text-[11px] text-red-700 font-medium mt-1 flex items-center gap-1">
               <AlertTriangle className="w-3 h-3" /> Field-level clashing
@@ -151,18 +153,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
         {/* Tile 4: Total Student Records */}
         <div
           onClick={() => onNavigate('students')}
-          className="bg-white p-5 rounded-2xl border border-[#E5E7EB] shadow-xs flex items-center justify-between cursor-pointer hover:border-[#4F7DF3]/50 transition-all"
+          className="bg-white p-5 rounded-2xl border border-[var(--color-border-subtle)] shadow-xs flex items-center justify-between cursor-pointer hover:border-[var(--color-primary)]/50 transition-all"
         >
           <div>
-            <span className="text-xs font-semibold text-[#6B7280]">Total Shared Records</span>
-            <div className="text-lg font-bold text-[#1E293B] mt-1">
-              {students?.length || 0} <span className="text-xs font-normal text-[#6B7280]">enrolled</span>
+            <span className="text-xs font-semibold text-[var(--color-text-muted)]">Total Shared Records</span>
+            <div className="text-lg font-bold text-[var(--color-text-dark)] mt-1">
+              {students?.length || 0} <span className="text-xs font-normal text-[var(--color-text-muted)]">enrolled</span>
             </div>
-            <p className="text-[11px] text-[#4F7DF3] font-medium mt-1 flex items-center gap-1">
+            <p className="text-[11px] text-[var(--color-primary)] font-medium mt-1 flex items-center gap-1">
               <Building2 className="w-3 h-3" /> Across {totalCampusesCount} Campuses
             </p>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-blue-50 text-[#4F7DF3] flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-blue-50 text-[var(--color-primary)] flex items-center justify-center">
             <Users className="w-6 h-6" />
           </div>
         </div>
@@ -171,17 +173,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
       {/* Main Grid: Student Directory Snapshot & Quick Verification */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column (2 Cols): Student Table Snapshot */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-[#E5E7EB] shadow-xs overflow-hidden">
-          <div className="p-5 border-b border-[#E5E7EB] flex items-center justify-between">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
+          <div className="p-5 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
             <div>
-              <h2 className="font-bold text-sm text-[#1E293B]">Multi-Campus Records Directory</h2>
-              <p className="text-xs text-[#6B7280]">
+              <h2 className="font-bold text-sm text-[var(--color-text-dark)]">Multi-Campus Records Directory</h2>
+              <p className="text-xs text-[var(--color-text-muted)]">
                 Single Source of Truth with Field-Level Versioning
               </p>
             </div>
             <button
               onClick={() => onNavigate('students')}
-              className="text-xs font-bold text-[#4F7DF3] hover:underline flex items-center gap-1"
+              className="text-xs font-bold text-[var(--color-primary)] hover:underline flex items-center gap-1"
             >
               <span>View All</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -191,7 +193,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-[#F8FAFC] border-b border-[#E5E7EB] text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
+                <tr className="bg-[var(--color-surface-muted)] border-b border-[var(--color-border-subtle)] text-[11px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">
                   <th className="py-3 px-4">Student</th>
                   <th className="py-3 px-4">Reg No / CNIC</th>
                   <th className="py-3 px-4">Campus & Program</th>
@@ -199,23 +201,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
                   <th className="py-3 px-4 text-right">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E7EB] text-xs">
+              <tbody className="divide-y divide-[var(--color-border-subtle)] text-xs">
                 {students && students.length > 0 ? (
                   students.slice(0, 5).map((s) => (
-                    <tr key={s.id} className="hover:bg-[#F8FAFC] transition-colors">
-                      <td className="py-3.5 px-4 font-semibold text-[#1E293B]">
+                    <tr key={s.id} className="hover:bg-[var(--color-surface-muted)] transition-colors">
+                      <td className="py-3.5 px-4 font-semibold text-[var(--color-text-dark)]">
                         <div className="font-bold">{s.full_name}</div>
-                        <div className="text-[11px] text-[#6B7280] font-normal">{s.email}</div>
+                        <div className="text-[11px] text-[var(--color-text-muted)] font-normal">{s.email}</div>
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-[11px] text-[#475569]">
+                      <td className="py-3.5 px-4 font-mono text-[11px] text-[var(--color-text-secondary)]">
                         <div>{s.reg_no}</div>
-                        <div className="text-[10px] text-[#94A3B8]">{s.cnic}</div>
+                        <div className="text-[10px] text-[var(--color-text-light)]">{s.cnic}</div>
                       </td>
                       <td className="py-3.5 px-4">
-                        <span className="font-semibold text-[#1E293B]">{s.campus}</span>
-                        <div className="text-[11px] text-[#6B7280]">{s.program}</div>
+                        <span className="font-semibold text-[var(--color-text-dark)]">{s.campus}</span>
+                        <div className="text-[11px] text-[var(--color-text-muted)]">{s.program}</div>
                       </td>
-                      <td className="py-3.5 px-4 font-medium text-[#1E293B]">
+                      <td className="py-3.5 px-4 font-medium text-[var(--color-text-dark)]">
                         Sem {s.semester}
                       </td>
                       <td className="py-3.5 px-4 text-right">
@@ -228,7 +230,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="py-10 text-center text-[#6B7280]">
+                    <td colSpan={5} className="py-10 text-center text-[var(--color-text-muted)]">
                       <p className="font-semibold text-sm">Zero records in database</p>
                       <p className="text-xs mt-1">Database is completely fresh. Use "Add Student" above to register your first record.</p>
                     </td>
@@ -242,30 +244,30 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
         {/* Right Column: Invariant Checks & Quick Info */}
         <div className="space-y-6">
           {/* Invariant Health Card */}
-          <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-xs p-5">
+          <div className="bg-white rounded-2xl border border-[var(--color-border-subtle)] shadow-xs p-5">
             <div className="flex items-center gap-2 mb-3">
               <ShieldCheck className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-bold text-sm text-[#1E293B]">Correctness Guarantees</h3>
+              <h3 className="font-bold text-sm text-[var(--color-text-dark)]">Correctness Guarantees</h3>
             </div>
-            <p className="text-xs text-[#6B7280] leading-relaxed mb-4">
+            <p className="text-xs text-[var(--color-text-muted)] leading-relaxed mb-4">
               CampusSync enforces 7 strict SQL invariants ensuring that no offline sync or network replay corrupts academic records.
             </p>
 
             <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-[#F8FAFC] border border-[#E5E7EB]">
-                <span className="font-medium text-[#1E293B]">CNIC & RegNo Unique</span>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border-subtle)]">
+                <span className="font-medium text-[var(--color-text-dark)]">CNIC & RegNo Unique</span>
                 <span className="text-emerald-700 font-bold flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Enforced
                 </span>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-[#F8FAFC] border border-[#E5E7EB]">
-                <span className="font-medium text-[#1E293B]">Idempotent opId Replay</span>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border-subtle)]">
+                <span className="font-medium text-[var(--color-text-dark)]">Idempotent opId Replay</span>
                 <span className="text-emerald-700 font-bold flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Guaranteed
                 </span>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-[#F8FAFC] border border-[#E5E7EB]">
-                <span className="font-medium text-[#1E293B]">Append-Only Audit History</span>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border-subtle)]">
+                <span className="font-medium text-[var(--color-text-dark)]">Append-Only Audit History</span>
                 <span className="text-emerald-700 font-bold flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Immutable
                 </span>
@@ -274,7 +276,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
 
             <button
               onClick={() => onNavigate('integrity')}
-              className="w-full mt-4 py-2 bg-[#EBF0FF] hover:bg-[#DBEAFE] text-[#4F7DF3] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+              className="w-full mt-4 py-2 bg-[var(--color-primary-light)] hover:bg-[var(--color-status-info-light)] text-[var(--color-primary)] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
             >
               <span>Run SQL Integrity Suite</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -282,12 +284,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
           </div>
 
           {/* Architecture Note */}
-          <div className="bg-linear-to-br from-[#EBF0FF] to-[#DBEAFE] rounded-2xl p-5 text-left border border-[#BFDBFE]">
+          <div className="bg-linear-to-br from-[var(--color-primary-light)] to-[var(--color-status-info-light)] rounded-2xl p-5 text-left border border-[var(--color-status-info-border)]">
             <div className="flex items-center gap-2 mb-1.5">
-              <GraduationCap className="w-5 h-5 text-[#1D4ED8]" />
-              <h4 className="font-bold text-sm text-[#1E3A8A]">Build for Campus 2026</h4>
+              <GraduationCap className="w-5 h-5 text-[var(--color-status-info-text)]" />
+              <h4 className="font-bold text-sm text-[var(--color-primary-deep)]">Build for Campus 2026</h4>
             </div>
-            <p className="text-xs text-[#1E40AF] leading-relaxed">
+            <p className="text-xs text-[var(--color-primary-dark)] leading-relaxed">
               <strong>Team CrackHacks</strong> • Challenge HS-0146
               <br />
               Offline-first PWA backed by PostgreSQL 16 row locks and Fastify schema validation.

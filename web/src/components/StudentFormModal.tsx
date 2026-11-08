@@ -101,7 +101,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     checkDuplicate();
   }, [formData.reg_no, formData.cnic, studentToEdit]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !currentUser) return null;
 
   // Permission helpers
   const canEditOfficial = currentUser.role === 'admin';
@@ -179,25 +179,25 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-[#E5E7EB] overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-[var(--color-border-subtle)] overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-[#E5E7EB] bg-[#F8FAFC] flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-muted)] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#4F7DF3]/10 text-[#4F7DF3] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)] flex items-center justify-center">
               {isEditing ? <Save className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="font-bold text-base text-[#1E293B]">
+              <h3 className="font-bold text-base text-[var(--color-text-dark)]">
                 {isEditing ? `Edit Student: ${studentToEdit?.full_name}` : 'Register New Student Record'}
               </h3>
-              <p className="text-xs text-[#6B7280]">
+              <p className="text-xs text-[var(--color-text-muted)]">
                 {isEditing ? `ID: ${studentToEdit?.reg_no} • Server Version: v${studentToEdit?.version}` : 'Creates offline-safe client UUID'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#6B7280] hover:text-[#1E293B] hover:bg-[#E5E7EB] transition-colors"
+            className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-dark)] hover:bg-[var(--color-border-subtle)] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -207,8 +207,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1 text-left">
           {/* Duplicate Warning Alert */}
           {duplicateWarning && (
-            <div className="p-3.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] flex items-start gap-3 text-[#991B1B]">
-              <AlertTriangle className="w-5 h-5 text-[#EF4444] flex-shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-xl bg-[var(--color-status-danger-subtle)] border border-[var(--color-status-conflict-border)] flex items-start gap-3 text-[var(--color-status-danger-text)]">
+              <AlertTriangle className="w-5 h-5 text-[var(--color-status-danger-red)] flex-shrink-0 mt-0.5" />
               <div className="text-xs">
                 <span className="font-bold block">Duplicate Detected (FR-10):</span>
                 <span>{duplicateWarning}</span>
@@ -218,15 +218,15 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
           {/* Validation Error Alert */}
           {validationError && (
-            <div className="p-3.5 rounded-xl bg-[#FFF1F2] border border-[#FECDD3] flex items-start gap-3 text-[#9F1239]">
-              <AlertCircle className="w-5 h-5 text-[#9F1239] flex-shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-xl bg-[var(--color-status-rejected-bg)] border border-[var(--color-status-rejected-border)] flex items-start gap-3 text-[var(--color-status-rejected-text)]">
+              <AlertCircle className="w-5 h-5 text-[var(--color-status-rejected-text)] flex-shrink-0 mt-0.5" />
               <div className="text-xs font-semibold">{validationError}</div>
             </div>
           )}
 
           {/* Group 1: Identity & Official Records */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#6B7280] flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center justify-between">
               <span>Official University Details</span>
               {!canEditOfficial && (
                 <span className="text-[10px] text-amber-700 flex items-center gap-1 font-semibold">
@@ -239,7 +239,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               {/* Full Name */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-[#1E293B]">Full Name</label>
+                  <label className="text-xs font-semibold text-[var(--color-text-dark)]">Full Name</label>
                   <StatusBadge status={getFieldStatus('full_name')} />
                 </div>
                 <input
@@ -249,14 +249,14 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                   placeholder="e.g. Muhammad Ahmed"
-                  className="w-full text-xs font-medium bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg p-2 text-[#1E293B] disabled:opacity-60 disabled:bg-[#F1F5F9]"
+                  className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                 />
               </div>
 
               {/* Registration Number */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-[#1E293B]">Registration Number (Unique)</label>
+                  <label className="text-xs font-semibold text-[var(--color-text-dark)]">Registration Number (Unique)</label>
                   <StatusBadge status={getFieldStatus('reg_no')} />
                 </div>
                 <input
@@ -266,14 +266,14 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.reg_no}
                   onChange={(e) => setFormData({ ...formData, reg_no: e.target.value })}
                   placeholder="e.g. CS-2026-0147"
-                  className="w-full text-xs font-mono font-medium bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg p-2 text-[#1E293B] disabled:opacity-60 disabled:bg-[#F1F5F9]"
+                  className="w-full text-xs font-mono font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                 />
               </div>
 
               {/* CNIC (National ID) */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-[#1E293B]">National ID / CNIC (13 Digits)</label>
+                  <label className="text-xs font-semibold text-[var(--color-text-dark)]">National ID / CNIC (13 Digits)</label>
                   <StatusBadge status={getFieldStatus('cnic')} />
                 </div>
                 <input
@@ -283,21 +283,21 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.cnic}
                   onChange={(e) => setFormData({ ...formData, cnic: e.target.value })}
                   placeholder="e.g. 37405-1234567-1"
-                  className="w-full text-xs font-mono font-medium bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg p-2 text-[#1E293B] disabled:opacity-60 disabled:bg-[#F1F5F9]"
+                  className="w-full text-xs font-mono font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                 />
               </div>
 
               {/* Campus */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-[#1E293B]">Campus</label>
+                  <label className="text-xs font-semibold text-[var(--color-text-dark)]">Campus</label>
                   <StatusBadge status={getFieldStatus('campus')} />
                 </div>
                 <select
                   disabled={!canEditOfficial}
                   value={formData.campus}
                   onChange={(e) => setFormData({ ...formData, campus: e.target.value as CampusCode })}
-                  className="w-full text-xs font-medium bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg p-2 text-[#1E293B] disabled:opacity-60 disabled:bg-[#F1F5F9]"
+                  className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                 >
                   <option value="Islamabad">Islamabad</option>
                   <option value="Lahore">Lahore</option>
@@ -308,14 +308,14 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               {/* Program */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-[#1E293B]">Program</label>
+                  <label className="text-xs font-semibold text-[var(--color-text-dark)]">Program</label>
                   <StatusBadge status={getFieldStatus('program')} />
                 </div>
                 <select
                   disabled={!canEditOfficial}
                   value={formData.program}
                   onChange={(e) => setFormData({ ...formData, program: e.target.value as ProgramCode })}
-                  className="w-full text-xs font-medium bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg p-2 text-[#1E293B] disabled:opacity-60 disabled:bg-[#F1F5F9]"
+                  className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                 >
                   <option value="BS CS">BS Computer Science</option>
                   <option value="BS SE">BS Software Engineering</option>
@@ -327,13 +327,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-[#1E293B]">Semester</label>
+                    <label className="text-xs font-semibold text-[var(--color-text-dark)]">Semester</label>
                   </div>
                   <select
                     disabled={!canEditOfficial}
                     value={formData.semester}
                     onChange={(e) => setFormData({ ...formData, semester: parseInt(e.target.value) })}
-                    className="w-full text-xs font-medium bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg p-2 text-[#1E293B] disabled:opacity-60 disabled:bg-[#F1F5F9]"
+                    className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                   >
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
                       <option key={s} value={s}>
@@ -345,13 +345,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-[#1E293B]">Status</label>
+                    <label className="text-xs font-semibold text-[var(--color-text-dark)]">Status</label>
                   </div>
                   <select
                     disabled={!canEditOfficial}
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as StudentStatus })}
-                    className="w-full text-xs font-medium bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg p-2 text-[#1E293B] disabled:opacity-60 disabled:bg-[#F1F5F9]"
+                    className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                   >
                     <option value="Active">Active</option>
                     <option value="On leave">On leave</option>
@@ -363,8 +363,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           </div>
 
           {/* Group 2: Personal / Contact Details */}
-          <div className="space-y-3 pt-3 border-t border-[#E5E7EB]">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#6B7280] flex items-center justify-between">
+          <div className="space-y-3 pt-3 border-t border-[var(--color-border-subtle)]">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center justify-between">
               <span>Contact Information (Editable by Student & Admin)</span>
               {!canEditContact && (
                 <span className="text-[10px] text-amber-700 flex items-center gap-1 font-semibold">
@@ -376,7 +376,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-[#1E293B]">Mobile Phone</label>
+                  <label className="text-xs font-semibold text-[var(--color-text-dark)]">Mobile Phone</label>
                   <StatusBadge status={getFieldStatus('phone')} />
                 </div>
                 <input
@@ -386,13 +386,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="0300-1234567"
-                  className="w-full text-xs font-medium bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg p-2 text-[#1E293B] disabled:opacity-60 disabled:bg-[#F1F5F9]"
+                  className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-[#1E293B]">Email Address</label>
+                  <label className="text-xs font-semibold text-[var(--color-text-dark)]">Email Address</label>
                   <StatusBadge status={getFieldStatus('email')} />
                 </div>
                 <input
@@ -402,13 +402,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="student@campussync.edu.pk"
-                  className="w-full text-xs font-medium bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg p-2 text-[#1E293B] disabled:opacity-60 disabled:bg-[#F1F5F9]"
+                  className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-[#1E293B]">Emergency Contact</label>
+                  <label className="text-xs font-semibold text-[var(--color-text-dark)]">Emergency Contact</label>
                   <StatusBadge status={getFieldStatus('emergency_contact')} />
                 </div>
                 <input
@@ -418,13 +418,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.emergency_contact}
                   onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
                   placeholder="Name (Phone)"
-                  className="w-full text-xs font-medium bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg p-2 text-[#1E293B] disabled:opacity-60 disabled:bg-[#F1F5F9]"
+                  className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-[#1E293B]">Home / Residency Address</label>
+                  <label className="text-xs font-semibold text-[var(--color-text-dark)]">Home / Residency Address</label>
                   <StatusBadge status={getFieldStatus('address')} />
                 </div>
                 <input
@@ -434,15 +434,15 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   placeholder="Street address, City"
-                  className="w-full text-xs font-medium bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg p-2 text-[#1E293B] disabled:opacity-60 disabled:bg-[#F1F5F9]"
+                  className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                 />
               </div>
             </div>
           </div>
 
           {/* Group 3: Academic Fields */}
-          <div className="space-y-3 pt-3 border-t border-[#E5E7EB]">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#6B7280] flex items-center justify-between">
+          <div className="space-y-3 pt-3 border-t border-[var(--color-border-subtle)]">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center justify-between">
               <span>Academic Data (Editable by Faculty & Admin)</span>
               {!canEditAcademic && (
                 <span className="text-[10px] text-amber-700 flex items-center gap-1 font-semibold">
@@ -454,7 +454,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-[#1E293B]">Attendance Rate (%)</label>
+                  <label className="text-xs font-semibold text-[var(--color-text-dark)]">Attendance Rate (%)</label>
                   <StatusBadge status={getFieldStatus('attendance')} />
                 </div>
                 <input
@@ -465,13 +465,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   disabled={!canEditAcademic}
                   value={formData.attendance}
                   onChange={(e) => setFormData({ ...formData, attendance: parseInt(e.target.value) || 0 })}
-                  className="w-full text-xs font-medium bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg p-2 text-[#1E293B] disabled:opacity-60 disabled:bg-[#F1F5F9]"
+                  className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-[#1E293B]">Faculty Remarks</label>
+                  <label className="text-xs font-semibold text-[var(--color-text-dark)]">Faculty Remarks</label>
                   <StatusBadge status={getFieldStatus('remarks')} />
                 </div>
                 <input
@@ -480,24 +480,24 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.remarks}
                   onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
                   placeholder="e.g. Lab performance notes"
-                  className="w-full text-xs font-medium bg-[#F8FAFC] border border-[#CBD5E1] rounded-lg p-2 text-[#1E293B] disabled:opacity-60 disabled:bg-[#F1F5F9]"
+                  className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
                 />
               </div>
             </div>
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-4 border-t border-[#E5E7EB] flex items-center justify-end gap-3">
+          <div className="pt-4 border-t border-[var(--color-border-subtle)] flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-[#6B7280] hover:text-[#1E293B] hover:bg-gray-100 rounded-xl transition-colors"
+              className="px-4 py-2 text-xs font-bold text-[var(--color-text-muted)] hover:text-[var(--color-text-dark)] hover:bg-gray-100 rounded-xl transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-xs font-bold bg-[#4F7DF3] hover:bg-[#3E6AE1] text-white rounded-xl shadow-md shadow-[#4F7DF3]/20 flex items-center gap-1.5 transition-all"
+              className="px-5 py-2 text-xs font-bold bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white rounded-xl shadow-md shadow-[var(--color-primary)]/20 flex items-center gap-1.5 transition-all"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{isEditing ? 'Save Changes to Outbox' : 'Register Student'}</span>
