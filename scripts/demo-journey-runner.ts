@@ -220,12 +220,21 @@ async function executeSingleJourney(runNumber: number): Promise<RunSummary> {
 
   let step6Passed = false;
   if (addressConflict) {
+    const snapResolving = await snapPostMergeRes.json().catch(() => null);
+    // Fetch latest student snapshot to get version shown to user when opening conflict resolution
+    const currStudRes = await fetch(`${BASE_URL}/sync/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const currStudSnap = await currStudRes.json();
+    const currTarget = currStudSnap.students?.find((s: any) => s.id === targetStudentId);
+    const currAddressVer = currTarget?.field_versions?.address || 1;
+
     const resolveRes = await fetch(`${BASE_URL}/conflicts/${addressConflict.id}/resolve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
       body: JSON.stringify({
         choice: 'theirs', // Keep current server value (Admin's address)
-        expectedServerVersion: addressConflict.server_version || addressConflict.serverVersion,
+        expectedServerVersion: currAddressVer,
       }),
     });
     const resolveData = await resolveRes.json();

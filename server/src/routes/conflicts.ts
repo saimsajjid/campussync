@@ -72,7 +72,7 @@ export const conflictRoutes: FastifyPluginAsync = async (fastify) => {
     const fieldVersions = safeJsonParse(student.field_versions) || {};
     const currentFieldVersion = fieldVersions[conflict.field] || 1;
 
-    if (expectedServerVersion !== undefined && expectedServerVersion !== currentFieldVersion && expectedServerVersion !== conflict.server_version) {
+    if (expectedServerVersion !== undefined && expectedServerVersion !== currentFieldVersion) {
       return reply.status(409).send({
         error: 'Stale resolution: The server record has changed since you inspected it.',
         currentServerVersion: currentFieldVersion,

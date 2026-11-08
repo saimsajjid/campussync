@@ -153,7 +153,24 @@ export async function runIntegritySuite(): Promise<IntegritySuiteResponse> {
     for (const op of processedOpsRes.rows) {
       const res = safeJsonParse(op.result);
       if (res?.status === 'applied') {
-        if (res.isNoOp) continue;
+        if (res.isNoOp) {
+          // Verify that isNoOp cannot hide lost edits: student must exist and value must match
+          if (!res.studentId || !res.field) {
+            lostEdits.push({ opId: op.op_id, reason: 'Invalid no-op operation missing student or field reference' });
+            continue;
+          }
+          const sCheck = await client.query(`SELECT ${res.field} FROM students WHERE id = $1`, [res.studentId]);
+          if (sCheck.rows.length === 0) {
+            lostEdits.push({ opId: op.op_id, reason: 'No-op operation references non-existent student' });
+            continue;
+          }
+          const currentVal = sCheck.rows[0][res.field];
+          if (JSON.stringify(currentVal) !== JSON.stringify(res.serverValue)) {
+            lostEdits.push({ opId: op.op_id, reason: 'No-op operation value does not match current student state' });
+            continue;
+          }
+          continue;
+        }
         const hCheck = await client.query('SELECT id FROM history WHERE op_id = $1 LIMIT 1', [op.op_id]);
         if (hCheck.rows.length === 0) {
           lostEdits.push({ opId: op.op_id, reason: 'Applied op missing from history log' });

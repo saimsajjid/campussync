@@ -441,14 +441,21 @@ async function run() {
       });
       const confList = await confItemRes.json();
       const thisConf = confList.conflicts?.find((c: any) => c.id === activeConflictId);
-      const expectedVer = thisConf?.server_version ?? thisConf?.serverVersion ?? 1;
+
+      // Fetch student to get the field version currently displayed to the user
+      const snapRes = await fetch(`${BASE_URL}/sync/snapshot`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const snapData = await snapRes.json();
+      const currStudent = snapData.students?.find((s: any) => s.id === targetForMerge.id);
+      const versionShownToUser = currStudent?.field_versions?.[thisConf?.field || 'address'] || 1;
 
       const resolveRes = await fetch(`${BASE_URL}/conflicts/${activeConflictId}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
         body: JSON.stringify({
           choice: 'mine',
-          expectedServerVersion: expectedVer,
+          expectedServerVersion: versionShownToUser,
         }),
       });
       const resolveData = await resolveRes.json();
@@ -462,6 +469,104 @@ async function run() {
     } catch (err: any) {
       record('CR-2', 'Conflicts', 'Conflict resolution', false, null, err.message);
     }
+  }
+
+  // CR-8: Stale Resolution Protection
+  // File a conflict, change the field again from another user, resolve with the old version, expect 409 stale and no write
+  try {
+    // 1. Get current student state
+    const snap1Res = await fetch(`${BASE_URL}/sync/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const snap1 = await snap1Res.json();
+    const stCR8 = snap1.students.find((s: any) => s.id === studentTarget.id);
+    const cr8BaseVer = stCR8.field_versions?.emergency_contact || 1;
+
+    // 2. Client A files a conflict on emergency_contact by sending stale base
+    const cr8ConflictPush = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [
+          {
+            opId: 'op-cr8-conflict-' + Date.now(),
+            studentId: studentTarget.id,
+            field: 'emergency_contact',
+            newValue: 'Uncle Bob (Client A) - 0300-1111222',
+            baseVersion: 999, // Intentional divergence
+            deviceId: 'device-client-a',
+            type: 'edit',
+          },
+        ],
+      }),
+    });
+    const cr8ConfData = await cr8ConflictPush.json();
+    const cr8ConflictId = cr8ConfData.results?.[0]?.conflictId;
+
+    // User inspects the conflict and sees the version before the next change
+    const versionShownWhenInspected = cr8BaseVer;
+
+    // 3. Concurrently, another user changes the field underneath!
+    const interleavedValue = 'Aunt Alice (Interleaved User) - 0300-3333444';
+    const interleavePush = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [
+          {
+            opId: 'op-cr8-interleaved-' + Date.now(),
+            studentId: studentTarget.id,
+            field: 'emergency_contact',
+            newValue: interleavedValue,
+            baseVersion: cr8BaseVer,
+            deviceId: 'device-interleaved-user',
+            type: 'edit',
+          },
+        ],
+      }),
+    });
+    const interleaveData = await interleavePush.json();
+    const interleaveApplied = interleaveData.results?.[0]?.status === 'applied';
+
+    // 4. Client A tries to resolve using the old versionShownWhenInspected
+    const staleResolveRes = await fetch(`${BASE_URL}/conflicts/${cr8ConflictId}/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        choice: 'mine',
+        expectedServerVersion: versionShownWhenInspected, // Stale!
+      }),
+    });
+    const staleResolveData = await staleResolveRes.json();
+
+    // 5. Verify no write occurred (the interleaved value is preserved, conflict remains open)
+    const snapVerifyRes = await fetch(`${BASE_URL}/sync/snapshot`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const snapVerify = await snapVerifyRes.json();
+    const stVerified = snapVerify.students.find((s: any) => s.id === studentTarget.id);
+    const noWriteOccurred = stVerified?.emergency_contact === interleavedValue;
+
+    const confCheckRes = await fetch(`${BASE_URL}/conflicts`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const confCheckData = await confCheckRes.json();
+    const conflictStillOpen = confCheckData.conflicts?.some((c: any) => c.id === cr8ConflictId && c.status === 'open');
+
+    record(
+      'CR-8',
+      'Conflicts',
+      'Stale conflict resolution rejected with 409 Conflict, preserving underlying write and leaving conflict open',
+      staleResolveRes.status === 409 && noWriteOccurred && conflictStillOpen && interleaveApplied,
+      {
+        status: staleResolveRes.status,
+        response: staleResolveData,
+        interleavedPreserved: noWriteOccurred,
+        conflictStillOpen,
+      }
+    );
+  } catch (err: any) {
+    record('CR-8', 'Conflicts', 'Stale resolution protection (CR-8)', false, null, err.message);
   }
 
   // --------------------------------------------------------------------------
