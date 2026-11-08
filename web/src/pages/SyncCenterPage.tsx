@@ -15,11 +15,16 @@ import { db } from '../db';
 import type { OutboxOperation } from '../types';
 
 export const SyncCenterPage: React.FC = () => {
-  const { simulator, syncNow, isSyncing, addToast } = useApp();
+  const { simulator, syncNow, isSyncing, addToast, currentUser } = useApp();
+
+  const isStudent = currentUser?.role === 'student';
 
   const outboxItems = useLiveQuery(() => {
+    if (isStudent && currentUser?.student_id) {
+      return db.outbox.where('studentId').equals(currentUser.student_id).toArray();
+    }
     return db.outbox.toArray();
-  }, []);
+  }, [isStudent, currentUser?.student_id]);
 
   const lastSyncMeta = useLiveQuery(() => {
     return db.meta.get('lastSyncedAt');
@@ -30,12 +35,16 @@ export const SyncCenterPage: React.FC = () => {
       addToast('Cannot retry while offline. Toggle connection first.', 'warning');
       return;
     }
-    await db.outbox.delete(op.opId);
-    addToast(`Operation ${op.opId} retried and acknowledged by server!`, 'success');
+    try {
+      await syncNow();
+      addToast(`Operation ${op.opId} retried.`, 'info');
+    } catch (err: any) {
+      addToast(`Retry failed: ${err.message}`, 'danger');
+    }
   };
 
   const handleDiscardItem = async (op: OutboxOperation) => {
-    if (confirm(`Discard pending edit for field "${op.field}"? This drops the unsynced change.`)) {
+    if (confirm(`Discard pending edit for field "${op.field}"? This drops the unsynced change from this device.`)) {
       await db.outbox.delete(op.opId);
       addToast(`Operation ${op.opId} discarded from Outbox.`, 'info');
     }
@@ -49,11 +58,13 @@ export const SyncCenterPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <RefreshCw className="w-6 h-6 text-[var(--color-primary)]" />
             <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-text-dark)] tracking-tight">
-              Sync Center & Local Outbox
+              {isStudent ? 'My Sync Outbox' : 'Sync Center & Local Outbox'}
             </h1>
           </div>
           <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            FR-4: Outbox pattern commits edits to IndexedDB before network transmission.
+            {isStudent
+              ? 'Personal outbox: Track and manage your unsynced contact updates queued for offline sync.'
+              : 'FR-4: Outbox pattern commits edits to IndexedDB before network transmission.'}
           </p>
         </div>
 
@@ -123,6 +134,15 @@ export const SyncCenterPage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[11px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
                     opId: {op.opId}
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                      op.status === 'failed' || op.errorReason
+                        ? 'bg-[var(--color-status-danger-subtle)] text-[var(--color-status-danger-text)] border border-[var(--color-status-conflict-border)]'
+                        : 'bg-[var(--color-status-pending-bg)] text-[var(--color-status-pending-dark)] border border-[var(--color-status-pending-border)]'
+                    }`}
+                  >
+                    {op.status === 'failed' || op.errorReason ? 'Failed' : 'Pending'}
                   </span>
                   <span className="font-bold text-xs text-[var(--color-text-dark)]">
                     Field: <code className="bg-gray-100 px-1 py-0.5 rounded">{op.field}</code>

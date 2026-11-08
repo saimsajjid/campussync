@@ -99,7 +99,7 @@ async function prepare12Students(token: string): Promise<string[]> {
               phone: `0300-${String(1000000 + idx)}`,
               email: `student${idx}@campussync.local`,
               address: `House ${idx}, Sector B, Model Town, Lahore`,
-              emergency_contact: `0321-${String(2000000 + idx)}`,
+              emergency_contact: `Guardian - 0321-${String(2000000 + idx)}`,
               attendance: 85,
               remarks: 'Initial seed',
             },
@@ -203,7 +203,7 @@ async function runContendedChaos() {
         if (field === 'phone') newValue = `0300-${String(1000000 + (currentOpIndex % 8999999))}`;
         else if (field === 'address') newValue = `Plot ${currentOpIndex}, Contention Block, Phase 5`;
         else if (field === 'remarks') newValue = `Audit verification stamp #${currentOpIndex}`;
-        else if (field === 'emergency_contact') newValue = `0321-${String(2000000 + (currentOpIndex % 7999999))}`;
+        else if (field === 'emergency_contact') newValue = `Guardian - 0321-${String(2000000 + (currentOpIndex % 7999999))}`;
       }
 
       roundOps.push({

@@ -81,6 +81,7 @@ export const AppContent: React.FC = () => {
         <Header
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onOpenSimulator={() => setIsSimulatorOpen(true)}
+          onNavigateTab={(tab) => setCurrentTab(tab)}
         />
 
         {/* Offline Alert Strip */}

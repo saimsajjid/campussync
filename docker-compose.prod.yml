@@ -3,6 +3,7 @@ services:
     container_name: campussync-db
 
   app:
+    image: ghcr.io/saimsajjid/campussync:latest
     container_name: campussync-app
     networks:
       - default

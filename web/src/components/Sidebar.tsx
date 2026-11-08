@@ -31,8 +31,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
   );
 
   const pendingOutboxCount = useLiveQuery(
-    () => db.outbox.count(),
-    [],
+    () => {
+      if (currentUser?.role === 'student' && currentUser?.student_id) {
+        return db.outbox.where('studentId').equals(currentUser.student_id).count();
+      }
+      return db.outbox.count();
+    },
+    [currentUser?.role, currentUser?.student_id],
     0
   );
 
@@ -40,7 +45,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
 
   const allNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'faculty', 'student'] },
-    { id: 'students', label: 'Students', icon: Users, roles: ['admin', 'faculty', 'student'] },
+    {
+      id: 'students',
+      label: currentUser?.role === 'student' ? 'My record' : 'Students',
+      icon: Users,
+      roles: ['admin', 'faculty', 'student'],
+    },
     {
       id: 'conflicts',
       label: 'Conflicts',
@@ -56,7 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
       icon: RefreshCw,
       badge: pendingOutboxCount && pendingOutboxCount > 0 ? pendingOutboxCount : undefined,
       badgeColor: 'bg-[var(--color-status-pending-bg)] text-[var(--color-status-warning-orange)]',
-      roles: ['admin', 'faculty'],
+      roles: ['admin', 'faculty', 'student'],
     },
     { id: 'integrity', label: 'Integrity Suite', icon: ShieldCheck, roles: ['admin'] },
   ];

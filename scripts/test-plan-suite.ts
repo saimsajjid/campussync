@@ -1,4 +1,3 @@
-import { pool } from '../server/src/db/pool.js';
 import crypto from 'crypto';
 
 const BASE_URL = process.env.TEST_BASE_URL || process.env.TEST_TARGET || 'http://127.0.0.1:3055';
@@ -221,6 +220,138 @@ async function run() {
   }
 
   // --------------------------------------------------------------------------
+  // SECTION 7B: EMERGENCY CONTACT VALIDATION (MATRIX VA-11)
+  // --------------------------------------------------------------------------
+  console.log(`\n--- SECTION 7B: Emergency Contact Validation (VA-11) ---`);
+
+  // Refresh target snapshot to guarantee accurate baseVersion
+  const snapRes7B = await fetch(`${BASE_URL}/sync/snapshot`);
+  const snapData7B = await snapRes7B.json();
+  const currentTarget7B = snapData7B.students?.find((s: any) => s.id === studentTarget.id) || studentTarget;
+  const currentEmergencyVer = currentTarget7B.field_versions?.emergency_contact || 1;
+
+  // 1. Phone-only -> MUST REJECT
+  try {
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: 'op-va11-phoneonly-' + Date.now(),
+          studentId: currentTarget7B.id,
+          field: 'emergency_contact',
+          newValue: '0300-1234567',
+          baseVersion: currentEmergencyVer,
+          deviceId: 'admin-client',
+          type: 'edit',
+        }],
+      }),
+    });
+    const data = await res.json();
+    const op = data.results?.[0];
+    record(
+      'VA-11-phone-only',
+      'Validation',
+      'Server rejects phone-only emergency contact',
+      op?.status === 'rejected' && op?.reason?.includes('name and a valid phone'),
+      op
+    );
+  } catch (err: any) {
+    record('VA-11-phone-only', 'Validation', 'Phone-only rejection', false, null, err.message);
+  }
+
+  // 2. Name-only -> MUST REJECT
+  try {
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: 'op-va11-nameonly-' + Date.now(),
+          studentId: currentTarget7B.id,
+          field: 'emergency_contact',
+          newValue: 'Muhammad Tariq',
+          baseVersion: currentEmergencyVer,
+          deviceId: 'admin-client',
+          type: 'edit',
+        }],
+      }),
+    });
+    const data = await res.json();
+    const op = data.results?.[0];
+    record(
+      'VA-11-name-only',
+      'Validation',
+      'Server rejects name-only emergency contact',
+      op?.status === 'rejected' && op?.reason?.includes('name and a valid phone'),
+      op
+    );
+  } catch (err: any) {
+    record('VA-11-name-only', 'Validation', 'Name-only rejection', false, null, err.message);
+  }
+
+  // 3. Empty -> MUST REJECT
+  try {
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: 'op-va11-empty-' + Date.now(),
+          studentId: currentTarget7B.id,
+          field: 'emergency_contact',
+          newValue: '',
+          baseVersion: currentEmergencyVer,
+          deviceId: 'admin-client',
+          type: 'edit',
+        }],
+      }),
+    });
+    const data = await res.json();
+    const op = data.results?.[0];
+    record(
+      'VA-11-empty',
+      'Validation',
+      'Server rejects empty emergency contact',
+      op?.status === 'rejected',
+      op
+    );
+  } catch (err: any) {
+    record('VA-11-empty', 'Validation', 'Empty rejection', false, null, err.message);
+  }
+
+  // 4. Valid (name + phone) -> MUST APPLY
+  try {
+    const validContact = 'Tariq Khan (Father) - 0300-9988776';
+    const res = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [{
+          opId: 'op-va11-valid-' + Date.now(),
+          studentId: currentTarget7B.id,
+          field: 'emergency_contact',
+          newValue: validContact,
+          baseVersion: currentEmergencyVer,
+          deviceId: 'admin-client',
+          type: 'edit',
+        }],
+      }),
+    });
+    const data = await res.json();
+    const op = data.results?.[0];
+    record(
+      'VA-11-valid',
+      'Validation',
+      'Server applies valid emergency contact (name + phone)',
+      op?.status === 'applied',
+      op
+    );
+  } catch (err: any) {
+    record('VA-11-valid', 'Validation', 'Valid emergency contact', false, null, err.message);
+  }
+
+  // --------------------------------------------------------------------------
   // SECTION 8: IDEMPOTENCY & EXACTLY-ONCE GUARANTEES
   // --------------------------------------------------------------------------
   console.log(`\n--- SECTION 8: Idempotency & Operation Duplication Prevention ---`);
@@ -423,7 +554,7 @@ async function run() {
       phone: '0300-9991122',
       email: 'noop.student@campussync.local',
       address: 'House 99, Sector Y, Phase 8, Lahore',
-      emergency_contact: '0321-9998877',
+      emergency_contact: 'Father - 0321-9998877',
       attendance: 90,
       remarks: 'Created to test no-op following wildcard creation row',
     };

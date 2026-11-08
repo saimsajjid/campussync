@@ -1,15 +1,29 @@
 import React from 'react';
-import { Menu, Wifi, WifiOff, Sliders, Building2, UserCircle2, LogOut } from 'lucide-react';
+import { Menu, Wifi, WifiOff, Sliders, Building2, UserCircle2, LogOut, RefreshCw } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../db';
 import type { CampusCode } from '../types';
 
 interface HeaderProps {
   onToggleMobileMenu: () => void;
   onOpenSimulator: () => void;
+  onNavigateTab?: (tab: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimulator }) => {
+export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimulator, onNavigateTab }) => {
   const { activeCampus, setActiveCampus, simulator, setSimulator, currentUser, logout, addToast } = useApp();
+
+  const pendingCount = useLiveQuery(
+    () => {
+      if (currentUser?.role === 'student' && currentUser?.student_id) {
+        return db.outbox.where('studentId').equals(currentUser.student_id).count();
+      }
+      return db.outbox.count();
+    },
+    [currentUser?.role, currentUser?.student_id],
+    0
+  );
 
   const campuses: Array<CampusCode | 'all'> = ['all', 'Islamabad', 'Lahore', 'Abbottabad'];
 
@@ -77,6 +91,25 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimula
           ) : (
             <Wifi className="w-3.5 h-3.5 opacity-80" />
           )}
+        </button>
+
+        {/* Header Pending Counter linking to Sync Center */}
+        <button
+          onClick={() => onNavigateTab?.('sync')}
+          className="px-3 py-1.5 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-bg)] hover:bg-[var(--color-primary-light)] hover:border-[var(--color-primary)]/30 text-xs font-semibold text-[var(--color-text-dark)] transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+          title="Open Sync Outbox"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 text-[var(--color-primary)] ${pendingCount > 0 ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Outbox</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              pendingCount > 0
+                ? 'bg-[var(--color-status-warning-amber)] text-white'
+                : 'bg-[var(--color-surface-slate-100)] text-[var(--color-text-muted)]'
+            }`}
+          >
+            {pendingCount}
+          </span>
         </button>
 
         {/* Simulator Drawer Trigger */}

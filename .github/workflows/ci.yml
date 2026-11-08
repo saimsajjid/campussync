@@ -1,4 +1,4 @@
-name: CampusSync CI
+name: CampusSync CI & Container Release
 
 on:
   push:
@@ -8,8 +8,23 @@ on:
 
 jobs:
   test:
-    name: Sync Engine Unit Tests & Build Verification
+    name: Full CI Suite (PostgreSQL, Shared Validation, Unit & Test Plan Suites)
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: campussync
+          POSTGRES_PASSWORD: change-me
+          POSTGRES_DB: campussync
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout Repository
@@ -19,16 +34,76 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Install Root Dependencies
         run: npm install
 
-      - name: Run Sync Engine Unit Tests
+      - name: Run Sync Engine Pure Unit Tests
         run: npm test
 
-      - name: Install Web Dependencies
-        run: cd web && npm install
+      - name: Build & Test Shared Package (VA-11 Matrix Validation)
+        run: |
+          cd shared
+          npm install
+          npm run build
+          npm test
 
       - name: Build Web Application
-        run: cd web && npm run build
+        run: |
+          cd web
+          npm install
+          npm run build
+
+      - name: Build Server Package & Run Migrations
+        run: |
+          cd server
+          npm install
+          npm run build
+          DATABASE_URL=postgres://campussync:change-me@127.0.0.1:5432/campussync npm run db:migrate
+          DATABASE_URL=postgres://campussync:change-me@127.0.0.1:5432/campussync npm run db:seed
+
+      - name: Start Server in Background
+        run: |
+          cd server
+          DATABASE_URL=postgres://campussync:change-me@127.0.0.1:5432/campussync PORT=3055 JWT_SECRET=test-secret COOKIE_SECRET=test-cookie-secret-32-chars-long npm start &
+          npx wait-on http://127.0.0.1:3055/health --timeout 20000
+
+      - name: Execute Full Test Plan Suite (VA-11, Invariants, Conflicts, Idempotency)
+        run: |
+          TEST_BASE_URL=http://127.0.0.1:3055 npx tsx scripts/test-plan-suite.ts
+
+  build-arm64-ghcr:
+    name: Build & Push ARM64 Image to GHCR
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push ARM64 Container Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
