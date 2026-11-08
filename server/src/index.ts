@@ -66,18 +66,11 @@ async function main() {
       });
 
       fastify.setNotFoundHandler((req, reply) => {
-        // SPA Fallback: send index.html for unknown routes if not an API request
-        if (!req.raw.url?.startsWith('/auth') &&
-            !req.raw.url?.startsWith('/sync') &&
-            !req.raw.url?.startsWith('/conflicts') &&
-            !req.raw.url?.startsWith('/students') &&
-            !req.raw.url?.startsWith('/admin') &&
-            !req.raw.url?.startsWith('/demo') &&
-            !req.raw.url?.startsWith('/events') &&
-            !req.raw.url?.startsWith('/health')) {
-          return reply.sendFile('index.html');
-        }
-        return reply.status(404).send({ error: 'Endpoint not found' });
+        return reply.status(404).send({
+          error: 'Endpoint not found',
+          path: req.raw.url,
+          statusCode: 404,
+        });
       });
     }
 
