@@ -110,8 +110,11 @@ async function prepare12Students(token: string): Promise<string[]> {
       }),
     });
 
-    if (pushRes.ok) {
+    const pushData = await pushRes.json();
+    if (pushData.results?.[0]?.status === 'applied') {
       studentIds.push(newId);
+    } else {
+      console.warn(`Failed to create student ${idx}:`, pushData);
     }
     idx++;
   }
@@ -122,6 +125,8 @@ async function prepare12Students(token: string): Promise<string[]> {
   });
   const finalSnap = await finalSnapRes.json();
 
+  referenceModel.clear();
+  const validIds: string[] = [];
   for (const s of finalSnap.students) {
     referenceModel.set(s.id, {
       id: s.id,
@@ -134,10 +139,11 @@ async function prepare12Students(token: string): Promise<string[]> {
       field_versions: { ...s.field_versions },
       version: s.version,
     });
+    validIds.push(s.id);
   }
 
-  console.log(`Prepared ${studentIds.slice(0, 12).length} students for contended chaos test.`);
-  return studentIds.slice(0, 12);
+  console.log(`Prepared ${validIds.length} students in reference model.`);
+  return validIds.slice(0, 12);
 }
 
 async function runContendedChaos() {
