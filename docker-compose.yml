@@ -28,8 +28,10 @@ services:
     environment:
       DATABASE_URL: postgres://campussync:change-me@db:5432/campussync
       JWT_SECRET: change-me-to-a-long-random-string
+      COOKIE_SECRET: change-me-cookie-secret-key-32chars
       DEMO_MODE: "true"
       PORT: 3050
+      HOST: 0.0.0.0
     ports:
       - "3050:3050"
     depends_on:

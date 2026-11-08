@@ -1,0 +1,21 @@
+http:
+  routers:
+    campussync-https:
+      entryPoints:
+        - https
+      service: campussync-svc
+      rule: "Host(`campussync.duckdns.org`)"
+      tls:
+        certResolver: letsencrypt
+      priority: 1000
+    campussync-http:
+      entryPoints:
+        - http
+      service: campussync-svc
+      rule: "Host(`campussync.duckdns.org`)"
+      priority: 1000
+  services:
+    campussync-svc:
+      loadBalancer:
+        servers:
+          - url: "http://campussync-app:3050"
