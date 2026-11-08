@@ -1,5 +1,6 @@
 import type { CampusSyncDatabase } from '../db';
 import type { OutboxOperation, StudentRecord, UserRole } from '../types';
+import { generateUUID } from '../utils/uuid';
 
 export interface QueueOperationInput {
   studentId: string;
@@ -29,7 +30,7 @@ export function calculateExponentialBackoff(retryCount: number, baseMs = 1000, m
  * Builds an immutable outbox operation payload
  */
 export function createOutboxPayload(input: QueueOperationInput, opId?: string): OutboxOperation {
-  const generatedId = opId || 'op-' + Math.random().toString(36).substring(2, 9);
+  const generatedId = opId || generateUUID();
   return {
     opId: generatedId,
     studentId: input.studentId,

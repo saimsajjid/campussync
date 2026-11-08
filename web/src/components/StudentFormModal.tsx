@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { StatusBadge } from './StatusBadge';
 import { db } from '../db';
 import type { StudentRecord, CampusCode, ProgramCode, StudentStatus, FieldStatusType } from '../types';
+import { generateUUID } from '../utils/uuid';
 
 interface StudentFormModalProps {
   isOpen: boolean;
@@ -205,7 +206,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         return;
       }
 
-      const newId = crypto.randomUUID();
+      const newId = generateUUID();
       const initialFieldVersions: Record<string, number> = {};
       Object.keys(formData).forEach((k) => (initialFieldVersions[k] = 1));
 

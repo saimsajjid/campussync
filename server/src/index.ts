@@ -18,6 +18,9 @@ import { demoRoutes } from './routes/demo.js';
 
 dotenv.config();
 
+import { validateProductionSecrets, DEFAULT_JWT_SECRET, INSECURE_JWT_SECRETS } from './config/security.js';
+export { validateProductionSecrets, DEFAULT_JWT_SECRET, INSECURE_JWT_SECRETS };
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -29,6 +32,9 @@ const fastify = Fastify({
 
 async function main() {
   try {
+    // 0. Production Secret Enforcement
+    validateProductionSecrets();
+
     // 1. Database Migrations & Initial Seed
     try {
       await runMigrations();
@@ -102,4 +108,7 @@ async function main() {
   }
 }
 
-main();
+const isMain = process.argv[1] && (process.argv[1].endsWith('index.ts') || process.argv[1].endsWith('index.js'));
+if (isMain) {
+  main();
+}

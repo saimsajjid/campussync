@@ -15,6 +15,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import type { HistoryItem, StudentRecord } from '../types';
 import { restoreStudentField } from '../services/api';
+import { generateUUID } from '../utils/uuid';
 
 interface HistoryPageProps {
   initialStudentId?: string;
@@ -89,7 +90,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialStudentId }) =>
       actorRole: currentUser.role,
       actorCampus: student.campus,
       device: 'Admin Terminal',
-      opId: 'op-rest-' + Math.random().toString(36).substring(2, 7),
+      opId: generateUUID(),
       createdAt: new Date().toISOString(),
     });
 

@@ -16,6 +16,7 @@ import {
   queueOperationAtomically,
   getPendingOperationsInOrder,
   calculateExponentialBackoff,
+  createOutboxPayload,
 } from '../web/src/sync/outbox';
 import { SyncEngine, type ISyncApiClient } from '../web/src/sync/syncEngine';
 import type { OutboxOperation, StudentRecord, ConflictItem } from '../web/src/types';
@@ -712,6 +713,58 @@ async function runSyncEngineUnitTests() {
       recordedConflict.incomingValue === formDraftAddress
   );
   await db9.close();
+
+  // -------------------------------------------------------------
+  // TEST 10: Client Op ID Generation & Non-Secure Fallback
+  // -------------------------------------------------------------
+  console.log('\n--- TEST 10: Client Op ID UUID & Non-Secure Fallback ---');
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  // 10a: Standard context uses crypto.randomUUID()
+  const opPayload1 = createOutboxPayload({
+    studentId: 'std-10',
+    field: 'phone',
+    newValue: '0300-1112233',
+    oldValue: null,
+    baseVersion: 1,
+    deviceId: 'dev-10',
+    actorName: 'Student User',
+    actorRole: 'student',
+  });
+  assert(
+    'SYN-10a',
+    'Client op ID generates valid RFC4122 v4 UUID in standard context',
+    uuidRegex.test(opPayload1.opId),
+    { opId: opPayload1.opId }
+  );
+
+  // 10b: Non-secure context fallback (crypto.randomUUID is undefined)
+  const originalRandomUUID = (globalThis as any).crypto?.randomUUID;
+  try {
+    if ((globalThis as any).crypto) {
+      (globalThis as any).crypto.randomUUID = undefined;
+    }
+    const fallbackOp = createOutboxPayload({
+      studentId: 'std-10-fallback',
+      field: 'address',
+      newValue: 'Main Boulevard, Gulberg, Lahore',
+      oldValue: null,
+      baseVersion: 1,
+      deviceId: 'dev-10-fallback',
+      actorName: 'Student User',
+      actorRole: 'student',
+    });
+    assert(
+      'SYN-10b',
+      'Client op ID generates valid RFC4122 UUID in non-secure context when crypto.randomUUID is undefined',
+      uuidRegex.test(fallbackOp.opId),
+      { opId: fallbackOp.opId }
+    );
+  } finally {
+    if ((globalThis as any).crypto && originalRandomUUID) {
+      (globalThis as any).crypto.randomUUID = originalRandomUUID;
+    }
+  }
 
   console.log('\n===============================================================');
   console.log(`UNIT TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);

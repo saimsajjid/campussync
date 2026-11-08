@@ -170,7 +170,7 @@ async function runSecuritySuite() {
 
   // Faculty trying to view history of student from a different campus
   try {
-    const foreignStudentId = '10000000-0000-0000-0000-000000000002'; // Islamabad student, faculty is Lahore
+    const foreignStudentId = '10000000-0000-0000-0000-000000000005'; // Islamabad student, faculty is Lahore
     const foreignHistRes = await fetch(`${BASE_URL}/students/${foreignStudentId}/history`, {
       headers: { Authorization: `Bearer ${facultyToken}` },
     });

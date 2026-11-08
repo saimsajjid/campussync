@@ -99,8 +99,8 @@ async function run() {
     record(
       'SM-4',
       'Smoke',
-      'GET /sync/snapshot returns 3 multi-campus records',
-      seededStudents.length === 3 && snapData.latestCursor >= 3,
+      'GET /sync/snapshot returns 12 multi-campus records',
+      seededStudents.length === 12 && snapData.latestCursor >= 12,
       { count: seededStudents.length, cursor: snapData.latestCursor }
     );
   } catch (err: any) {

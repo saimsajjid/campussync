@@ -12,6 +12,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import type { ConflictItem, StudentRecord } from '../types';
 import { resolveConflict } from '../services/api';
+import { generateUUID } from '../utils/uuid';
 
 export const ConflictResolutionPage: React.FC = () => {
   const { addToast, currentUser } = useApp();
@@ -100,7 +101,7 @@ export const ConflictResolutionPage: React.FC = () => {
         actorRole: currentUser.role,
         actorCampus: student.campus,
         device: 'Resolution Engine',
-        opId: 'op-res-' + Math.random().toString(36).substring(2, 7),
+        opId: generateUUID(),
         createdAt: new Date().toISOString(),
       });
     }
