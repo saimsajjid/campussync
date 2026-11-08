@@ -41,7 +41,7 @@ export const AppContent: React.FC = () => {
 
   // Enforce strict RBAC tab access
   let effectiveTab = currentTab;
-  if (currentUser.role === 'student' && ['conflicts', 'sync', 'integrity'].includes(effectiveTab)) {
+  if (currentUser.role === 'student' && ['conflicts', 'integrity'].includes(effectiveTab)) {
     effectiveTab = 'dashboard';
   } else if (currentUser.role === 'faculty' && ['conflicts', 'integrity'].includes(effectiveTab)) {
     effectiveTab = 'dashboard';
