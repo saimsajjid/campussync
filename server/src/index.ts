@@ -64,7 +64,7 @@ async function main() {
         root: webDistPath,
         prefix: '/',
         setHeaders: (res, pathName) => {
-          if (pathName.endsWith('sw.js')) {
+          if (pathName.endsWith('sw.js') || pathName.includes('workbox-')) {
             res.setHeader('Service-Worker-Allowed', '/');
             res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
           }

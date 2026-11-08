@@ -75,6 +75,7 @@ export interface HistoryItem {
   actorCampus: string;
   device: string;
   opId: string;
+  isPending?: boolean;
   createdAt: string;
 }
 

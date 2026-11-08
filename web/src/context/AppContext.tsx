@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { db } from '../db';
-import type { CurrentUser, CampusCode, SimulatorState, OutboxOperation, StudentRecord } from '../types';
+import type { CurrentUser, CampusCode, SimulatorState, StudentRecord } from '../types';
+import { queueOperationAtomically } from '../sync/outbox';
 import {
   fetchSnapshot,
   pushBatch,
@@ -212,6 +213,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         for (const res of pushRes.results) {
           if (res.status === 'applied' || res.status === 'duplicate') {
             await db.outbox.delete(res.opId);
+            await db.history.filter((h) => h.opId === res.opId).modify({ isPending: false });
             if (res.status === 'duplicate') {
               addToast(`Idempotency verified: duplicate opId ${res.opId} safely acknowledged!`, 'info');
             }
@@ -239,7 +241,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (pullRes.changes && pullRes.changes.length > 0) {
         for (const change of pullRes.changes) {
           // Merge history entry
-          await db.history.put(change);
+          await db.history.put({
+            ...change,
+            isPending: false,
+          });
 
           // Update student record if exists locally
           const s = await db.students.get(change.studentId);
@@ -304,7 +309,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [hydrateFromServer, syncNow]);
 
-  // 4. Queue Edit Operation (Offline-First Outbox Pattern)
+  // 4. Queue Edit Operation (Offline-First Outbox Pattern via Pure Outbox Module)
   const queueEditOperation = async (
     studentId: string,
     field: string,
@@ -314,69 +319,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     type: 'edit' | 'create' | 'resolve' | 'restore' = 'edit',
     studentData?: Partial<StudentRecord>
   ) => {
-    const student = await db.students.get(studentId);
-    const opId = 'op-' + Math.random().toString(36).substring(2, 9);
-
     // Atomically commit local student record mutation, local audit log, and outbox queue entry
-    // in a single IndexedDB (Dexie) transaction (FR-5.8, FR-5.9, offline durability)
-    await db.transaction('rw', db.students, db.history, db.outbox, async () => {
-      if (student) {
-        const newFieldVersions = {
-          ...student.field_versions,
-          [field]: (student.field_versions[field] || baseVersion) + 1,
-        };
-
-        const updatedStudent: StudentRecord = {
-          ...student,
-          [field]: newValue,
-          field_versions: newFieldVersions,
-          version: student.version + 1,
-          updated_at: new Date().toISOString(),
-          last_editor_id: currentUser?.name || 'Local User',
-        };
-
-        // 1. Optimistic write to local Dexie student table
-        await db.students.put(updatedStudent);
-
-        // 2. Add local audit entry
-        await db.history.add({
-          id: Date.now(),
-          studentId,
-          studentName: student.full_name,
-          reg_no: student.reg_no,
-          field,
-          oldValue,
-          newValue,
-          fieldVersionAfter: newFieldVersions[field],
-          type,
-          actorName: currentUser?.name || 'Local User',
-          actorRole: currentUser?.role || 'student',
-          actorCampus: student.campus,
-          device: simulator.currentDeviceId,
-          opId,
-          createdAt: new Date().toISOString(),
-        });
-      }
-
-      // 3. Queue in Local Outbox
-      const op: OutboxOperation = {
-        opId,
-        studentId,
-        field,
-        newValue: studentData || newValue,
-        oldValue,
-        baseVersion,
-        deviceId: simulator.currentDeviceId,
-        type,
-        status: simulator.isOffline ? 'pending' : 'syncing',
-        retryCount: 0,
-        createdAt: new Date().toISOString(),
-      };
-      await db.outbox.put(op);
+    // in a single IndexedDB (Dexie) transaction using pure outbox module
+    const op = await queueOperationAtomically(db, {
+      studentId,
+      field,
+      newValue,
+      oldValue,
+      baseVersion,
+      deviceId: simulator.currentDeviceId,
+      type,
+      studentData,
+      actorName: currentUser?.name || 'Local User',
+      actorRole: currentUser?.role || 'student',
+      actorCampus: currentUser?.campus,
+      isOffline: simulator.isOffline,
     });
 
     if (simulator.isOffline) {
-      addToast(`Offline: Operation ${opId} safely queued in Outbox.`, 'warning');
+      addToast(`Offline: Operation ${op.opId} safely queued in Outbox.`, 'warning');
       return;
     }
 

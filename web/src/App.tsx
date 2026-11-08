@@ -24,10 +24,18 @@ export const AppContent: React.FC = () => {
   const [studentToEdit, setStudentToEdit] = useState<StudentRecord | null>(null);
   const [selectedStudentHistoryId, setSelectedStudentHistoryId] = useState<string | undefined>(undefined);
 
-  const { simulator, toasts, isLoggedIn } = useApp();
+  const { simulator, toasts, isLoggedIn, currentUser } = useApp();
 
-  if (!isLoggedIn) {
+  if (!isLoggedIn || !currentUser) {
     return <LoginPage />;
+  }
+
+  // Enforce strict RBAC tab access
+  let effectiveTab = currentTab;
+  if (currentUser.role === 'student' && ['conflicts', 'sync', 'integrity'].includes(effectiveTab)) {
+    effectiveTab = 'dashboard';
+  } else if (currentUser.role === 'faculty' && ['conflicts', 'integrity'].includes(effectiveTab)) {
+    effectiveTab = 'dashboard';
   }
 
   const handleOpenAddStudent = () => {
@@ -83,14 +91,14 @@ export const AppContent: React.FC = () => {
 
         {/* Active Page View */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          {currentTab === 'dashboard' && (
+          {effectiveTab === 'dashboard' && (
             <DashboardPage
               onNavigate={(tab) => setCurrentTab(tab)}
               onOpenAddStudent={handleOpenAddStudent}
             />
           )}
 
-          {currentTab === 'students' && (
+          {effectiveTab === 'students' && (
             <StudentsPage
               onOpenAddModal={handleOpenAddStudent}
               onOpenEditModal={handleOpenEditStudent}
@@ -98,15 +106,15 @@ export const AppContent: React.FC = () => {
             />
           )}
 
-          {currentTab === 'conflicts' && <ConflictResolutionPage />}
+          {effectiveTab === 'conflicts' && <ConflictResolutionPage />}
 
-          {currentTab === 'history' && (
+          {effectiveTab === 'history' && (
             <HistoryPage initialStudentId={selectedStudentHistoryId} />
           )}
 
-          {currentTab === 'sync' && <SyncCenterPage />}
+          {effectiveTab === 'sync' && <SyncCenterPage />}
 
-          {currentTab === 'integrity' && <IntegritySuitePage />}
+          {effectiveTab === 'integrity' && <IntegritySuitePage />}
         </main>
       </div>
 

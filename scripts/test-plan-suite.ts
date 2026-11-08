@@ -407,6 +407,92 @@ async function run() {
     record('ED-3', 'Integrity', 'No-op followed by real edit', false, null, err.message);
   }
 
+  // IN-NOOP-CREATE: No-op op directly following a record creation (field '*') passes integrity
+  try {
+    const newStudentId = '30000000-0000-0000-0000-000000000099';
+    const createOpId = 'op-create-for-noop-' + Date.now();
+    const studentData = {
+      id: newStudentId,
+      reg_no: 'CS-2026-9999',
+      cnic: '35201-9999999-1',
+      full_name: 'Noop Creation Test Student',
+      program: 'BS CS',
+      campus: 'Lahore',
+      semester: 1,
+      status: 'Active',
+      phone: '0300-9991122',
+      email: 'noop.student@campussync.local',
+      address: 'House 99, Sector Y, Phase 8, Lahore',
+      emergency_contact: '0321-9998877',
+      attendance: 90,
+      remarks: 'Created to test no-op following wildcard creation row',
+    };
+
+    // 1. Create the student record (field '*')
+    const createRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [
+          {
+            opId: createOpId,
+            studentId: newStudentId,
+            field: '*',
+            newValue: studentData,
+            baseVersion: 0,
+            deviceId: 'device-create-noop-runner',
+            type: 'create',
+          },
+        ],
+      }),
+    });
+    const createJson = await createRes.json();
+    const createdStatus = createJson.results?.[0]?.status;
+
+    // 2. Submit a no-op op immediately following creation (same phone value, divergent baseVersion)
+    const noopAfterCreateId = 'op-noop-after-create-' + Date.now();
+    const noopCreateRes = await fetch(`${BASE_URL}/sync/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({
+        operations: [
+          {
+            opId: noopAfterCreateId,
+            studentId: newStudentId,
+            field: 'phone',
+            newValue: '0300-9991122', // identical to creation value
+            baseVersion: 999, // divergent base version triggers convergence check
+            deviceId: 'device-noop-runner',
+            type: 'edit',
+          },
+        ],
+      }),
+    });
+    const noopCreateJson = await noopCreateRes.json();
+    const noopAfterCreateRes = noopCreateJson.results?.[0];
+
+    // 3. Run integrity check
+    const integCheckRes = await fetch(`${BASE_URL}/admin/integrity`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const integReport = await integCheckRes.json();
+    const noLostEditsCheck = integReport.checks?.find((c: any) => c.id === 'inv-no-lost-edits');
+
+    record(
+      'IN-NOOP-CREATE',
+      'Integrity',
+      'No-op op directly following a record creation (field *) passes integrity against history at that point in time',
+      createdStatus === 'applied' &&
+        noopAfterCreateRes?.status === 'applied' &&
+        noopAfterCreateRes?.isNoOp === true &&
+        integReport.allPassed === true &&
+        noLostEditsCheck?.status === 'passed',
+      { createdStatus, noopAfterCreateRes, integCheck: noLostEditsCheck?.status }
+    );
+  } catch (err: any) {
+    record('IN-NOOP-CREATE', 'Integrity', 'No-op following creation', false, null, err.message);
+  }
+
   // --------------------------------------------------------------------------
   // SECTION 9: CONFLICT DETECTION & AUTO-MERGE
   // --------------------------------------------------------------------------

@@ -36,26 +36,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
     0
   );
 
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'students', label: 'Students', icon: Users },
+  const allNavItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'faculty', 'student'] },
+    { id: 'students', label: 'Students', icon: Users, roles: ['admin', 'faculty', 'student'] },
     {
       id: 'conflicts',
       label: 'Conflicts',
       icon: GitMerge,
       badge: openConflictsCount && openConflictsCount > 0 ? openConflictsCount : undefined,
       badgeColor: 'bg-[#FEE2E2] text-[#DC2626]',
+      roles: ['admin'],
     },
-    { id: 'history', label: 'Change History', icon: History },
+    { id: 'history', label: 'Change History', icon: History, roles: ['admin', 'faculty', 'student'] },
     {
       id: 'sync',
       label: 'Sync Center',
       icon: RefreshCw,
       badge: pendingOutboxCount && pendingOutboxCount > 0 ? pendingOutboxCount : undefined,
       badgeColor: 'bg-[#FEF3C7] text-[#D97706]',
+      roles: ['admin', 'faculty'],
     },
-    { id: 'integrity', label: 'Integrity Suite', icon: ShieldCheck },
+    { id: 'integrity', label: 'Integrity Suite', icon: ShieldCheck, roles: ['admin'] },
   ];
+
+  const role = currentUser?.role || 'student';
+  const navItems = allNavItems.filter((item) => item.roles.includes(role));
 
   return (
     <>

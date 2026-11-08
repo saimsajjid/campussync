@@ -6,7 +6,9 @@ import {
   Building2,
   Filter,
   CheckCircle2,
-  UserCheck
+  UserCheck,
+  Clock,
+  CheckCircle
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -151,6 +153,16 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialStudentId }) =>
                     <span className="font-mono text-[11px] font-bold text-[#6B7280] bg-[#F1F5F9] px-2 py-0.5 rounded">
                       #{entry.id}
                     </span>
+
+                    {entry.isPending ? (
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-[#D97706]" /> PENDING SYNC
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0] flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3 text-[#16A34A]" /> CONFIRMED
+                      </span>
+                    )}
 
                     <span
                       className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${

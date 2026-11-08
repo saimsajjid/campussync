@@ -4,19 +4,24 @@ import { AppContent } from './App';
 import { AppProvider } from './context/AppContext';
 import './index.css';
 
-// Register Service Worker for Offline App Shell & Self-Hosted Fonts
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then((reg) => {
-        console.log('[CampusSync] Service Worker registered successfully:', reg.scope);
-      })
-      .catch((err) => {
-        console.error('[CampusSync] Service Worker registration failed:', err);
-      });
-  });
-}
+import { registerSW } from 'virtual:pwa-register';
+
+// Register Service Worker via Workbox / vite-plugin-pwa with build-generated precache
+const updateSW = registerSW({
+  onNeedRefresh() {
+    console.log('[CampusSync PWA] New version detected! Refreshing app shell...');
+    updateSW(true);
+  },
+  onOfflineReady() {
+    console.log('[CampusSync PWA] App shell precached with hashed assets. Offline ready.');
+  },
+  onRegistered(r) {
+    console.log('[CampusSync PWA] Service Worker registered successfully:', r?.scope);
+  },
+  onRegisterError(err) {
+    console.error('[CampusSync PWA] Service Worker registration failed:', err);
+  },
+});
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

@@ -37,14 +37,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    networks:
-      - default
-      - coolify
 
 volumes:
   pgdata:
-
-networks:
-  default:
-  coolify:
-    external: true
