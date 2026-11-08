@@ -9,7 +9,8 @@ export class CampusSyncDatabase extends Dexie {
   meta!: Table<{ key: string; value: any }, string>;
 
   constructor() {
-    super('CampusSyncDB');
+    // CampusSync_CleanDB: fresh database with zero mock/fake data
+    super('CampusSync_CleanDB');
     this.version(1).stores({
       students: 'id, reg_no, cnic, campus, program, status, version',
       outbox: 'opId, studentId, status, createdAt',

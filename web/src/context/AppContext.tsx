@@ -1,30 +1,29 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '../db';
-import { initializeSeedData, INITIAL_STUDENTS, INITIAL_CONFLICTS, INITIAL_HISTORY } from '../db/seed';
+import { initializeSeedData } from '../db/seed';
 import type { CurrentUser, CampusCode, SimulatorState, OutboxOperation, StudentRecord } from '../types';
 
 export const DEMO_USERS: CurrentUser[] = [
   {
-    id: 'user_admin_01',
+    id: 'user_admin',
     name: 'Saim Sajid',
     email: 'admin@campussync.local',
     role: 'admin',
-    campus: undefined, // Multi-campus access
+    campus: undefined, // Central Multi-Campus Scope
   },
   {
-    id: 'user_faculty_01',
-    name: 'Prof. Tariq Mahmood',
-    email: 'faculty.lahore@campussync.local',
+    id: 'user_faculty',
+    name: 'Faculty Member',
+    email: 'faculty@campussync.local',
     role: 'faculty',
     campus: 'Lahore',
   },
   {
-    id: 'user_student_01',
-    name: 'Fatima Zahra',
-    email: 'student.fatima@campussync.local',
+    id: 'user_student',
+    name: 'Student Account',
+    email: 'student@campussync.local',
     role: 'student',
     campus: 'Lahore',
-    student_id: 'e01a8f90-8431-4822-92ab-1101aa000002',
   },
 ];
 
@@ -103,7 +102,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       last_editor_id: currentUser.name,
     };
 
-    // 1. Optimistic write to local Dexie student table (survives offline)
+    // 1. Write to local Dexie student table
     await db.students.put(updatedStudent);
 
     // 2. Queue operation in local Outbox
@@ -122,7 +121,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     await db.outbox.put(op);
 
-    // 3. Add to immutable audit history
+    // 3. Add to audit history
     await db.history.add({
       id: Date.now(),
       studentId,
@@ -142,28 +141,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     if (simulator.isOffline) {
-      addToast(`Offline: Edit queued locally in Outbox (opId: ${opId})`, 'warning');
+      addToast(`Offline: Edit queued in Outbox (opId: ${opId})`, 'warning');
       return;
     }
 
-    // If online, simulate network transit
     if (simulator.dropNextRequest) {
       setSimulator((s) => ({ ...s, dropNextRequest: false }));
       op.status = 'failed';
       op.errorReason = 'Network packet dropped before reaching server';
       await db.outbox.put(op);
-      addToast(`Simulated: Request dropped before server receipt. Retrying in background.`, 'danger');
+      addToast(`Request dropped before server receipt. Retrying in background.`, 'danger');
       return;
     }
 
     if (simulator.dropNextResponse) {
       setSimulator((s) => ({ ...s, dropNextResponse: false }));
-      // Server processed it, but response was dropped in transit!
       op.status = 'failed';
       op.errorReason = 'Commit acknowledged on server but response dropped in transit';
       await db.outbox.put(op);
       addToast(
-        `Key Demo Moment: Server committed opId ${opId}, but network lost the response. Outbox will safely replay with idempotency!`,
+        `Server committed opId ${opId}, but network lost the response. Outbox will replay with idempotency!`,
         'danger'
       );
       return;
@@ -172,7 +169,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Success commit
     setTimeout(async () => {
       await db.outbox.delete(opId);
-      addToast(`Sync confirmed: ${field} updated and server version bumped to v${updatedStudent.version}`, 'success');
+      addToast(`Sync confirmed: ${field} updated (v${updatedStudent.version})`, 'success');
     }, simulator.isSlowNetwork ? 2500 : 400);
   };
 
@@ -183,7 +180,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (simulator.isOffline) {
       setTimeout(() => {
         setIsSyncing(false);
-        addToast('Sync failed: Device is offline. Check connection or toggle simulator.', 'danger');
+        addToast('Sync failed: Device is offline.', 'danger');
       }, 600);
       return;
     }
@@ -200,8 +197,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const injectRemoteConflict = async () => {
-    const student = await db.students.get('e01a8f90-8431-4822-92ab-1101aa000001');
-    if (!student) return;
+    const student = await db.students.toCollection().first();
+    if (!student) {
+      addToast('No student records found in database to simulate conflict on. Please add a student first.', 'warning');
+      return;
+    }
 
     const conflictId = 'conf-' + Math.random().toString(36).substring(2, 7);
     await db.conflicts.add({
@@ -214,14 +214,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       serverValue: '0300-9988111',
       serverVersion: (student.field_versions['phone'] || 1) + 1,
       incomingValue: student.phone,
-      actor: 'Admin Tariq (Central Ingress)',
-      campus: 'Islamabad',
-      device: 'Server Background Worker',
+      actor: 'Admin (Remote Campus)',
+      campus: student.campus,
+      device: 'Server Worker',
       status: 'open',
       createdAt: new Date().toISOString(),
     });
 
-    addToast(`Remote Edit Injected! Concurrent conflict detected on ${student.full_name} (${student.reg_no})`, 'danger');
+    addToast(`Remote Edit Injected! Conflict detected on ${student.full_name} (${student.reg_no})`, 'danger');
   };
 
   const resetDemoData = async () => {
@@ -229,13 +229,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await db.outbox.clear();
     await db.conflicts.clear();
     await db.history.clear();
+    await db.meta.clear();
 
-    await db.students.bulkAdd(INITIAL_STUDENTS);
-    await db.conflicts.bulkAdd(INITIAL_CONFLICTS);
-    await db.history.bulkAdd(INITIAL_HISTORY);
-    await db.meta.put({ key: 'lastSyncedAt', value: new Date().toISOString() });
-
-    addToast('Demo data reseeded to pristine hackathon initial state', 'success');
+    addToast('All tables cleared. Zero records in local store.', 'info');
   };
 
   return (

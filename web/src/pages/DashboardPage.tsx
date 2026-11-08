@@ -200,31 +200,40 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E7EB] text-xs">
-                {students?.slice(0, 5).map((s) => (
-                  <tr key={s.id} className="hover:bg-[#F8FAFC] transition-colors">
-                    <td className="py-3.5 px-4 font-semibold text-[#1E293B]">
-                      <div className="font-bold">{s.full_name}</div>
-                      <div className="text-[11px] text-[#6B7280] font-normal">{s.email}</div>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-[11px] text-[#475569]">
-                      <div>{s.reg_no}</div>
-                      <div className="text-[10px] text-[#94A3B8]">{s.cnic}</div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-semibold text-[#1E293B]">{s.campus}</span>
-                      <div className="text-[11px] text-[#6B7280]">{s.program}</div>
-                    </td>
-                    <td className="py-3.5 px-4 font-medium text-[#1E293B]">
-                      Sem {s.semester}
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <StatusBadge
-                        status={s.status === 'Graduated' ? 'synced' : s.status === 'On leave' ? 'pending' : 'synced'}
-                        label={s.status}
-                      />
+                {students && students.length > 0 ? (
+                  students.slice(0, 5).map((s) => (
+                    <tr key={s.id} className="hover:bg-[#F8FAFC] transition-colors">
+                      <td className="py-3.5 px-4 font-semibold text-[#1E293B]">
+                        <div className="font-bold">{s.full_name}</div>
+                        <div className="text-[11px] text-[#6B7280] font-normal">{s.email}</div>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-[11px] text-[#475569]">
+                        <div>{s.reg_no}</div>
+                        <div className="text-[10px] text-[#94A3B8]">{s.cnic}</div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="font-semibold text-[#1E293B]">{s.campus}</span>
+                        <div className="text-[11px] text-[#6B7280]">{s.program}</div>
+                      </td>
+                      <td className="py-3.5 px-4 font-medium text-[#1E293B]">
+                        Sem {s.semester}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <StatusBadge
+                          status={s.status === 'Graduated' ? 'synced' : s.status === 'On leave' ? 'pending' : 'synced'}
+                          label={s.status}
+                        />
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center text-[#6B7280]">
+                      <p className="font-semibold text-sm">Zero records in database</p>
+                      <p className="text-xs mt-1">Database is completely fresh. Use "Add Student" above to register your first record.</p>
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
