@@ -158,33 +158,36 @@ async function runContendedChaos() {
 
   const EDIT_FIELDS = ['phone', 'address', 'remarks', 'emergency_contact'] as const;
 
-  // We will generate 520 operations across the 12 students.
-  // ~75% clean distinct field edits
-  // ~25% deliberate same-field conflicts (competing edits with stale baseVersion)
+  // We will generate 528 operations across the 12 students.
+  // Exactly 75% clean distinct field edits
+  // Exactly 25% deliberate same-field conflicts (competing edits with stale baseVersion)
   // 50 simulated dropped-response retries (submitting exact same opId again)
-  const TOTAL_TARGET_OPS = 520;
-  console.log(`Generating and executing ${TOTAL_TARGET_OPS} operations with high contention...\n`);
+  const TOTAL_TARGET_OPS = 528;
+  console.log(`Generating and executing ${TOTAL_TARGET_OPS} operations with calibrated contention (~25% conflicts)...\n`);
 
   const seenOpIds = new Set<string>();
 
-  // Process in batches of 40 concurrent operations to prevent local socket starvation
-  const BATCH_SIZE = 40;
+  // Process in rounds of 12 operations (1 operation per student per round)
+  // In each round:
+  // 9 students receive a valid clean edit (incrementing baseVersion) -> ~75% applied
+  // 3 students receive a conflicting edit (stale baseVersion) -> ~25% conflict
+  const ROUND_SIZE = 12;
   let opCounter = 0;
 
   while (opCounter < TOTAL_TARGET_OPS) {
-    const batchOps: any[] = [];
-    const currentBatchSize = Math.min(BATCH_SIZE, TOTAL_TARGET_OPS - opCounter);
+    const roundOps: any[] = [];
+    const currentRound = Math.floor(opCounter / ROUND_SIZE);
 
-    // Determine how many conflicts in this batch (~25%)
-    for (let i = 0; i < currentBatchSize; i++) {
-      const currentOpIndex = opCounter + i;
-      const studentId = studentIds[currentOpIndex % studentIds.length];
+    for (let sIdx = 0; sIdx < ROUND_SIZE; sIdx++) {
+      const currentOpIndex = opCounter + sIdx;
+      const studentId = studentIds[sIdx];
       const model = referenceModel.get(studentId)!;
 
-      const isConflictAttempt = currentOpIndex % 4 === 3; // ~25%
+      // 3 out of 12 operations in each round are deliberate same-field conflicts (25%)
+      const isConflictAttempt = sIdx % 4 === 3;
       const field = isConflictAttempt
-        ? 'phone' // Collide heavily on phone field
-        : EDIT_FIELDS[currentOpIndex % EDIT_FIELDS.length];
+        ? 'phone'
+        : EDIT_FIELDS[(currentRound + sIdx) % EDIT_FIELDS.length];
 
       const opId = `op-contended-${currentOpIndex}-${Date.now()}`;
       seenOpIds.add(opId);
@@ -193,30 +196,30 @@ async function runContendedChaos() {
       let newValue: any = '';
 
       if (isConflictAttempt) {
-        // Deliberately pass a stale base version (-1 or 0) to induce conflicting divergence
+        // Deliberately pass a stale base version to trigger field-level conflict
         baseVersion = Math.max(1, baseVersion - 1);
         newValue = `0300-999${String(currentOpIndex).padStart(4, '0')}`;
       } else {
-        if (field === 'phone') newValue = `0300-${String(1000000 + currentOpIndex)}`;
+        if (field === 'phone') newValue = `0300-${String(1000000 + (currentOpIndex % 8999999))}`;
         else if (field === 'address') newValue = `Plot ${currentOpIndex}, Contention Block, Phase 5`;
         else if (field === 'remarks') newValue = `Audit verification stamp #${currentOpIndex}`;
-        else if (field === 'emergency_contact') newValue = `0321-${String(2000000 + currentOpIndex)}`;
+        else if (field === 'emergency_contact') newValue = `0321-${String(2000000 + (currentOpIndex % 7999999))}`;
       }
 
-      batchOps.push({
+      roundOps.push({
         opId,
         studentId,
         field,
         newValue,
         baseVersion,
-        deviceId: `device-worker-${currentOpIndex % 12}`,
+        deviceId: `device-worker-${sIdx}`,
         type: 'edit',
         expectedConflict: isConflictAttempt,
       });
     }
 
-    // Execute batch against server
-    const batchPromises = batchOps.map(async (opPayload) => {
+    // Execute round against server concurrently
+    const roundPromises = roundOps.map(async (opPayload) => {
       accounting.totalSent++;
       try {
         const res = await fetch(`${BASE_URL}/sync/push`, {
@@ -263,8 +266,8 @@ async function runContendedChaos() {
       }
     });
 
-    await Promise.all(batchPromises);
-    opCounter += currentBatchSize;
+    await Promise.all(roundPromises);
+    opCounter += ROUND_SIZE;
     process.stdout.write(`  Executed ${opCounter}/${TOTAL_TARGET_OPS} ops...\r`);
   }
 
