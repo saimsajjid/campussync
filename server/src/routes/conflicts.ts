@@ -3,6 +3,7 @@ import { pool, withTransaction } from '../db/pool.js';
 import { authenticateUser } from '../middleware/auth.js';
 import { processOperation } from '../services/applyEdit.js';
 import { eventBroker } from '../services/events.js';
+import { safeJsonParse } from '../utils/json.js';
 import type { ConflictItem } from '@campussync/shared';
 
 export const conflictRoutes: FastifyPluginAsync = async (fastify) => {
@@ -31,8 +32,8 @@ export const conflictRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({
       conflicts: res.rows.map((c) => ({
         ...c,
-        serverValue: typeof c.serverValue === 'string' ? JSON.parse(c.serverValue) : c.serverValue,
-        incomingValue: typeof c.incomingValue === 'string' ? JSON.parse(c.incomingValue) : c.incomingValue,
+        serverValue: safeJsonParse(c.serverValue),
+        incomingValue: safeJsonParse(c.incomingValue),
       })),
     });
   });
@@ -68,12 +69,10 @@ export const conflictRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const student = studentRes.rows[0];
-    const fieldVersions = typeof student.field_versions === 'string'
-      ? JSON.parse(student.field_versions)
-      : student.field_versions;
+    const fieldVersions = safeJsonParse(student.field_versions) || {};
     const currentFieldVersion = fieldVersions[conflict.field] || 1;
 
-    if (expectedServerVersion !== undefined && expectedServerVersion !== currentFieldVersion) {
+    if (expectedServerVersion !== undefined && expectedServerVersion !== currentFieldVersion && expectedServerVersion !== conflict.server_version) {
       return reply.status(409).send({
         error: 'Stale resolution: The server record has changed since you inspected it.',
         currentServerVersion: currentFieldVersion,
@@ -83,9 +82,7 @@ export const conflictRoutes: FastifyPluginAsync = async (fastify) => {
 
     let resolvedValue: any;
     if (choice === 'mine') {
-      resolvedValue = typeof conflict.incoming_value === 'string'
-        ? JSON.parse(conflict.incoming_value)
-        : conflict.incoming_value;
+      resolvedValue = safeJsonParse(conflict.incoming_value);
     } else if (choice === 'theirs') {
       resolvedValue = student[conflict.field];
     } else {

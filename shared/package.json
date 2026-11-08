@@ -5,12 +5,14 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "test": "tsx --test test/**/*.test.ts"
   },
   "dependencies": {
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "tsx": "^4.19.3",
     "typescript": "^5.7.3"
   }
 }

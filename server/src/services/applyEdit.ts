@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { safeJsonParse } from '../utils/json.js';
 import {
   type OperationResult,
   type StudentRecord,
@@ -237,9 +238,7 @@ export async function processOperation(
   }
 
   // 6. Version Comparison & Conflict Detection (FR-7.1, FR-7.2, FR-7.3)
-  const fieldVersions = (typeof student.field_versions === 'string'
-    ? JSON.parse(student.field_versions)
-    : student.field_versions) || {};
+  const fieldVersions = safeJsonParse(student.field_versions) || {};
 
   const currentFieldVersion = fieldVersions[field] || 1;
   const currentFieldValue = (student as any)[field];
@@ -252,6 +251,7 @@ export async function processOperation(
         return recordAndReturn({
           opId,
           status: 'applied',
+          isNoOp: true,
           studentId,
           field,
           serverVersion: student.version,

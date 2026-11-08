@@ -1,4 +1,5 @@
 import { pool } from '../db/pool.js';
+import { safeJsonParse } from '../utils/json.js';
 import type { IntegrityCheckResult, IntegritySuiteResponse, StudentRecord } from '@campussync/shared';
 
 export async function runIntegritySuite(): Promise<IntegritySuiteResponse> {
@@ -63,10 +64,12 @@ export async function runIntegritySuite(): Promise<IntegritySuiteResponse> {
       const replayed: Record<string, any> = {};
       for (const row of histRes.rows) {
         if (row.type === 'create') {
-          const init = typeof row.new_value === 'string' ? JSON.parse(row.new_value) : row.new_value;
-          Object.assign(replayed, init);
+          const init = safeJsonParse(row.new_value);
+          if (init && typeof init === 'object') {
+            Object.assign(replayed, init);
+          }
         } else if (row.field && row.field !== '*') {
-          const val = typeof row.new_value === 'string' ? JSON.parse(row.new_value) : row.new_value;
+          const val = safeJsonParse(row.new_value);
           replayed[row.field] = val;
         }
       }
@@ -148,13 +151,14 @@ export async function runIntegritySuite(): Promise<IntegritySuiteResponse> {
     const processedOpsRes = await client.query('SELECT op_id, result FROM processed_ops');
     const lostEdits: any[] = [];
     for (const op of processedOpsRes.rows) {
-      const res = typeof op.result === 'string' ? JSON.parse(op.result) : op.result;
-      if (res.status === 'applied') {
+      const res = safeJsonParse(op.result);
+      if (res?.status === 'applied') {
+        if (res.isNoOp) continue;
         const hCheck = await client.query('SELECT id FROM history WHERE op_id = $1 LIMIT 1', [op.op_id]);
         if (hCheck.rows.length === 0) {
           lostEdits.push({ opId: op.op_id, reason: 'Applied op missing from history log' });
         }
-      } else if (res.status === 'conflict') {
+      } else if (res?.status === 'conflict') {
         const cCheck = await client.query('SELECT id FROM conflicts WHERE incoming_op_id = $1 LIMIT 1', [op.op_id]);
         if (cCheck.rows.length === 0) {
           lostEdits.push({ opId: op.op_id, reason: 'Conflict op missing from conflict holding area' });

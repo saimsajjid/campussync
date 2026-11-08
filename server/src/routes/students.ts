@@ -3,6 +3,7 @@ import { pool, withTransaction } from '../db/pool.js';
 import { authenticateUser } from '../middleware/auth.js';
 import { processOperation } from '../services/applyEdit.js';
 import { eventBroker } from '../services/events.js';
+import { safeJsonParse } from '../utils/json.js';
 
 export const studentRoutes: FastifyPluginAsync = async (fastify) => {
   // Get history timeline for a student
@@ -38,8 +39,8 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
         studentName: r.studentName,
         reg_no: r.reg_no,
         field: r.field,
-        oldValue: typeof r.old_value === 'string' ? JSON.parse(r.old_value) : r.old_value,
-        newValue: typeof r.new_value === 'string' ? JSON.parse(r.new_value) : r.new_value,
+        oldValue: safeJsonParse(r.old_value),
+        newValue: safeJsonParse(r.new_value),
         fieldVersionAfter: r.field_version_after,
         type: r.type,
         actorName: r.actor_id,
@@ -72,9 +73,7 @@ export const studentRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const student = studentRes.rows[0];
-    const fieldVersions = typeof student.field_versions === 'string'
-      ? JSON.parse(student.field_versions)
-      : student.field_versions;
+    const fieldVersions = safeJsonParse(student.field_versions) || {};
     const currentFieldVersion = fieldVersions[field] || 1;
 
     const opId = 'restore-' + Math.random().toString(36).substring(2, 10);

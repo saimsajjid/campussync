@@ -3,6 +3,7 @@ import { pool, withTransaction } from '../db/pool.js';
 import { seedDatabase } from '../db/seed.js';
 import { processOperation } from '../services/applyEdit.js';
 import { eventBroker } from '../services/events.js';
+import { safeJsonParse } from '../utils/json.js';
 
 export const demoRoutes: FastifyPluginAsync = async (fastify) => {
   // Liveness & Database Healthcheck
@@ -53,9 +54,7 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const student = studentRes.rows[0];
-    const fieldVersions = typeof student.field_versions === 'string'
-      ? JSON.parse(student.field_versions)
-      : student.field_versions;
+    const fieldVersions = safeJsonParse(student.field_versions) || {};
     const currentFieldVersion = fieldVersions[targetField] || 1;
 
     const remoteActor = {

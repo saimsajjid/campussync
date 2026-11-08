@@ -111,6 +111,7 @@ export type OperationResultStatus = 'applied' | 'duplicate' | 'conflict' | 'reje
 export interface OperationResult {
   opId: string;
   status: OperationResultStatus;
+  isNoOp?: boolean;
   studentId?: string;
   field?: string;
   serverVersion?: number;

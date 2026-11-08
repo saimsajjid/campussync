@@ -3,6 +3,7 @@ import { pool, withTransaction } from '../db/pool.js';
 import { authenticateUser } from '../middleware/auth.js';
 import { processOperation } from '../services/applyEdit.js';
 import { eventBroker } from '../services/events.js';
+import { safeJsonParse } from '../utils/json.js';
 import type {
   PushBatchRequest,
   PushBatchResponse,
@@ -59,12 +60,12 @@ export const syncRoutes: FastifyPluginAsync = async (fastify) => {
     const snapshot: SnapshotResponse = {
       students: studentsRes.rows.map((r) => ({
         ...r,
-        field_versions: typeof r.field_versions === 'string' ? JSON.parse(r.field_versions) : r.field_versions,
+        field_versions: safeJsonParse(r.field_versions) || {},
       })),
       conflicts: conflictsRes.rows.map((c) => ({
         ...c,
-        serverValue: typeof c.serverValue === 'string' ? JSON.parse(c.serverValue) : c.serverValue,
-        incomingValue: typeof c.incomingValue === 'string' ? JSON.parse(c.incomingValue) : c.incomingValue,
+        serverValue: safeJsonParse(c.serverValue),
+        incomingValue: safeJsonParse(c.incomingValue),
       })),
       latestCursor,
     };
@@ -159,8 +160,8 @@ export const syncRoutes: FastifyPluginAsync = async (fastify) => {
         studentName: r.studentName,
         reg_no: r.reg_no,
         field: r.field,
-        oldValue: typeof r.old_value === 'string' ? JSON.parse(r.old_value) : r.old_value,
-        newValue: typeof r.new_value === 'string' ? JSON.parse(r.new_value) : r.new_value,
+        oldValue: safeJsonParse(r.old_value),
+        newValue: safeJsonParse(r.new_value),
         fieldVersionAfter: r.field_version_after,
         type: r.type,
         actorName: r.actor_id,
