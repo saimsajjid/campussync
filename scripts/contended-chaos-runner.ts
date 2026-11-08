@@ -72,11 +72,12 @@ async function prepare12Students(token: string): Promise<string[]> {
   console.log(`Initial students available: ${studentIds.length}`);
 
   // If fewer than 12 students, create additional students
-  let idx = studentIds.length + 1;
+  let idx = 10;
   while (studentIds.length < 12) {
+    idx++;
     const newId = `20000000-0000-0000-0000-${String(idx).padStart(12, '0')}`;
-    const regNo = `FA26-BSE-${String(idx).padStart(3, '0')}`;
-    const cnic = `35201-${String(idx).padStart(7, '0')}-1`;
+    const regNo = `CS-2026-${String(1000 + idx)}`;
+    const cnic = `35201-${String(1000000 + idx)}-1`;
     const pushRes = await fetch(`${BASE_URL}/sync/push`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -91,14 +92,14 @@ async function prepare12Students(token: string): Promise<string[]> {
               reg_no: regNo,
               cnic: cnic,
               full_name: `Chaos Student ${idx}`,
-              program: 'BS Software Engineering',
+              program: 'BS CS',
               campus: idx % 2 === 0 ? 'Lahore' : 'Islamabad',
               semester: 4,
-              status: 'Enrolled',
-              phone: `0300-${String(idx).padStart(7, '0')}`,
-              email: `student${idx}@campussync.edu.pk`,
-              address: `House ${idx}, Campus Town`,
-              emergency_contact: `0321-${String(idx).padStart(7, '0')}`,
+              status: 'Active',
+              phone: `0300-${String(1000000 + idx)}`,
+              email: `student${idx}@campussync.local`,
+              address: `House ${idx}, Sector B, Model Town, Lahore`,
+              emergency_contact: `0321-${String(2000000 + idx)}`,
               attendance: 85,
               remarks: 'Initial seed',
             },
@@ -116,7 +117,6 @@ async function prepare12Students(token: string): Promise<string[]> {
     } else {
       console.warn(`Failed to create student ${idx}:`, pushData);
     }
-    idx++;
   }
 
   // Reload snapshot and build initial reference model
