@@ -14,6 +14,7 @@ COPY web/package*.json ./web/
 COPY web/tsconfig*.json ./web/
 COPY web/vite.config.ts ./web/
 COPY web/index.html ./web/
+COPY web/public ./web/public
 COPY web/src ./web/src
 RUN cd web && npm install && npm run build
 
