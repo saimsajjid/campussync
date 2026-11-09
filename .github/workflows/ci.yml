@@ -165,6 +165,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Determine Docker Image Tags (latest only on main)
+        id: meta
+        run: |
+          {
+            echo "tags<<EOF"
+            echo "ghcr.io/${{ github.repository }}:${{ github.sha }}"
+            if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              echo "ghcr.io/${{ github.repository }}:latest"
+            fi
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
       - name: Build and Push ARM64 Container Image
         uses: docker/build-push-action@v5
         with:
@@ -172,6 +184,4 @@ jobs:
           file: ./Dockerfile
           platforms: linux/arm64
           push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
