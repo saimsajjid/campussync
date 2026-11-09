@@ -30,6 +30,12 @@ interface RunSummary {
   steps: JourneyStepResult[];
 }
 
+function extractTokenFromResponse(res: Response): string {
+  const cookieHeader = res.headers.get('set-cookie') || '';
+  const match = cookieHeader.match(/campussync_token=([^;]+)/);
+  return match ? match[1] : '';
+}
+
 async function login(email: string, password = 'password123'): Promise<string> {
   const res = await fetch(`${BASE_URL}/auth/login`, {
     method: 'POST',
@@ -37,7 +43,7 @@ async function login(email: string, password = 'password123'): Promise<string> {
     body: JSON.stringify({ email, password }),
   });
   const data = await res.json();
-  return data.token;
+  return extractTokenFromResponse(res);
 }
 
 async function executeSingleJourney(runNumber: number): Promise<RunSummary> {

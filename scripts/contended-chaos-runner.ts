@@ -45,6 +45,12 @@ const accounting: ChaosAccounting = {
   serverErrors: 0,
 };
 
+function extractTokenFromResponse(res: Response): string {
+  const cookieHeader = res.headers.get('set-cookie') || '';
+  const match = cookieHeader.match(/campussync_token=([^;]+)/);
+  return match ? match[1] : '';
+}
+
 async function loginAdmin(): Promise<string> {
   const res = await fetch(`${BASE_URL}/auth/login`, {
     method: 'POST',
@@ -53,7 +59,7 @@ async function loginAdmin(): Promise<string> {
   });
   if (!res.ok) throw new Error(`Admin login failed: ${res.statusText}`);
   const data = await res.json();
-  return data.token;
+  return extractTokenFromResponse(res);
 }
 
 async function prepare12Students(token: string): Promise<string[]> {

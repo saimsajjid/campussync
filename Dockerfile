@@ -1,6 +1,6 @@
 # Multi-Stage Build for CampusSync (Optimized for ARM64 & AMD64)
 # 1. Builder Stage
-FROM node:20-alpine AS builder
+FROM --platform=$BUILDPLATFORM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy shared package

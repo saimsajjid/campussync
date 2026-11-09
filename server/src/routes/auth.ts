@@ -40,7 +40,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       maxAge: 7 * 24 * 60 * 60,
     });
 
-    return reply.send({ user, token });
+    return reply.send({ user });
   });
 
   fastify.post('/auth/logout', async (request, reply) => {

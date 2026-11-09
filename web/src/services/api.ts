@@ -32,7 +32,7 @@ export async function fetchServerConfig(): Promise<{ demoMode: boolean }> {
   return { demoMode: true };
 }
 
-export async function loginUser(email: string, password = 'password123'): Promise<{ user: CurrentUser; token: string }> {
+export async function loginUser(email: string, password = 'password123'): Promise<{ user: CurrentUser }> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

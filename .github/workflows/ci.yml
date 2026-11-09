@@ -2,7 +2,7 @@ name: CampusSync CI & Container Release
 
 on:
   push:
-    branches: ['**']
+    branches: ['main']
   pull_request:
     branches: ['main']
 
@@ -66,6 +66,10 @@ jobs:
         run: |
           DATABASE_URL="postgres://campussync:change-me@127.0.0.1:5432/campussync" npx tsx scripts/verify-seed-and-integrity.ts
 
+      - name: Run Append-Only Negative Mutation Test
+        run: |
+          DATABASE_URL="postgres://campussync:change-me@127.0.0.1:5432/campussync" npx tsx scripts/test-append-negative.ts
+
       - name: Start Server & Execute Full Test Plan Suite
         run: |
           cd server
@@ -98,6 +102,43 @@ jobs:
             cat server/server.log
             exit 1
           }
+          kill $SERVER_PID || true
+
+      - name: Run Integrity Negative Suite (IC-4 to IC-10)
+        run: |
+          cd server
+          DATABASE_URL="postgres://campussync:change-me@127.0.0.1:5432/campussync" PORT=3055 DEMO_MODE=true JWT_SECRET=test-secret COOKIE_SECRET=test-cookie-secret-32-chars-long node dist/index.js > server.log 2>&1 &
+          SERVER_PID=$!
+          echo "Started CampusSync test server with PID: $SERVER_PID"
+          
+          HEALTHY=0
+          for i in $(seq 1 30); do
+            STATUS=$(curl -s http://127.0.0.1:3055/health || true)
+            if echo "$STATUS" | grep -q "ok"; then
+              echo "Server is healthy on attempt $i!"
+              HEALTHY=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ $HEALTHY -eq 0 ]; then
+            echo "Server failed to become healthy. Server output log:"
+            cat server.log
+            exit 1
+          fi
+
+          cd ..
+          echo "Running CampusSync Integrity Negative Suite (IC-4 to IC-10)..."
+          TEST_BASE_URL=http://127.0.0.1:3055 DATABASE_URL="postgres://campussync:change-me@127.0.0.1:5432/campussync" npx tsx scripts/integrity-negative-suite.ts || {
+            echo "Integrity negative suite failed! Dumping server logs:"
+            cat server/server.log
+            exit 1
+          }
+
+          echo "Resetting database to clean seeded state and verifying integrity..."
+          DATABASE_URL="postgres://campussync:change-me@127.0.0.1:5432/campussync" npx tsx scripts/verify-seed-and-integrity.ts
+          kill $SERVER_PID || true
 
   build-arm64-ghcr:
     name: Build & Push ARM64 Image to GHCR

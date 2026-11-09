@@ -92,6 +92,9 @@ The application will be accessible at:
 - Web App & API: `http://localhost:3050`
 - PostgreSQL: `localhost:5432`
 
+> [!NOTE]
+> **Demo Secrets Notice:** The default fallback secrets defined in `docker-compose.yml` (such as `JWT_SECRET`, `COOKIE_SECRET`, and default database passwords) are demo-only defaults provided to enable clean zero-configuration evaluation for judges. In production environments, never rely on these fallbacks; always provide cryptographically strong secrets via environment variables or `.env`.
+
 ---
 
 ## Demo Accounts

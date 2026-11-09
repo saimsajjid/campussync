@@ -5,7 +5,7 @@
  * data corruption, replay drift, version tampering, and orphaned audit trails.
  */
 
-import { execSync } from 'child_process';
+// Child process not needed, uses direct pg pool
 import { pool } from '../server/src/db/pool.js';
 
 const BASE_URL = process.env.TEST_TARGET || process.env.TEST_BASE_URL || 'http://127.0.0.1:3055';
@@ -27,6 +27,12 @@ const results: TestResult[] = [];
 
 let adminToken = '';
 
+function extractTokenFromResponse(res: Response): string {
+  const cookieHeader = res.headers.get('set-cookie') || '';
+  const match = cookieHeader.match(/campussync_token=([^;]+)/);
+  return match ? match[1] : '';
+}
+
 async function loginAdmin() {
   const res = await fetch(`${BASE_URL}/auth/login`, {
     method: 'POST',
@@ -34,7 +40,7 @@ async function loginAdmin() {
     body: JSON.stringify({ email: 'admin@campussync.local', password: 'password123' }),
   });
   const data = await res.json();
-  return data.token;
+  return extractTokenFromResponse(res);
 }
 
 async function getIntegrityReport() {
@@ -87,7 +93,7 @@ async function runNegativeSuite() {
     console.log(detected ? '✅ PASS [IC-4] Duplicate registration number correctly detected and flagged' : '❌ FAIL [IC-4]');
   } finally {
     await resetDemo();
-    await runSql('ALTER TABLE students ADD CONSTRAINT students_reg_no_key UNIQUE (reg_no);');
+    await runSql('ALTER TABLE students DROP CONSTRAINT IF EXISTS students_reg_no_key; ALTER TABLE students ADD CONSTRAINT students_reg_no_key UNIQUE (reg_no);');
   }
 
   // IC-5: Detects Replay Mismatch
@@ -152,7 +158,7 @@ async function runNegativeSuite() {
     console.log(detected ? '✅ PASS [IC-7] Orphan history row correctly detected and flagged' : '❌ FAIL [IC-7]');
   } finally {
     await resetDemo();
-    await runSql('ALTER TABLE history ADD CONSTRAINT history_student_id_fkey FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE RESTRICT;');
+    await runSql('ALTER TABLE history DROP CONSTRAINT IF EXISTS history_student_id_fkey; ALTER TABLE history ADD CONSTRAINT history_student_id_fkey FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE RESTRICT;');
   }
 
   // IC-8: Detects Double-Applied Operation ID
