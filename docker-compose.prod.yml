@@ -7,6 +7,9 @@ services:
     container_name: campussync-app
     environment:
       COOKIE_SECURE: "true"
+    ports: !reset []
+    expose:
+      - "3050"
     networks:
       - default
       - coolify

@@ -27,6 +27,12 @@ const results: TestResult[] = [];
 
 let adminToken = '';
 
+function extractTokenFromResponse(res: Response): string {
+  const cookieHeader = res.headers.get('set-cookie') || '';
+  const match = cookieHeader.match(/campussync_token=([^;]+)/);
+  return match ? match[1] : '';
+}
+
 async function loginAdmin() {
   const res = await fetch(`${BASE_URL}/auth/login`, {
     method: 'POST',
@@ -34,7 +40,7 @@ async function loginAdmin() {
     body: JSON.stringify({ email: 'admin@campussync.local', password: 'password123' }),
   });
   const data = await res.json();
-  return data.token;
+  return extractTokenFromResponse(res);
 }
 
 async function getIntegrityReport() {

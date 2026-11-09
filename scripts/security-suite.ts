@@ -27,6 +27,12 @@ function record(id: string, category: string, description: string, passed: boole
   }
 }
 
+function extractTokenFromResponse(res: Response): string {
+  const cookieHeader = res.headers.get('set-cookie') || '';
+  const match = cookieHeader.match(/campussync_token=([^;]+)/);
+  return match ? match[1] : '';
+}
+
 async function login(email: string, password = 'password123'): Promise<string> {
   const res = await fetch(`${BASE_URL}/auth/login`, {
     method: 'POST',
@@ -34,10 +40,11 @@ async function login(email: string, password = 'password123'): Promise<string> {
     body: JSON.stringify({ email, password }),
   });
   const data = await res.json();
-  if (!res.ok || !data.token) {
+  const token = extractTokenFromResponse(res);
+  if (!res.ok || !token) {
     throw new Error(`Login failed for ${email}: ${JSON.stringify(data)}`);
   }
-  return data.token;
+  return token;
 }
 
 async function runSecuritySuite() {

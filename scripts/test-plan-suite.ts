@@ -13,6 +13,12 @@ interface TestResult {
 
 const results: TestResult[] = [];
 
+function extractTokenFromResponse(res: Response): string {
+  const cookieHeader = res.headers.get('set-cookie') || '';
+  const match = cookieHeader.match(/campussync_token=([^;]+)/);
+  return match ? match[1] : '';
+}
+
 function record(id: string, category: string, name: string, passed: boolean, details?: any, error?: string) {
   results.push({ id, category, name, passed, details, error });
   const icon = passed ? '✅ PASS' : '❌ FAIL';
@@ -52,8 +58,8 @@ async function run() {
       body: JSON.stringify({ email: 'admin@campussync.local', password: 'password123' }),
     });
     const adminData = await adminLogin.json();
-    adminToken = adminData.token;
-    record('SM-3.1', 'Smoke', 'Login as Admin', adminLogin.status === 200 && adminData.user.role === 'admin', adminData.user);
+    adminToken = extractTokenFromResponse(adminLogin);
+    record('SM-3.1', 'Smoke', 'Login as Admin', adminLogin.status === 200 && adminData.user.role === 'admin' && adminData.token === undefined, adminData.user);
 
     const facultyLogin = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
@@ -61,8 +67,8 @@ async function run() {
       body: JSON.stringify({ email: 'faculty@campussync.local', password: 'password123' }),
     });
     const facultyData = await facultyLogin.json();
-    facultyToken = facultyData.token;
-    record('SM-3.2', 'Smoke', 'Login as Faculty', facultyLogin.status === 200 && facultyData.user.role === 'faculty', facultyData.user);
+    facultyToken = extractTokenFromResponse(facultyLogin);
+    record('SM-3.2', 'Smoke', 'Login as Faculty', facultyLogin.status === 200 && facultyData.user.role === 'faculty' && facultyData.token === undefined, facultyData.user);
 
     const studentLogin = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
@@ -70,8 +76,8 @@ async function run() {
       body: JSON.stringify({ email: 'student@campussync.local', password: 'password123' }),
     });
     const studentData = await studentLogin.json();
-    studentToken = studentData.token;
-    record('SM-3.3', 'Smoke', 'Login as Student', studentLogin.status === 200 && studentData.user.role === 'student', studentData.user);
+    studentToken = extractTokenFromResponse(studentLogin);
+    record('SM-3.3', 'Smoke', 'Login as Student', studentLogin.status === 200 && studentData.user.role === 'student' && studentData.token === undefined, studentData.user);
   } catch (err: any) {
     record('SM-3', 'Smoke', 'Login as each role', false, null, err.message);
   }

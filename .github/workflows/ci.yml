@@ -66,6 +66,10 @@ jobs:
         run: |
           DATABASE_URL="postgres://campussync:change-me@127.0.0.1:5432/campussync" npx tsx scripts/verify-seed-and-integrity.ts
 
+      - name: Run Append-Only Negative Mutation Test
+        run: |
+          DATABASE_URL="postgres://campussync:change-me@127.0.0.1:5432/campussync" npx tsx scripts/test-append-negative.ts
+
       - name: Start Server & Execute Full Test Plan Suite
         run: |
           cd server
