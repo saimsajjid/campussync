@@ -6,11 +6,8 @@ import {
   AlertTriangle,
   Users,
   Building2,
-  GraduationCap,
   ArrowRight,
   UserPlus,
-  ShieldCheck,
-  CheckCircle2,
   Clock
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -50,16 +47,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
   if (!currentUser) return null;
 
   return (
-    <div className="space-y-6 text-left">
+    <div className="space-y-6 text-left max-w-[1200px] w-full mx-auto">
       {/* Top Banner / Welcome Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-text-dark)] tracking-tight">
-            Multi-Campus Sync Dashboard
+            Dashboard
           </h1>
-          <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            Challenge HS-0146: Real-time conflict resolution, offline outbox, and proven data consistency.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -96,11 +90,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
                 }`}
               />
               <span className="text-lg font-bold text-[var(--color-text-dark)]">
-                {simulator.isOffline ? 'Offline Mode' : 'Online / Live'}
+                {simulator.isOffline ? 'Offline' : 'Online'}
               </span>
             </div>
             <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
-              {simulator.isOffline ? 'Local IndexedDB active' : 'Connected to Fastify'}
+              {simulator.isOffline ? 'Working offline • Local storage' : 'Connected to server'}
             </p>
           </div>
           <div
@@ -115,18 +109,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
         {/* Tile 2: Outbox Pending Mutations */}
         <div
           onClick={() => onNavigate('sync')}
-          className="bg-white p-5 rounded-2xl border border-[var(--color-border-subtle)] shadow-xs flex items-center justify-between cursor-pointer hover:border-[var(--color-status-warning-amber)]/50 transition-all"
+          className={`bg-white p-5 rounded-2xl border shadow-xs flex items-center justify-between cursor-pointer transition-all ${
+            pendingOutboxCount > 0
+              ? 'border-amber-300 hover:border-amber-400 bg-amber-50/20'
+              : 'border-[var(--color-border-subtle)] hover:border-[var(--color-border-muted)]'
+          }`}
         >
           <div>
-            <span className="text-xs font-semibold text-[var(--color-text-muted)]">Outbox Queue</span>
+            <span className="text-xs font-semibold text-[var(--color-text-muted)]">Outbox queue</span>
             <div className="text-lg font-bold text-[var(--color-text-dark)] mt-1">
               {pendingOutboxCount} <span className="text-xs font-normal text-[var(--color-text-muted)]">pending</span>
             </div>
-            <p className="text-[11px] text-amber-700 font-medium mt-1 flex items-center gap-1">
-              <Clock className="w-3 h-3" /> Unsent local edits
+            <p
+              className={`text-[11px] font-medium mt-1 flex items-center gap-1 ${
+                pendingOutboxCount > 0 ? 'text-amber-700' : 'text-[var(--color-text-muted)]'
+              }`}
+            >
+              <Clock className="w-3 h-3" />
+              <span>
+                {pendingOutboxCount > 0 ? 'Unsent local edits' : 'All changes are saved to the server'}
+              </span>
             </p>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <div
+            className={`w-11 h-11 rounded-xl flex items-center justify-center ${
+              pendingOutboxCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+            }`}
+          >
             <RefreshCw className="w-6 h-6" />
           </div>
         </div>
@@ -134,18 +143,40 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
         {/* Tile 3: Open Conflicts */}
         <div
           onClick={() => onNavigate('conflicts')}
-          className="bg-white p-5 rounded-2xl border border-[var(--color-border-subtle)] shadow-xs flex items-center justify-between cursor-pointer hover:border-[var(--color-status-danger-red)]/50 transition-all"
+          className={`bg-white p-5 rounded-2xl border shadow-xs flex items-center justify-between cursor-pointer transition-all ${
+            openConflictsCount > 0
+              ? 'border-[var(--color-status-conflict-border)] hover:border-[var(--color-status-conflict-text)] bg-[var(--color-status-conflict-bg)]/30'
+              : 'border-[var(--color-border-subtle)] hover:border-[var(--color-border-muted)]'
+          }`}
         >
           <div>
-            <span className="text-xs font-semibold text-[var(--color-text-muted)]">Needs Attention</span>
+            <span className="text-xs font-semibold text-[var(--color-text-muted)]">Needs attention</span>
             <div className="text-lg font-bold text-[var(--color-text-dark)] mt-1">
-              {openConflictsCount} <span className="text-xs font-normal text-[var(--color-text-muted)]">conflicts</span>
+              {openConflictsCount}{' '}
+              <span className="text-xs font-normal text-[var(--color-text-muted)]">
+                {openConflictsCount === 1 ? 'conflict' : 'conflicts'}
+              </span>
             </div>
-            <p className="text-[11px] text-red-700 font-medium mt-1 flex items-center gap-1">
-              <AlertTriangle className="w-3 h-3" /> Field-level clashing
+            <p
+              className={`text-[11px] font-medium mt-1 flex items-center gap-1 ${
+                openConflictsCount > 0 ? 'text-[var(--color-status-conflict-text)]' : 'text-[var(--color-text-muted)]'
+              }`}
+            >
+              <AlertTriangle className="w-3 h-3" />
+              <span>
+                {openConflictsCount > 0
+                  ? `${openConflictsCount} field ${openConflictsCount === 1 ? 'clash' : 'clashes'}`
+                  : 'Zero open conflicts'}
+              </span>
             </p>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+          <div
+            className={`w-11 h-11 rounded-xl flex items-center justify-center ${
+              openConflictsCount > 0
+                ? 'bg-[var(--color-status-conflict-bg)] text-[var(--color-status-conflict-text)]'
+                : 'bg-slate-100 text-slate-500'
+            }`}
+          >
             <AlertTriangle className="w-6 h-6" />
           </div>
         </div>
@@ -170,131 +201,69 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
         </div>
       </div>
 
-      {/* Main Grid: Student Directory Snapshot & Quick Verification */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (2 Cols): Student Table Snapshot */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
-          <div className="p-5 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
-            <div>
-              <h2 className="font-bold text-sm text-[var(--color-text-dark)]">Multi-Campus Records Directory</h2>
-              <p className="text-xs text-[var(--color-text-muted)]">
-                Single Source of Truth with Field-Level Versioning
-              </p>
-            </div>
-            <button
-              onClick={() => onNavigate('students')}
-              className="text-xs font-bold text-[var(--color-primary)] hover:underline flex items-center gap-1"
-            >
-              <span>View All</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+      {/* Student Directory Snapshot */}
+      <div className="bg-white rounded-2xl border border-[var(--color-border-subtle)] shadow-xs overflow-hidden">
+        <div className="p-5 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-sm text-[var(--color-text-dark)]">Student Records</h2>
           </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-[var(--color-surface-muted)] border-b border-[var(--color-border-subtle)] text-[11px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">
-                  <th className="py-3 px-4">Student</th>
-                  <th className="py-3 px-4">Reg No / CNIC</th>
-                  <th className="py-3 px-4">Campus & Program</th>
-                  <th className="py-3 px-4">Semester</th>
-                  <th className="py-3 px-4 text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--color-border-subtle)] text-xs">
-                {students && students.length > 0 ? (
-                  students.slice(0, 5).map((s) => (
-                    <tr key={s.id} className="hover:bg-[var(--color-surface-muted)] transition-colors">
-                      <td className="py-3.5 px-4 font-semibold text-[var(--color-text-dark)]">
-                        <div className="font-bold">{s.full_name}</div>
-                        <div className="text-[11px] text-[var(--color-text-muted)] font-normal">{s.email}</div>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-[11px] text-[var(--color-text-secondary)]">
-                        <div>{s.reg_no}</div>
-                        <div className="text-[10px] text-[var(--color-text-light)]">{s.cnic}</div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-semibold text-[var(--color-text-dark)]">{s.campus}</span>
-                        <div className="text-[11px] text-[var(--color-text-muted)]">{s.program}</div>
-                      </td>
-                      <td className="py-3.5 px-4 font-medium text-[var(--color-text-dark)]">
-                        Sem {s.semester}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <StatusBadge
-                          status={s.status === 'Graduated' ? 'synced' : s.status === 'On leave' ? 'pending' : 'synced'}
-                          label={s.status}
-                        />
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="py-10 text-center text-[var(--color-text-muted)]">
-                      <p className="font-semibold text-sm">Zero records in database</p>
-                      <p className="text-xs mt-1">Database is completely fresh. Use "Add Student" above to register your first record.</p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <button
+            onClick={() => onNavigate('students')}
+            className="text-xs font-bold text-[var(--color-primary)] hover:underline flex items-center gap-1"
+          >
+            <span>View All</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        {/* Right Column: Invariant Checks & Quick Info */}
-        <div className="space-y-6">
-          {/* Invariant Health Card */}
-          <div className="bg-white rounded-2xl border border-[var(--color-border-subtle)] shadow-xs p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <ShieldCheck className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-bold text-sm text-[var(--color-text-dark)]">Correctness Guarantees</h3>
-            </div>
-            <p className="text-xs text-[var(--color-text-muted)] leading-relaxed mb-4">
-              CampusSync enforces 7 strict SQL invariants ensuring that no offline sync or network replay corrupts academic records.
-            </p>
-
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border-subtle)]">
-                <span className="font-medium text-[var(--color-text-dark)]">CNIC & RegNo Unique</span>
-                <span className="text-emerald-700 font-bold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Enforced
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border-subtle)]">
-                <span className="font-medium text-[var(--color-text-dark)]">Idempotent opId Replay</span>
-                <span className="text-emerald-700 font-bold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Guaranteed
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border-subtle)]">
-                <span className="font-medium text-[var(--color-text-dark)]">Append-Only Audit History</span>
-                <span className="text-emerald-700 font-bold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Immutable
-                </span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => onNavigate('integrity')}
-              className="w-full mt-4 py-2 bg-[var(--color-primary-light)] hover:bg-[var(--color-status-info-light)] text-[var(--color-primary)] rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
-            >
-              <span>Run SQL Integrity Suite</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Architecture Note */}
-          <div className="bg-linear-to-br from-[var(--color-primary-light)] to-[var(--color-status-info-light)] rounded-2xl p-5 text-left border border-[var(--color-status-info-border)]">
-            <div className="flex items-center gap-2 mb-1.5">
-              <GraduationCap className="w-5 h-5 text-[var(--color-status-info-text)]" />
-              <h4 className="font-bold text-sm text-[var(--color-primary-deep)]">Build for Campus 2026</h4>
-            </div>
-            <p className="text-xs text-[var(--color-primary-dark)] leading-relaxed">
-              <strong>Team CrackHacks</strong> • Challenge HS-0146
-              <br />
-              Offline-first PWA backed by PostgreSQL 16 row locks and Fastify schema validation.
-            </p>
-          </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-[var(--color-surface-muted)] border-b border-[var(--color-border-subtle)] text-[11px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">
+                <th className="py-3 px-4">Student</th>
+                <th className="py-3 px-4">Reg No / CNIC</th>
+                <th className="py-3 px-4">Campus & Program</th>
+                <th className="py-3 px-4">Semester</th>
+                <th className="py-3 px-4 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--color-border-subtle)] text-xs">
+              {students && students.length > 0 ? (
+                students.slice(0, 5).map((s) => (
+                  <tr key={s.id} className="hover:bg-[var(--color-surface-muted)] transition-colors">
+                    <td className="py-3.5 px-4 font-semibold text-[var(--color-text-dark)]">
+                      <div className="font-bold">{s.full_name}</div>
+                      <div className="text-[11px] text-[var(--color-text-muted)] font-normal">{s.email}</div>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-[11px] text-[var(--color-text-secondary)]">
+                      <div>{s.reg_no}</div>
+                      <div className="text-[10px] text-[var(--color-text-light)]">{s.cnic}</div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="font-semibold text-[var(--color-text-dark)]">{s.campus}</span>
+                      <div className="text-[11px] text-[var(--color-text-muted)]">{s.program}</div>
+                    </td>
+                    <td className="py-3.5 px-4 font-medium text-[var(--color-text-dark)]">
+                      Semester {s.semester}
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <StatusBadge
+                        status={s.status === 'Graduated' ? 'synced' : s.status === 'On leave' ? 'pending' : 'synced'}
+                        label={s.status}
+                      />
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-10 text-center text-[var(--color-text-muted)]">
+                    <p className="font-semibold text-sm">Zero records in database</p>
+                    <p className="text-xs mt-1">Database is completely fresh. Use "Add Student" above to register your first record.</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

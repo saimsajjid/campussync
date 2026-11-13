@@ -30,9 +30,6 @@ export const DuplicateRecordDialog: React.FC<DuplicateRecordDialogProps> = ({
             <h3 className="font-bold text-base text-[var(--color-status-danger-dark)]">
               Duplicate Student Record Detected
             </h3>
-            <p className="text-xs text-[var(--color-status-danger-text)]">
-              Rule FR-6: Record-Level Duplicate Prevention
-            </p>
           </div>
         </div>
 

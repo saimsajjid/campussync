@@ -5,7 +5,7 @@ import {
   GitMerge,
   History,
   RefreshCw,
-  ShieldCheck,
+  Activity,
   Building2,
   Shield,
   UserCheck
@@ -13,6 +13,7 @@ import {
 import { useApp, DEMO_USERS } from '../context/AppContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
+import { CustomDropdown } from './CustomDropdown';
 
 interface SidebarProps {
   currentTab: string;
@@ -68,7 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
       badgeColor: 'bg-[var(--color-status-pending-bg)] text-[var(--color-status-warning-orange)]',
       roles: ['admin', 'faculty', 'student'],
     },
-    { id: 'integrity', label: 'Integrity Suite', icon: ShieldCheck, roles: ['admin'] },
+    { id: 'integrity', label: 'System health', icon: Activity, roles: ['admin'] },
   ];
 
   const role = currentUser?.role || 'student';
@@ -159,27 +160,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
             </div>
 
             {isDemoMode ? (
-              <select
-                value={currentUser?.id || ''}
-                onChange={async (e) => {
-                  const user = DEMO_USERS.find((u) => u.id === e.target.value);
-                  if (user) {
-                    try {
-                      await login(user.email, 'password123');
-                      addToast(`Switched active session to ${user.name} (${user.role.toUpperCase()})`, 'info');
-                    } catch (err: any) {
-                      addToast(`Failed to switch profile: ${err.message}`, 'danger');
+              <div className="mt-2">
+                <CustomDropdown
+                  value={currentUser?.id || ''}
+                  onChange={async (val) => {
+                    const user = DEMO_USERS.find((u) => u.id === val);
+                    if (user) {
+                      try {
+                        await login(user.email, 'password123');
+                        addToast(`Switched profile to ${user.name}`, 'info');
+                      } catch (err: any) {
+                        addToast(`Failed to switch profile: ${err.message}`, 'danger');
+                      }
                     }
-                  }
-                }}
-                className="w-full text-xs font-semibold bg-[var(--color-surface-bg)] border border-[var(--color-border-muted)] rounded-lg p-1.5 text-[var(--color-text-dark)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-              >
-                {DEMO_USERS.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} ({u.role})
-                  </option>
-                ))}
-              </select>
+                  }}
+                  options={DEMO_USERS.map((u) => ({
+                    value: u.id,
+                    label: u.name,
+                    badge: u.role,
+                  }))}
+                  direction="up"
+                  size="sm"
+                  className="w-full"
+                  menuClassName="w-full min-w-full"
+                />
+              </div>
             ) : (
               <div className="py-1">
                 <div className="text-xs font-semibold text-[var(--color-text-dark)] truncate">
@@ -190,12 +195,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
                 </div>
               </div>
             )}
-
-            <p className="text-[10px] text-[var(--color-text-muted)] mt-2 leading-relaxed">
-              {currentUser?.role === 'admin' && 'Full multi-campus read/write, conflicts & integrity.'}
-              {currentUser?.role === 'faculty' && 'Attendance & remarks scoped to Lahore campus.'}
-              {currentUser?.role === 'student' && 'Own contact info updates with outbox sync.'}
-            </p>
           </div>
         </div>
       </aside>

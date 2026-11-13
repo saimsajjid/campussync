@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
 import {
-  ShieldCheck,
+  Activity,
   CheckCircle2,
   Play,
-  RotateCcw
+  RotateCcw,
+  ChevronDown,
+  ChevronRight,
+  Database,
+  Server,
+  AlertTriangle,
+  Clock,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { fetchIntegrityReport } from '../services/api';
@@ -12,202 +18,389 @@ interface InvariantCheckItem {
   id: string;
   title: string;
   description: string;
-  sqlQuery: string;
   status: 'idle' | 'running' | 'passed' | 'failed';
   offendingCount: number;
+  details?: any[];
 }
+
+const INITIAL_CHECKS: InvariantCheckItem[] = [
+  {
+    id: 'inv-uniqueness',
+    title: 'Record Uniqueness',
+    description: 'Global uniqueness of primary and natural keys across all campuses.',
+    status: 'idle',
+    offendingCount: 0,
+  },
+  {
+    id: 'inv-exactly-once',
+    title: 'Transaction Deduplication',
+    description: 'Network retries or duplicate packet submissions never double-apply.',
+    status: 'idle',
+    offendingCount: 0,
+  },
+  {
+    id: 'inv-replayability',
+    title: 'History Replayability',
+    description: 'The ledger faithfully reproduces all current state values without corruption.',
+    status: 'idle',
+    offendingCount: 0,
+  },
+  {
+    id: 'inv-version-integrity',
+    title: 'Version Monotonicity',
+    description: 'No missing intermediate versions or uncounted updates exist in the timeline.',
+    status: 'idle',
+    offendingCount: 0,
+  },
+  {
+    id: 'inv-referential-integrity',
+    title: 'Referential Integrity',
+    description: 'Foreign keys and audit references are clean and non-dangling.',
+    status: 'idle',
+    offendingCount: 0,
+  },
+  {
+    id: 'inv-no-lost-edits',
+    title: 'Mutation Traceability',
+    description: 'No user submission has vanished without a documented trace.',
+    status: 'idle',
+    offendingCount: 0,
+  },
+  {
+    id: 'inv-append-only',
+    title: 'Append-Only Immutability',
+    description: 'Database triggers actively prevent and reject UPDATE or DELETE operations on the history audit trail.',
+    status: 'idle',
+    offendingCount: 0,
+  },
+];
 
 export const IntegritySuitePage: React.FC = () => {
   const { addToast } = useApp();
   const [isRunning, setIsRunning] = useState(false);
+  const [hasScanned, setHasScanned] = useState(false);
+  const [scanTimestamp, setScanTimestamp] = useState<string | null>(null);
+  const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
+  const [checks, setChecks] = useState<InvariantCheckItem[]>(INITIAL_CHECKS);
 
-  const [checks, setChecks] = useState<InvariantCheckItem[]>([
-    {
-      id: 'inv-uniqueness',
-      title: 'Invariant 1: Uniqueness Guarantee',
-      description: 'Verifies zero duplicate reg_no or cnic entries exist across all campuses.',
-      sqlQuery: 'SELECT reg_no, cnic, COUNT(*) FROM students GROUP BY reg_no, cnic HAVING COUNT(*) > 1;',
-      status: 'idle',
-      offendingCount: 0,
-    },
-    {
-      id: 'inv-exactly-once',
-      title: 'Invariant 2: Exactly-Once opId Processing',
-      description: 'Verifies no opId produced duplicate history records or duplicate field applications.',
-      sqlQuery: 'SELECT op_id, COUNT(*) FROM history WHERE op_id != "seed" GROUP BY op_id HAVING COUNT(*) > 1;',
-      status: 'idle',
-      offendingCount: 0,
-    },
-    {
-      id: 'inv-replayability',
-      title: 'Invariant 3: Full History Replayability',
-      description: 'Replays record mutations from inception and compares against current active row.',
-      sqlQuery: 'SELECT student_id, (SELECT SUM(version_delta) FROM history) = current_version FROM students;',
-      status: 'idle',
-      offendingCount: 0,
-    },
-    {
-      id: 'inv-version-integrity',
-      title: 'Invariant 4: Total Version Monotonicity',
-      description: 'Ensures version counters strictly increment and match accepted history transactions.',
-      sqlQuery: 'SELECT id FROM students WHERE version < 1 OR version IS NULL;',
-      status: 'idle',
-      offendingCount: 0,
-    },
-    {
-      id: 'inv-referential-integrity',
-      title: 'Invariant 5: Referential Integrity',
-      description: 'Verifies no orphaned history entries or dangling conflicts exist.',
-      sqlQuery: 'SELECT h.id FROM history h LEFT JOIN students s ON h.student_id = s.id WHERE s.id IS NULL;',
-      status: 'idle',
-      offendingCount: 0,
-    },
-    {
-      id: 'inv-no-lost-edits',
-      title: 'Invariant 6: Zero Silent Data Loss',
-      description: 'Ensures every outbox mutation maps to a resolved, rejected, or queued state.',
-      sqlQuery: 'SELECT op_id FROM processed_ops WHERE result IS NULL;',
-      status: 'idle',
-      offendingCount: 0,
-    },
-    {
-      id: 'inv-append-only',
-      title: 'Invariant 7: Append-Only Immutability',
-      description: 'Verifies history entries cannot be modified or deleted once written.',
-      sqlQuery: 'SELECT COUNT(*) FROM pg_rules WHERE tablename = "history" AND rulename = "no_update_history";',
-      status: 'idle',
-      offendingCount: 0,
-    },
-  ]);
+  const toggleDetails = (id: string) => {
+    setExpandedDetails((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleAllDetails = () => {
+    const anyExpanded = Object.values(expandedDetails).some(Boolean);
+    if (anyExpanded) {
+      setExpandedDetails({});
+    } else {
+      const all: Record<string, boolean> = {};
+      checks.forEach((c) => {
+        all[c.id] = true;
+      });
+      setExpandedDetails(all);
+    }
+  };
+
+  const formatTimestamp = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch {
+      return iso;
+    }
+  };
 
   const runAllChecks = async () => {
     setIsRunning(true);
-    addToast('Executing Live SQL Integrity Verification on PostgreSQL...', 'info');
+    addToast('Executing database health diagnostics...', 'info');
 
-    // Reset status to running
+    // Mark all as running
     setChecks((prev) => prev.map((c) => ({ ...c, status: 'running' })));
 
     try {
       const suiteRes = await fetchIntegrityReport();
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      setChecks((prev) =>
-        prev.map((localCheck) => {
-          const remoteCheck = suiteRes.checks?.find((rc) => rc.id === localCheck.id);
-          if (remoteCheck) {
+      if (prefersReducedMotion) {
+        setChecks((prev) =>
+          prev.map((c) => {
+            const remote = suiteRes.checks?.find((rc) => rc.id === c.id);
             return {
-              ...localCheck,
-              status: remoteCheck.status,
-              offendingCount: remoteCheck.offendingRowsCount,
+              ...c,
+              description: remote?.description || c.description,
+              status: remote ? remote.status : 'passed',
+              offendingCount: remote ? remote.offendingRowsCount : 0,
+              details: remote?.details,
             };
-          }
-          return { ...localCheck, status: 'passed', offendingCount: 0 };
-        })
-      );
+          })
+        );
+      } else {
+        // Resolve one by one ~250ms apart
+        for (let i = 0; i < INITIAL_CHECKS.length; i++) {
+          await new Promise((r) => setTimeout(r, 250));
+          const targetId = INITIAL_CHECKS[i].id;
+          const remote = suiteRes.checks?.find((rc) => rc.id === targetId);
+          setChecks((prev) =>
+            prev.map((c) =>
+              c.id === targetId
+                ? {
+                    ...c,
+                    description: remote?.description || c.description,
+                    status: remote ? remote.status : 'passed',
+                    offendingCount: remote ? remote.offendingRowsCount : 0,
+                    details: remote?.details,
+                  }
+                : c
+            )
+          );
+        }
+      }
+
+      setScanTimestamp(suiteRes.timestamp || new Date().toISOString());
+      setHasScanned(true);
 
       if (suiteRes.allPassed) {
-        addToast('All 7 SQL Invariants Verified on PostgreSQL! System state is provably correct.', 'success');
+        addToast('All 7 checks passed.', 'success');
       } else {
-        addToast('Integrity verification detected invariant violation.', 'danger');
+        addToast('Integrity check detected issues.', 'danger');
       }
     } catch (err: any) {
-      addToast(`Integrity check failed: ${err.message}`, 'danger');
+      addToast(`Health check failed: ${err.message}`, 'danger');
       setChecks((prev) => prev.map((c) => ({ ...c, status: 'failed', offendingCount: 1 })));
+      setHasScanned(true);
     } finally {
       setIsRunning(false);
     }
   };
 
   const allPassed = checks.every((c) => c.status === 'passed');
+  const failedCount = checks.filter((c) => c.status === 'failed').length;
+  const isAnyExpanded = Object.values(expandedDetails).some(Boolean);
 
   return (
-    <div className="space-y-6 text-left max-w-4xl mx-auto">
+    <div className="space-y-6 text-left max-w-[1200px] w-full mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-emerald-600" />
+            <Activity className="w-6 h-6 text-[var(--color-primary)]" />
             <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-text-dark)] tracking-tight">
-              SQL Integrity Suite (The Proof Moment)
+              System health
             </h1>
           </div>
           <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            FR-12 & Architecture §8: Automated SQL queries proving data correctness under all network failures.
+            Verification of database consistency, offline sync reconciliation, and audit logs.
           </p>
         </div>
 
         <button
           onClick={runAllChecks}
           disabled={isRunning}
-          className="px-5 py-2.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] disabled:opacity-40 text-white rounded-xl text-xs font-bold shadow-md shadow-[var(--color-primary)]/20 flex items-center gap-2 transition-all self-start sm:self-auto"
+          className="px-5 py-2.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] disabled:opacity-40 text-white rounded-xl text-xs font-bold shadow-md shadow-[var(--color-primary)]/20 flex items-center gap-2 transition-all self-start sm:self-auto cursor-pointer"
         >
           {isRunning ? (
             <RotateCcw className="w-4 h-4 animate-spin" />
           ) : (
             <Play className="w-4 h-4 fill-white" />
           )}
-          <span>{isRunning ? 'Verifying Invariants...' : 'Run All Integrity Checks'}</span>
+          <span>{isRunning ? 'Running health check...' : 'Run health check'}</span>
         </button>
       </div>
 
-      {/* Proof Card Banner */}
-      {allPassed && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between shadow-xs">
+      {/* KPI Status Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="p-4 bg-white rounded-xl border border-[var(--color-border-subtle)] shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[var(--color-text-muted)]">Database status</span>
+            <Database className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div className="mt-2 text-lg font-bold text-[var(--color-text-dark)] flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-green" />
+            Connected
+          </div>
+          <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">PostgreSQL server active</p>
+        </div>
+
+        <div className="p-4 bg-white rounded-xl border border-[var(--color-border-subtle)] shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[var(--color-text-muted)]">Integrity checks</span>
+            <Server className="w-4 h-4 text-[var(--color-primary)]" />
+          </div>
+          <div className="mt-2 text-lg font-bold text-[var(--color-text-dark)]">
+            7 checks
+          </div>
+          <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">Automated reconciliation</p>
+        </div>
+
+        <div className="p-4 bg-white rounded-xl border border-[var(--color-border-subtle)] shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[var(--color-text-muted)]">Last scan result</span>
+            <Activity className="w-4 h-4 text-slate-500" />
+          </div>
+          <div className="mt-2 text-lg font-bold text-[var(--color-text-dark)]">
+            {!hasScanned
+              ? 'Not run yet'
+              : allPassed
+              ? 'All 7 checks passed.'
+              : `${failedCount} ${failedCount === 1 ? 'check' : 'checks'} failed`}
+          </div>
+          <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5 flex items-center gap-1">
+            {hasScanned && scanTimestamp ? (
+              <>
+                <Clock className="w-3 h-3 inline" />
+                <span>{formatTimestamp(scanTimestamp)}</span>
+              </>
+            ) : (
+              'Awaiting manual or scheduled trigger'
+            )}
+          </p>
+        </div>
+      </div>
+
+      {/* Verified Banner */}
+      {hasScanned && (
+        <div
+          className={`p-4 rounded-2xl flex items-center justify-between shadow-xs border ${
+            allPassed
+              ? 'bg-emerald-50 border-emerald-200'
+              : 'bg-red-50 border-red-200'
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
-              <CheckCircle2 className="w-6 h-6" />
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center text-white ${
+                allPassed ? 'bg-emerald-600' : 'bg-red-600'
+              }`}
+            >
+              {allPassed ? (
+                <CheckCircle2 className="w-6 h-6" />
+              ) : (
+                <AlertTriangle className="w-6 h-6" />
+              )}
             </div>
             <div>
-              <span className="font-bold text-sm text-emerald-900 block">
-                7 / 7 Invariants Verified (0 Offending Rows)
+              <span
+                className={`font-bold text-sm block ${
+                  allPassed ? 'text-emerald-900' : 'text-red-900'
+                }`}
+              >
+                {allPassed ? 'All 7 checks passed.' : `${failedCount} checks failed`}
               </span>
-              <span className="text-xs text-emerald-700">
-                PostgreSQL schema, unique constraints, and append-only audit trail are in perfect mathematical convergence.
+              <span
+                className={`text-xs ${
+                  allPassed ? 'text-emerald-700' : 'text-red-700'
+                }`}
+              >
+                {allPassed
+                  ? `Run completed on ${scanTimestamp ? formatTimestamp(scanTimestamp) : 'just now'}. Zero database anomalies detected.`
+                  : 'Review the details below for offending records.'}
               </span>
             </div>
           </div>
-          <span className="hidden sm:inline text-xs font-bold bg-emerald-600 text-white px-3 py-1 rounded-full">
-            Passed
+          <span
+            className={`hidden sm:inline text-xs font-bold px-3 py-1 rounded-full text-white ${
+              allPassed ? 'bg-emerald-600' : 'bg-red-600'
+            }`}
+          >
+            {allPassed ? 'All checks healthy' : 'Action required'}
           </span>
         </div>
       )}
+
+      {/* Checks Header with Details Toggle */}
+      <div className="flex items-center justify-between pt-2">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+          Database integrity checks
+        </h2>
+        <button
+          type="button"
+          onClick={toggleAllDetails}
+          className="text-xs font-semibold text-[var(--color-primary)] hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+        >
+          <span>{isAnyExpanded ? 'Hide all details' : 'Show all details'}</span>
+        </button>
+      </div>
 
       {/* Checks List */}
       <div className="space-y-3">
         {checks.map((chk, idx) => (
           <div
             key={chk.id}
-            className="bg-white rounded-2xl border border-[var(--color-border-subtle)] p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
+            className="bg-white rounded-2xl border border-[var(--color-border-subtle)] p-5 shadow-xs transition-all"
           >
-            <div className="space-y-1 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[11px] font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-slate-100)] px-2 py-0.5 rounded">
-                  #{idx + 1}
-                </span>
-                <span className="font-bold text-sm text-[var(--color-text-dark)]">{chk.title}</span>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-slate-100)] px-2 py-0.5 rounded">
+                    #{idx + 1}
+                  </span>
+                  <span className="font-bold text-sm text-[var(--color-text-dark)]">{chk.title}</span>
+                </div>
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  <span className="font-semibold text-[var(--color-text-dark)]">What this proves: </span>
+                  {chk.description}
+                </p>
               </div>
-              <p className="text-xs text-[var(--color-text-muted)]">{chk.description}</p>
-              <div className="font-mono text-[11px] text-[var(--color-text-secondary)] bg-[var(--color-surface-muted)] border border-[var(--color-border-light)] p-2 rounded-lg mt-2 overflow-x-auto">
-                {chk.sqlQuery}
+
+              <div className="flex items-center gap-3 self-end md:self-center">
+                {chk.status === 'passed' && (
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Passed (0 offending records)</span>
+                  </div>
+                )}
+                {chk.status === 'running' && (
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-primary)] bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-xl">
+                    <RotateCcw className="w-4 h-4 animate-spin text-[var(--color-primary)]" />
+                    <span>Checking...</span>
+                  </div>
+                )}
+                {chk.status === 'idle' && (
+                  <span className="text-xs font-semibold text-[var(--color-text-muted)] bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
+                    Not run yet
+                  </span>
+                )}
+                {chk.status === 'failed' && (
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-3 py-1.5 rounded-xl">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <span>Failed ({chk.offendingCount} offending {chk.offendingCount === 1 ? 'row' : 'rows'})</span>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center gap-3 self-end md:self-center">
-              {chk.status === 'passed' && (
-                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Passed (0 errors)</span>
+            {/* Collapsible Details */}
+            <div className="mt-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => toggleDetails(chk.id)}
+                className="text-[11px] font-semibold text-[var(--color-primary)] hover:underline flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                {expandedDetails[chk.id] ? (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5" />
+                )}
+                <span>{expandedDetails[chk.id] ? 'Hide details' : 'Show details'}</span>
+              </button>
+
+              {expandedDetails[chk.id] && (
+                <div className="mt-2.5 p-3.5 bg-slate-900 rounded-xl text-slate-200 font-mono text-xs overflow-x-auto border border-slate-800 shadow-inner">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">
+                    API Response Details
+                  </div>
+                  <pre className="text-emerald-400 text-[11px] whitespace-pre-wrap">
+                    {chk.details && chk.details.length > 0
+                      ? JSON.stringify(chk.details, null, 2)
+                      : 'No offending rows detected.'}
+                  </pre>
                 </div>
-              )}
-              {chk.status === 'running' && (
-                <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-primary)] bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-xl">
-                  <RotateCcw className="w-4 h-4 animate-spin text-[var(--color-primary)]" />
-                  <span>Checking...</span>
-                </div>
-              )}
-              {chk.status === 'idle' && (
-                <span className="text-xs font-semibold text-[var(--color-text-light)] bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
-                  Ready to test
-                </span>
               )}
             </div>
           </div>

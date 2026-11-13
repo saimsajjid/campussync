@@ -43,8 +43,7 @@ export const FailureSimulatorDrawer: React.FC<FailureSimulatorDrawerProps> = ({ 
               <Sliders className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-[var(--color-text-dark)]">Failure & Network Simulator</h3>
-              <p className="text-xs text-[var(--color-text-muted)]">Challenge HS-0146 Stress-Testing Controls</p>
+              <h3 className="font-bold text-base text-[var(--color-text-dark)]">Network Simulator</h3>
             </div>
           </div>
           <button
@@ -68,9 +67,9 @@ export const FailureSimulatorDrawer: React.FC<FailureSimulatorDrawerProps> = ({ 
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
                   <WifiOff className="w-4 h-4 text-amber-600" />
-                  <span className="text-sm font-semibold text-[var(--color-text-dark)]">Full Offline Mode</span>
+                  <span className="text-sm font-semibold text-[var(--color-text-dark)]">Simulated Offline</span>
                 </div>
-                <p className="text-xs text-[var(--color-text-muted)]">Queue all field edits safely into IndexedDB Outbox</p>
+                <p className="text-xs text-[var(--color-text-muted)]">Queue edits locally while disconnected</p>
               </div>
               <input
                 type="checkbox"
@@ -104,10 +103,10 @@ export const FailureSimulatorDrawer: React.FC<FailureSimulatorDrawerProps> = ({ 
           {/* Section 2: Failure Injection & Idempotency */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center gap-1.5">
-              <ShieldAlert className="w-3.5 h-3.5 text-[var(--color-status-danger-red)]" /> Failure Injections (The Proof Moments)
+              <ShieldAlert className="w-3.5 h-3.5 text-[var(--color-status-danger-red)]" /> Failure injection
             </h4>
 
-            {/* Drop Next Response (The key demo moment!) */}
+            {/* Drop Next Response */}
             <div
               className={`p-3.5 rounded-xl border transition-all ${
                 simulator.dropNextResponse
@@ -120,12 +119,9 @@ export const FailureSimulatorDrawer: React.FC<FailureSimulatorDrawerProps> = ({ 
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-[var(--color-status-danger-red)]" />
                     <span className="text-sm font-bold text-[var(--color-text-dark)]">Drop Next Response</span>
-                    <span className="bg-[var(--color-status-danger-red)] text-white text-[10px] font-bold px-1.5 py-0.2 rounded">
-                      Demo Core
-                    </span>
                   </div>
                   <p className="text-xs text-[var(--color-text-muted)] mt-1 leading-relaxed">
-                    Server commits the change, but the response packet is discarded in transit. The client automatically retries with the same <code className="text-[var(--color-primary)] bg-gray-100 px-1 rounded">opId</code>, demonstrating <strong>idempotency</strong> without duplicate application!
+                    Server commits the change, but the response packet is discarded in transit. Tests automatic client retry and transaction idempotency.
                   </p>
                 </div>
                 <input
@@ -191,22 +187,22 @@ export const FailureSimulatorDrawer: React.FC<FailureSimulatorDrawerProps> = ({ 
             </div>
           </div>
 
-          {/* Section 4: Demo Script Actions */}
+          {/* Section 4: Diagnostics & Reset */}
           <div className="space-y-3 pt-2 border-t border-[var(--color-border-subtle)]">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Interactive Demo Triggers</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Diagnostics & Environment</h4>
 
             <button
               onClick={injectRemoteConflict}
               className="w-full py-2.5 px-4 bg-white border border-[var(--color-status-warning-amber)] text-[var(--color-status-pending-text)] hover:bg-[var(--color-status-pending-bg)] rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-xs"
             >
-              <Zap className="w-4 h-4" /> Inject Remote Concurrent Edit (Conflict Trigger)
+              <Zap className="w-4 h-4" /> Simulate Remote Conflict
             </button>
 
             <button
               onClick={resetDemoData}
               className="w-full py-2.5 px-4 bg-white border border-[var(--color-border-muted)] text-[var(--color-text-subtle)] hover:text-[var(--color-text-dark)] hover:bg-gray-100 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors"
             >
-              <RotateCcw className="w-4 h-4" /> Reset All Demo Data to Seed
+              <RotateCcw className="w-4 h-4" /> Reset Database to Seed State
             </button>
           </div>
         </div>

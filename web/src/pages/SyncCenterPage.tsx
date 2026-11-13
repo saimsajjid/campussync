@@ -51,21 +51,16 @@ export const SyncCenterPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 text-left max-w-4xl mx-auto">
+    <div className="space-y-6 text-left max-w-[1200px] w-full mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <RefreshCw className="w-6 h-6 text-[var(--color-primary)]" />
             <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-text-dark)] tracking-tight">
-              {isStudent ? 'My Sync Outbox' : 'Sync Center & Local Outbox'}
+              {isStudent ? 'Sync Outbox' : 'Sync Center'}
             </h1>
           </div>
-          <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            {isStudent
-              ? 'Personal outbox: Track and manage your unsynced contact updates queued for offline sync.'
-              : 'FR-4: Outbox pattern commits edits to IndexedDB before network transmission.'}
-          </p>
         </div>
 
         <button
@@ -119,9 +114,8 @@ export const SyncCenterPage: React.FC = () => {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-[var(--color-text-dark)] flex items-center gap-2">
-            <Clock className="w-4 h-4 text-amber-600" /> Pending Outbox Operations ({outboxItems?.length || 0})
+            <Clock className="w-4 h-4 text-amber-600" /> Pending Operations ({outboxItems?.length || 0})
           </h2>
-          <span className="text-[11px] text-[var(--color-text-muted)]">Ordered FIFO Delivery (FR-4.2)</span>
         </div>
 
         {outboxItems && outboxItems.length > 0 ? (

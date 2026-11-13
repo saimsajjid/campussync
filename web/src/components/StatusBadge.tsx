@@ -22,7 +22,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, size = 
       text: 'text-[var(--color-status-pending-text)]',
       border: 'border-[var(--color-status-pending-border)]',
       icon: Clock,
-      defaultLabel: 'Pending Sync',
+      defaultLabel: 'Saved on this device',
     },
     syncing: {
       bg: 'bg-[var(--color-status-sky-light)]',
@@ -37,14 +37,14 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, size = 
       text: 'text-[var(--color-status-conflict-text)]',
       border: 'border-[var(--color-status-conflict-border)]',
       icon: AlertTriangle,
-      defaultLabel: 'Conflict',
+      defaultLabel: 'Needs your decision',
     },
     rejected: {
       bg: 'bg-[var(--color-status-rejected-bg)]',
       text: 'text-[var(--color-status-rejected-text)]',
       border: 'border-[var(--color-status-rejected-border)]',
       icon: XCircle,
-      defaultLabel: 'Rejected',
+      defaultLabel: 'Not saved',
     },
     locked: {
       bg: 'bg-[var(--color-surface-slate-100)]',
