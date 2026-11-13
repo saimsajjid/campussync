@@ -1,10 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Lock, AlertCircle, CheckCircle2, Save, UserPlus, AlertTriangle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { StatusBadge } from './StatusBadge';
+import { CustomDropdown, DropdownOption } from './CustomDropdown';
 import { db } from '../db';
-import type { StudentRecord, CampusCode, ProgramCode, StudentStatus, FieldStatusType } from '../types';
+import type { StudentRecord, CampusCode, ProgramCode, StudentStatus } from '../types';
 import { generateUUID } from '../utils/uuid';
+
+const CAMPUS_OPTIONS: DropdownOption<CampusCode>[] = [
+  { value: 'Islamabad', label: 'Islamabad Campus' },
+  { value: 'Lahore', label: 'Lahore Campus' },
+  { value: 'Abbottabad', label: 'Abbottabad Campus' },
+];
+
+const PROGRAM_OPTIONS: DropdownOption<ProgramCode>[] = [
+  { value: 'BS CS', label: 'BS Computer Science' },
+  { value: 'BS SE', label: 'BS Software Engineering' },
+  { value: 'BS EE', label: 'BS Electrical Engineering' },
+];
+
+const SEMESTER_OPTIONS: DropdownOption<number>[] = [1, 2, 3, 4, 5, 6, 7, 8].map((s) => ({
+  value: s,
+  label: `Semester ${s}`,
+}));
+
+const STATUS_OPTIONS: DropdownOption<StudentStatus>[] = [
+  { value: 'Active', label: 'Active', badge: 'Active' },
+  { value: 'On leave', label: 'On leave', badge: 'Leave' },
+  { value: 'Graduated', label: 'Graduated', badge: 'Alumni' },
+];
 
 interface StudentFormModalProps {
   isOpen: boolean;
@@ -17,12 +42,22 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   onClose,
   studentToEdit,
 }) => {
-  const { currentUser, queueEditOperation, addToast, simulator, syncNow, setDuplicateRecordPrompt } = useApp();
+  const { currentUser, queueEditOperation, addToast, simulator, syncNow, setDuplicateRecordPrompt, isDemoMode } = useApp();
 
   const isEditing = Boolean(studentToEdit);
   const prevIsOpenRef = useRef(false);
   const isDirtyRef = useRef(false);
   const initialStudentRef = useRef<StudentRecord | null>(null);
+
+  // Live queries for field status tracking
+  const studentOutboxOps = useLiveQuery(
+    () => (studentToEdit ? db.outbox.where('studentId').equals(studentToEdit.id).toArray() : []),
+    [studentToEdit?.id]
+  );
+  const studentConflicts = useLiveQuery(
+    () => (studentToEdit ? db.conflicts.where('studentId').equals(studentToEdit.id).toArray() : []),
+    [studentToEdit?.id]
+  );
 
   // Form State
   const [formData, setFormData] = useState({
@@ -44,6 +79,26 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [externalUpdateNotice, setExternalUpdateNotice] = useState<boolean>(false);
+
+  const fillSampleData = () => {
+    const randomId = Math.floor(1000 + Math.random() * 9000);
+    const randomCnic = Math.floor(1000000 + Math.random() * 9000000);
+    setFormData({
+      reg_no: `CS-2026-${randomId}`,
+      cnic: `37405-${randomCnic}-1`,
+      full_name: 'Zainab Bibi',
+      program: 'BS CS',
+      campus: currentUser?.campus || 'Lahore',
+      semester: 4,
+      status: 'Active',
+      phone: '0300-5551234',
+      email: `zainab.${randomId}@campussync.edu.pk`,
+      address: 'House 42, Street 8, G-10/2, Islamabad',
+      emergency_contact: 'Tariq Mehmood (0321-9876543)',
+      attendance: 90,
+      remarks: 'Consistent academic performance',
+    });
+  };
 
   useEffect(() => {
     // Only re-initialize form state when modal transitions from closed to open
@@ -69,17 +124,17 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         });
       } else {
         setFormData({
-          reg_no: `CS-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-          cnic: `37405-${Math.floor(1000000 + Math.random() * 9000000)}-1`,
+          reg_no: '',
+          cnic: '',
           full_name: '',
           program: 'BS CS',
-          campus: 'Islamabad',
+          campus: currentUser?.campus || 'Islamabad',
           semester: 1,
           status: 'Active',
-          phone: '0300-5551234',
+          phone: '',
           email: '',
           address: '',
-          emergency_contact: 'Guardian (0300-0000000)',
+          emergency_contact: '',
           attendance: 85,
           remarks: '',
         });
@@ -88,7 +143,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setValidationError(null);
     }
     prevIsOpenRef.current = isOpen;
-  }, [studentToEdit, isOpen]);
+  }, [studentToEdit, isOpen, currentUser]);
 
   // Monitor background database updates to this record while form is open (FR-12.2)
   useEffect(() => {
@@ -143,14 +198,35 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const canEditContact = currentUser.role === 'admin' || currentUser.role === 'student';
   const canEditAcademic = currentUser.role === 'admin' || currentUser.role === 'faculty';
 
-  const getFieldStatus = (field: string): FieldStatusType => {
+  const renderFieldStatus = (field: string) => {
+    if (!isEditing) return null;
+
     if (currentUser.role === 'student' && !['phone', 'email', 'address', 'emergency_contact'].includes(field)) {
-      return 'locked';
+      return <StatusBadge status="locked" />;
     }
     if (currentUser.role === 'faculty' && !['attendance', 'remarks'].includes(field)) {
-      return 'locked';
+      return <StatusBadge status="locked" />;
     }
-    return 'synced';
+
+    const conflict = studentConflicts?.find((c) => c.field === field && c.status === 'open');
+    if (conflict) {
+      return <StatusBadge status="conflict" label="Needs your decision" />;
+    }
+
+    const op = studentOutboxOps
+      ?.filter((o) => o.field === field)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    if (op) {
+      if (op.status === 'rejected' || op.status === 'failed') {
+        return <StatusBadge status="rejected" label={op.errorReason ? `Not saved: ${op.errorReason}` : 'Not saved'} />;
+      }
+      if (op.status === 'conflict') {
+        return <StatusBadge status="conflict" label="Needs your decision" />;
+      }
+      return <StatusBadge status="pending" label="Saved on this device" />;
+    }
+
+    return <StatusBadge status="synced" label="Synced" />;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -263,16 +339,29 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 {isEditing ? `Edit Student: ${studentToEdit?.full_name}` : 'Register New Student Record'}
               </h3>
               <p className="text-xs text-[var(--color-text-muted)]">
-                {isEditing ? `ID: ${studentToEdit?.reg_no} • Server Version: v${studentToEdit?.version}` : 'Creates offline-safe client UUID'}
+                {isEditing ? `ID: ${studentToEdit?.reg_no} • Version: v${studentToEdit?.version}` : 'Enter student details below'}
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-dark)] hover:bg-[var(--color-border-subtle)] transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {!isEditing && isDemoMode && (
+              <button
+                type="button"
+                onClick={fillSampleData}
+                className="text-xs font-semibold text-[var(--color-primary)] hover:underline px-2.5 py-1 rounded-lg bg-white border border-[var(--color-border-subtle)] shadow-xs transition-colors cursor-pointer"
+              >
+                Fill sample data
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close modal"
+              className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-dark)] hover:bg-[var(--color-border-subtle)] transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Form Body */}
@@ -293,7 +382,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             <div className="p-3.5 rounded-xl bg-[var(--color-status-danger-subtle)] border border-[var(--color-status-conflict-border)] flex items-start gap-3 text-[var(--color-status-danger-text)]">
               <AlertTriangle className="w-5 h-5 text-[var(--color-status-danger-red)] flex-shrink-0 mt-0.5" />
               <div className="text-xs">
-                <span className="font-bold block">Duplicate Detected (FR-10):</span>
+                <span className="font-bold block">Duplicate Record Detected:</span>
                 <span>{duplicateWarning}</span>
               </div>
             </div>
@@ -323,7 +412,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-[var(--color-text-dark)]">Full Name</label>
-                  <StatusBadge status={getFieldStatus('full_name')} />
+                  {renderFieldStatus('full_name')}
                 </div>
                 <input
                   type="text"
@@ -340,7 +429,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-[var(--color-text-dark)]">Registration Number (Unique)</label>
-                  <StatusBadge status={getFieldStatus('reg_no')} />
+                  {renderFieldStatus('reg_no')}
                 </div>
                 <input
                   type="text"
@@ -357,7 +446,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-[var(--color-text-dark)]">National ID / CNIC (13 Digits)</label>
-                  <StatusBadge status={getFieldStatus('cnic')} />
+                  {renderFieldStatus('cnic')}
                 </div>
                 <input
                   type="text"
@@ -374,36 +463,30 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-[var(--color-text-dark)]">Campus</label>
-                  <StatusBadge status={getFieldStatus('campus')} />
+                  {renderFieldStatus('campus')}
                 </div>
-                <select
-                  disabled={!canEditOfficial}
+                <CustomDropdown<CampusCode>
                   value={formData.campus}
-                  onChange={(e) => setFormData({ ...formData, campus: e.target.value as CampusCode })}
-                  className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
-                >
-                  <option value="Islamabad">Islamabad</option>
-                  <option value="Lahore">Lahore</option>
-                  <option value="Abbottabad">Abbottabad</option>
-                </select>
+                  onChange={(val) => setFormData({ ...formData, campus: val })}
+                  options={CAMPUS_OPTIONS}
+                  disabled={!canEditOfficial}
+                  className="w-full"
+                />
               </div>
 
               {/* Program */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-[var(--color-text-dark)]">Program</label>
-                  <StatusBadge status={getFieldStatus('program')} />
+                  {renderFieldStatus('program')}
                 </div>
-                <select
-                  disabled={!canEditOfficial}
+                <CustomDropdown<ProgramCode>
                   value={formData.program}
-                  onChange={(e) => setFormData({ ...formData, program: e.target.value as ProgramCode })}
-                  className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
-                >
-                  <option value="BS CS">BS Computer Science</option>
-                  <option value="BS SE">BS Software Engineering</option>
-                  <option value="BS EE">BS Electrical Engineering</option>
-                </select>
+                  onChange={(val) => setFormData({ ...formData, program: val })}
+                  options={PROGRAM_OPTIONS}
+                  disabled={!canEditOfficial}
+                  className="w-full"
+                />
               </div>
 
               {/* Semester & Status */}
@@ -411,35 +494,30 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-semibold text-[var(--color-text-dark)]">Semester</label>
+                    {renderFieldStatus('semester')}
                   </div>
-                  <select
-                    disabled={!canEditOfficial}
+                  <CustomDropdown<number>
                     value={formData.semester}
-                    onChange={(e) => setFormData({ ...formData, semester: parseInt(e.target.value) })}
-                    className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                      <option key={s} value={s}>
-                        Sem {s}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, semester: val })}
+                    options={SEMESTER_OPTIONS}
+                    disabled={!canEditOfficial}
+                    className="w-full"
+                  />
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-semibold text-[var(--color-text-dark)]">Status</label>
+                    {renderFieldStatus('status')}
                   </div>
-                  <select
-                    disabled={!canEditOfficial}
+                  <CustomDropdown<StudentStatus>
                     value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as StudentStatus })}
-                    className="w-full text-xs font-medium bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-lg p-2 text-[var(--color-text-dark)] disabled:opacity-60 disabled:bg-[var(--color-surface-slate-100)]"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="On leave">On leave</option>
-                    <option value="Graduated">Graduated</option>
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, status: val })}
+                    options={STATUS_OPTIONS}
+                    disabled={!canEditOfficial}
+                    className="w-full"
+                    align="right"
+                  />
                 </div>
               </div>
             </div>
@@ -460,7 +538,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-[var(--color-text-dark)]">Mobile Phone</label>
-                  <StatusBadge status={getFieldStatus('phone')} />
+                  {renderFieldStatus('phone')}
                 </div>
                 <input
                   type="tel"
@@ -476,7 +554,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-[var(--color-text-dark)]">Email Address</label>
-                  <StatusBadge status={getFieldStatus('email')} />
+                  {renderFieldStatus('email')}
                 </div>
                 <input
                   type="email"
@@ -492,7 +570,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-[var(--color-text-dark)]">Emergency Contact</label>
-                  <StatusBadge status={getFieldStatus('emergency_contact')} />
+                  {renderFieldStatus('emergency_contact')}
                 </div>
                 <input
                   type="text"
@@ -508,7 +586,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-[var(--color-text-dark)]">Home / Residency Address</label>
-                  <StatusBadge status={getFieldStatus('address')} />
+                  {renderFieldStatus('address')}
                 </div>
                 <input
                   type="text"
@@ -538,7 +616,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-[var(--color-text-dark)]">Attendance Rate (%)</label>
-                  <StatusBadge status={getFieldStatus('attendance')} />
+                  {renderFieldStatus('attendance')}
                 </div>
                 <input
                   type="number"
@@ -556,7 +634,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-[var(--color-text-dark)]">Faculty Remarks</label>
-                  <StatusBadge status={getFieldStatus('remarks')} />
+                  {renderFieldStatus('remarks')}
                 </div>
                 <input
                   type="text"
@@ -584,7 +662,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               className="px-5 py-2 text-xs font-bold bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white rounded-xl shadow-md shadow-[var(--color-primary)]/20 flex items-center gap-1.5 transition-all"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>{isEditing ? 'Save Changes to Outbox' : 'Register Student'}</span>
+              <span>{isEditing ? 'Save Changes' : 'Register Student'}</span>
             </button>
           </div>
         </form>

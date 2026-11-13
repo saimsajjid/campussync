@@ -12,6 +12,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { StatusBadge } from '../components/StatusBadge';
 import type { StudentRecord } from '../types';
+import { CustomDropdown } from '../components/CustomDropdown';
 
 interface StudentsPageProps {
   onOpenAddModal: () => void;
@@ -26,6 +27,7 @@ export const StudentsPage: React.FC<StudentsPageProps> = ({
 }) => {
   const { activeCampus, currentUser } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
+  const [programFilter, setProgramFilter] = useState('all');
 
   const allStudents = useLiveQuery(() => {
     return db.students.toArray();
@@ -48,7 +50,12 @@ export const StudentsPage: React.FC<StudentsPageProps> = ({
       return false;
     }
 
-    // 3. Search query
+    // 3. Program filter
+    if (programFilter !== 'all' && s.program !== programFilter) {
+      return false;
+    }
+
+    // 4. Search query
     if (searchTerm.trim() !== '') {
       const q = searchTerm.toLowerCase();
       const matchName = s.full_name.toLowerCase().includes(q);
@@ -63,18 +70,13 @@ export const StudentsPage: React.FC<StudentsPageProps> = ({
   });
 
   return (
-    <div className="space-y-6 text-left">
+    <div className="space-y-6 text-left max-w-[1200px] w-full mx-auto">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-text-dark)] tracking-tight">
-            {currentUser.role === 'student' ? 'My Record' : 'Student Records Directory'}
+            {currentUser.role === 'student' ? 'My Profile' : 'Student Directory'}
           </h1>
-          <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            {currentUser.role === 'admin' && 'Viewing all student records across all university campuses.'}
-            {currentUser.role === 'faculty' && `Scoped to ${currentUser.campus} Campus academic records.`}
-            {currentUser.role === 'student' && 'Viewing your official enrolled record and contact info.'}
-          </p>
         </div>
 
         {currentUser.role === 'admin' && (
@@ -88,19 +90,36 @@ export const StudentsPage: React.FC<StudentsPageProps> = ({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-[var(--color-border-subtle)] shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:max-w-md">
-          <Search className="w-4 h-4 text-[var(--color-text-light)] absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by student name, Reg No (CS-2026-...), or CNIC..."
-            className="w-full pl-9 pr-4 py-2 text-xs bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-xl text-[var(--color-text-dark)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+      <div className="bg-white p-4 rounded-2xl border border-[var(--color-border-subtle)] shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 max-w-2xl">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-[var(--color-text-light)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by student name, Reg No (CS-2026-...), or CNIC..."
+              className="w-full pl-9 pr-4 py-2 text-xs bg-[var(--color-surface-muted)] border border-[var(--color-border-muted)] rounded-xl text-[var(--color-text-dark)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+            />
+          </div>
+
+          {/* Program Filter Dropdown */}
+          <CustomDropdown
+            value={programFilter}
+            onChange={(val) => setProgramFilter(val)}
+            options={[
+              { value: 'all', label: 'All Programs' },
+              { value: 'BS CS', label: 'BS Computer Science' },
+              { value: 'BS SE', label: 'BS Software Engineering' },
+              { value: 'BS EE', label: 'BS Electrical Engineering' },
+            ]}
+            icon={<GraduationCap className="w-4 h-4" />}
+            labelPrefix="Program:"
+            size="sm"
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end text-xs text-[var(--color-text-muted)]">
+        <div className="flex items-center gap-2 justify-between sm:justify-end text-xs text-[var(--color-text-muted)]">
           <span className="font-semibold">Showing:</span>
           <span className="px-2.5 py-1 bg-[var(--color-surface-slate-100)] text-[var(--color-text-dark)] font-bold rounded-lg border border-[var(--color-border-light)]">
             {filteredStudents?.length || 0} Records
@@ -138,29 +157,29 @@ export const StudentsPage: React.FC<StudentsPageProps> = ({
                     </td>
 
                     {/* Reg No & CNIC (Mandatory Unique Keys) */}
-                    <td className="py-3.5 px-4 font-mono text-[11px] text-[var(--color-text-secondary)]">
+                    <td className="py-3.5 px-4 font-mono text-xs text-[var(--color-text-secondary)]">
                       <div className="font-bold text-[var(--color-text-dark)]">{s.reg_no}</div>
-                      <div className="text-[10px] text-[var(--color-text-light)]">{s.cnic}</div>
+                      <div className="text-xs text-[var(--color-text-secondary)]">{s.cnic}</div>
                     </td>
 
                     {/* Campus & Program */}
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-[var(--color-text-dark)] flex items-center gap-1">
-                        <Building2 className="w-3 h-3 text-[var(--color-primary)]" />
+                      <div className="font-semibold text-[var(--color-text-dark)] flex items-center gap-1 text-xs">
+                        <Building2 className="w-3.5 h-3.5 text-[var(--color-primary)]" />
                         <span>{s.campus}</span>
                       </div>
-                      <div className="text-[11px] text-[var(--color-text-muted)]">{s.program}</div>
+                      <div className="text-xs text-[var(--color-text-muted)]">{s.program}</div>
                     </td>
 
                     {/* Semester */}
-                    <td className="py-3.5 px-4 font-semibold text-[var(--color-text-dark)]">
+                    <td className="py-3.5 px-4 font-semibold text-[var(--color-text-dark)] text-xs">
                       Semester {s.semester}
                     </td>
 
                     {/* Attendance */}
                     <td className="py-3.5 px-4">
                       <span
-                        className={`font-bold px-2 py-0.5 rounded text-[11px] ${
+                        className={`font-bold px-2 py-0.5 rounded text-xs ${
                           s.attendance >= 85
                             ? 'bg-emerald-50 text-emerald-700'
                             : s.attendance >= 75
@@ -181,7 +200,7 @@ export const StudentsPage: React.FC<StudentsPageProps> = ({
                     </td>
 
                     {/* Server Version Tag */}
-                    <td className="py-3.5 px-4 font-mono text-[11px] text-[var(--color-text-subtle)]">
+                    <td className="py-3.5 px-4 font-mono text-xs text-[var(--color-text-secondary)]">
                       v{s.version}
                     </td>
 
@@ -189,16 +208,20 @@ export const StudentsPage: React.FC<StudentsPageProps> = ({
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
+                          type="button"
                           onClick={() => onOpenEditModal(s)}
-                          className="p-1.5 rounded-lg border border-[var(--color-border-light)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] hover:border-[var(--color-primary)]/30 transition-all"
-                          title="View or Edit Record Details"
+                          aria-label={`Edit ${s.full_name}`}
+                          title={`Edit ${s.full_name}`}
+                          className="p-1.5 rounded-lg border border-[var(--color-border-light)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] hover:border-[var(--color-primary)]/30 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => onOpenHistory(s.id)}
-                          className="p-1.5 rounded-lg border border-[var(--color-border-light)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] hover:border-[var(--color-primary)]/30 transition-all"
-                          title="View Complete Field-Level Audit Trail"
+                          aria-label={`View history for ${s.full_name}`}
+                          title={`View history for ${s.full_name}`}
+                          className="p-1.5 rounded-lg border border-[var(--color-border-light)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] hover:border-[var(--color-primary)]/30 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
                         >
                           <History className="w-3.5 h-3.5" />
                         </button>
