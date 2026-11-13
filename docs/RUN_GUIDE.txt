@@ -1,0 +1,54 @@
+CampusSync - Run & Evaluation Guide
+====================================
+
+1. Prerequisites
+- Docker and Docker Compose (v2.20+)
+- Git
+- Web browser (Chrome, Edge, Firefox, Safari)
+
+2. Clone Repository
+git clone https://github.com/saimsajjid/campussync.git
+cd campussync
+
+3. Configuration
+Zero configuration is required for evaluation. Demo fallback settings in docker-compose.yml allow immediate startup. Optionally:
+cp .env.example .env
+
+4. Start Application
+docker compose up -d
+Wait 10-15 seconds for PostgreSQL 16 migrations and seed data initialization.
+
+5. Open Web Application
+Local URL: http://localhost:3050
+Live Deployment URL: https://150.136.103.208.sslip.io
+
+6. Demo Accounts (Password: password123)
+- Central Admin: admin@campussync.local (Full multi-campus read/write, conflict resolution, integrity checks)
+- Regional Admin: admin.regional@campussync.local (Multi-campus admin access)
+- Faculty Lahore: faculty.lahore@campussync.local (Lahore campus students, academic updates)
+- Faculty Islamabad: faculty.islamabad@campussync.local (Islamabad campus students)
+- Faculty Abbottabad: faculty.abbottabad@campussync.local (Abbottabad campus students)
+- Student: student@campussync.local (Personal profile and contact detail updates)
+
+7. What to Try (Evaluation Tour)
+Step 1: Dashboard. Log in as Central Admin. View campus breakdown across Lahore, Islamabad, Abbottabad, 0 pending outbox edits, and 12 student records.
+Step 2: Offline edits. Open "Failure injection" from header, choose "Offline". Edit Ali Raza's address in Students. Notice "Saved on this device" badge and header outbox counter. Reload the tab: edit persists in IndexedDB. Switch back to "Online": outbox flushes and marks "Synced".
+Step 3: Conflict resolution. Navigate to Conflicts (/conflicts). Compare side-by-side versions with actor, device, and timestamp details. Choose a value and click Apply.
+Step 4: History ledger. Open History (/history) to inspect the immutable audit log grouped by date. Test restoring a historical field value.
+Step 5: System health. Open System health (/integrity) and click "Run health check". All 7 database invariants evaluate with 0 offending rows.
+
+8. Reset Demo Data
+Log in as Central Admin, then click "Reset Demo State" in header/drawer, or issue:
+POST /demo/reset
+
+9. Running Automated Tests
+- Unit Tests (Sync Engine, 19 tests):
+  npm test
+- Shared Schema Validation Tests:
+  cd shared && npm test
+- Full Integration Test Plan (50+ cases):
+  TEST_BASE_URL=http://localhost:3050 npx tsx scripts/test-plan-suite.ts
+- Invariant Negative Tests (verifies checks detect corruption):
+  TEST_BASE_URL=http://localhost:3050 DATABASE_URL="postgres://campussync:change-me@localhost:5432/campussync" npx tsx scripts/integrity-negative-suite.ts
+- Append-Only Trigger Verification:
+  DATABASE_URL="postgres://campussync:change-me@localhost:5432/campussync" npx tsx scripts/test-append-negative.ts
