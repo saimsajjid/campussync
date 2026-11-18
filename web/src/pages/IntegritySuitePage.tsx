@@ -221,7 +221,7 @@ export const IntegritySuitePage: React.FC = () => {
             <Database className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="mt-2 text-lg font-bold text-[var(--color-text-dark)] flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-green" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
             Connected
           </div>
           <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">PostgreSQL server active</p>

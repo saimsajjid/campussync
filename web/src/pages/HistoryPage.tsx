@@ -238,7 +238,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialStudentId }) =>
                       <div className="space-y-1.5 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono text-[11px] font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-slate-100)] px-2 py-0.5 rounded">
-                            #{entry.id}
+                            {typeof entry.id === 'number' && entry.id > 1000000000 ? `Log #${String(entry.id).slice(-4)}` : `#${entry.id}`}
                           </span>
 
                           {entry.isPending ? (

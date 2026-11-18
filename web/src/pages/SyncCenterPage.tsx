@@ -14,6 +14,26 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import type { OutboxOperation } from '../types';
 
+const formatFieldName = (field: string): string => {
+  if (field === '*') return 'Full Record Profile';
+  const names: Record<string, string> = {
+    full_name: 'Full Name',
+    reg_no: 'Registration Number',
+    cnic: 'CNIC / National ID',
+    campus: 'Campus',
+    program: 'Program',
+    semester: 'Semester',
+    status: 'Status',
+    phone: 'Phone Number',
+    email: 'Email Address',
+    address: 'Residential Address',
+    emergency_contact: 'Emergency Contact',
+    attendance: 'Attendance',
+    remarks: 'Faculty Remarks',
+  };
+  return names[field] || field.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
 export const SyncCenterPage: React.FC = () => {
   const { simulator, syncNow, isSyncing, addToast, currentUser } = useApp();
 
@@ -119,63 +139,79 @@ export const SyncCenterPage: React.FC = () => {
         </div>
 
         {outboxItems && outboxItems.length > 0 ? (
-          outboxItems.map((op) => (
-            <div
-              key={op.opId}
-              className="bg-white rounded-2xl border border-amber-200 bg-amber-50/20 p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-[11px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
-                    opId: {op.opId}
-                  </span>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                      op.status === 'failed' || op.errorReason
-                        ? 'bg-[var(--color-status-danger-subtle)] text-[var(--color-status-danger-text)] border border-[var(--color-status-conflict-border)]'
-                        : 'bg-[var(--color-status-pending-bg)] text-[var(--color-status-pending-dark)] border border-[var(--color-status-pending-border)]'
-                    }`}
+          outboxItems.map((op) => {
+            const isCreate = op.type === 'create' || op.field === '*';
+            const title = isCreate
+              ? 'New Student Registration'
+              : `Update ${formatFieldName(op.field)}`;
+            const displayValue =
+              typeof op.newValue === 'object' && op.newValue !== null
+                ? op.newValue.full_name
+                  ? `${op.newValue.full_name} (${op.newValue.reg_no || ''})`
+                  : 'Student Registration Details'
+                : String(op.newValue ?? '');
+
+            return (
+              <div
+                key={op.opId}
+                className="bg-white rounded-2xl border border-amber-200 bg-amber-50/20 p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
+              >
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-[11px] font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-slate-100)] px-2 py-0.5 rounded">
+                      #{op.opId.slice(0, 8)}
+                    </span>
+                    <span className="font-bold text-sm text-[var(--color-text-dark)]">
+                      {title}
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                        op.status === 'failed' || op.errorReason
+                          ? 'bg-[var(--color-status-danger-subtle)] text-[var(--color-status-danger-text)] border border-[var(--color-status-conflict-border)]'
+                          : 'bg-[var(--color-status-pending-bg)] text-[var(--color-status-pending-dark)] border border-[var(--color-status-pending-border)]'
+                      }`}
+                    >
+                      {op.status === 'failed' || op.errorReason ? 'Sync Failed' : 'Saved on this device'}
+                    </span>
+                  </div>
+
+                  <div className="text-xs flex flex-wrap items-center gap-2 text-[var(--color-text-dark)]">
+                    <span className="text-[var(--color-text-muted)]">Target Field:</span>
+                    <span className="font-semibold bg-gray-100 px-1.5 py-0.5 rounded">
+                      {formatFieldName(op.field)}
+                    </span>
+                    <span className="text-[var(--color-text-muted)]">• New Value:</span>
+                    <span className="font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                      {displayValue}
+                    </span>
+                  </div>
+
+                  {op.errorReason && (
+                    <p className="text-[11px] text-red-600 font-semibold pt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" /> {op.errorReason}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 self-end md:self-center">
+                  <button
+                    onClick={() => handleRetryItem(op)}
+                    className="px-3.5 py-1.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Retry synchronizing this operation"
                   >
-                    {op.status === 'failed' || op.errorReason ? 'Failed' : 'Pending'}
-                  </span>
-                  <span className="font-bold text-xs text-[var(--color-text-dark)]">
-                    Field: <code className="bg-gray-100 px-1 py-0.5 rounded">{op.field}</code>
-                  </span>
-                  <span className="text-xs text-[var(--color-text-muted)]">• Target: v{op.baseVersion}</span>
+                    <RotateCw className="w-3.5 h-3.5" /> Retry
+                  </button>
+                  <button
+                    onClick={() => handleDiscardItem(op)}
+                    className="px-3.5 py-1.5 bg-white border border-[var(--color-border-muted)] hover:bg-red-50 hover:text-red-600 text-[var(--color-text-muted)] text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="Cancel & discard unsynced edit"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Discard
+                  </button>
                 </div>
-
-                <div className="text-xs flex items-center gap-2 pt-1 text-[var(--color-text-dark)]">
-                  <span className="font-semibold">New Value:</span>
-                  <span className="font-mono bg-white border border-[var(--color-border-muted)] px-2 py-0.5 rounded">
-                    {typeof op.newValue === 'object' ? JSON.stringify(op.newValue) : String(op.newValue)}
-                  </span>
-                </div>
-
-                {op.errorReason && (
-                  <p className="text-[11px] text-red-600 font-semibold pt-1 flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" /> {op.errorReason}
-                  </p>
-                )}
               </div>
-
-              <div className="flex items-center gap-2 self-end md:self-center">
-                <button
-                  onClick={() => handleRetryItem(op)}
-                  className="px-3 py-1.5 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1"
-                  title="Retry sending this operation"
-                >
-                  <RotateCw className="w-3.5 h-3.5" /> Retry
-                </button>
-                <button
-                  onClick={() => handleDiscardItem(op)}
-                  className="px-3 py-1.5 bg-white border border-[var(--color-border-muted)] hover:bg-red-50 hover:text-red-600 text-[var(--color-text-muted)] text-xs font-bold rounded-xl transition-colors flex items-center gap-1"
-                  title="Cancel & discard from Outbox"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Discard
-                </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="bg-white rounded-2xl border border-[var(--color-border-subtle)] p-12 text-center text-[var(--color-text-muted)] shadow-xs">
             <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto mb-2" />

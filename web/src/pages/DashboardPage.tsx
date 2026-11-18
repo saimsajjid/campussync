@@ -86,7 +86,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
             <div className="flex items-center gap-2 mt-1">
               <span
                 className={`w-2.5 h-2.5 rounded-full ${
-                  simulator.isOffline ? 'bg-[var(--color-status-danger-red)]' : 'bg-[var(--color-status-success-green)] pulse-green'
+                  simulator.isOffline ? 'bg-[var(--color-status-danger-red)]' : 'bg-[var(--color-status-success-green)]'
                 }`}
               />
               <span className="text-lg font-bold text-[var(--color-text-dark)]">

@@ -55,13 +55,13 @@ export const LoginPage: React.FC = () => {
       </div>
 
       <div className="w-full max-w-xl bg-white border border-[var(--color-border-subtle)] rounded-2xl shadow-xs p-6 sm:p-8">
-        {/* Fast Demo Account Access */}
+        {/* Fast SSO Portal Access */}
         {isDemoMode && (
           <>
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center gap-1.5">
-                  <Key className="w-4 h-4 text-[var(--color-primary)]" /> Demo accounts
+                  <Key className="w-4 h-4 text-[var(--color-primary)]" /> Fast Portal Access (SSO)
                 </h2>
               </div>
 
@@ -78,7 +78,7 @@ export const LoginPage: React.FC = () => {
                     </div>
                     <div className="font-semibold text-xs text-[var(--color-text-dark)]">Central Admin</div>
                     <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5 leading-tight">
-                      Full access
+                      Registrar Office
                     </div>
                   </div>
                   <div className="mt-3 text-[10px] font-bold text-[var(--color-primary)] flex items-center gap-1">
@@ -172,19 +172,6 @@ export const LoginPage: React.FC = () => {
                 className="w-full pl-9 pr-4 py-2.5 bg-white border border-[var(--color-border-muted)] rounded-xl text-xs text-[var(--color-text-dark)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-primary)] transition-colors"
               />
             </div>
-          </div>
-
-          <div className="flex items-center justify-between text-xs pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                setEmail('admin@campussync.local');
-                setPassword('password123');
-              }}
-              className="text-xs font-semibold text-[var(--color-primary)] hover:underline transition-colors cursor-pointer"
-            >
-              Fill admin credentials
-            </button>
           </div>
 
           <button

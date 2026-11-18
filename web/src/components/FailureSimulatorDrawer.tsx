@@ -43,7 +43,7 @@ export const FailureSimulatorDrawer: React.FC<FailureSimulatorDrawerProps> = ({ 
               <Sliders className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-[var(--color-text-dark)]">Network Simulator</h3>
+              <h3 className="font-bold text-base text-[var(--color-text-dark)]">Network Diagnostics</h3>
             </div>
           </div>
           <button

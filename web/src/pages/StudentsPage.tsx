@@ -139,7 +139,6 @@ export const StudentsPage: React.FC<StudentsPageProps> = ({
                 <th className="py-3 px-4">Semester</th>
                 <th className="py-3 px-4">Attendance</th>
                 <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Version</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -199,11 +198,6 @@ export const StudentsPage: React.FC<StudentsPageProps> = ({
                       />
                     </td>
 
-                    {/* Server Version Tag */}
-                    <td className="py-3.5 px-4 font-mono text-xs text-[var(--color-text-secondary)]">
-                      v{s.version}
-                    </td>
-
                     {/* Actions */}
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
@@ -231,7 +225,7 @@ export const StudentsPage: React.FC<StudentsPageProps> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-[var(--color-text-muted)]">
+                  <td colSpan={7} className="py-12 text-center text-[var(--color-text-muted)]">
                     <p className="text-sm font-semibold">No student records match the active criteria.</p>
                     <p className="text-xs mt-1">Try switching campus scope or resetting search filters.</p>
                   </td>

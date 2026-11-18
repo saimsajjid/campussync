@@ -23,7 +23,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpen, onCloseMobile }) => {
-  const { currentUser, login, addToast, isDemoMode } = useApp();
+  const { currentUser, login, addToast } = useApp();
 
   const openConflictsCount = useLiveQuery(
     () => db.conflicts.where('status').equals('open').count(),
@@ -139,12 +139,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
           })}
         </nav>
 
-        {/* Active Demo Role Switcher */}
+        {/* User Account Profile */}
         <div className="p-3 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-muted)]">
           <div className="bg-white p-3 rounded-xl border border-[var(--color-border-subtle)] shadow-xs">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center gap-1">
-                <UserCheck className="w-3 h-3 text-[var(--color-primary)]" /> Active Role
+                <UserCheck className="w-3 h-3 text-[var(--color-primary)]" /> Authenticated User
               </span>
               <span
                 className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
@@ -159,42 +159,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
               </span>
             </div>
 
-            {isDemoMode ? (
-              <div className="mt-2">
-                <CustomDropdown
-                  value={currentUser?.id || ''}
-                  onChange={async (val) => {
-                    const user = DEMO_USERS.find((u) => u.id === val);
-                    if (user) {
-                      try {
-                        await login(user.email, 'password123');
-                        addToast(`Switched profile to ${user.name}`, 'info');
-                      } catch (err: any) {
-                        addToast(`Failed to switch profile: ${err.message}`, 'danger');
-                      }
+            <div className="mt-1">
+              <CustomDropdown
+                value={currentUser?.id || ''}
+                onChange={async (val) => {
+                  const user = DEMO_USERS.find((u) => u.id === val);
+                  if (user) {
+                    try {
+                      await login(user.email, 'password123');
+                      addToast(`Switched account to ${user.name}`, 'info');
+                    } catch (err: any) {
+                      addToast(`Failed to switch account: ${err.message}`, 'danger');
                     }
-                  }}
-                  options={DEMO_USERS.map((u) => ({
-                    value: u.id,
-                    label: u.name,
-                    badge: u.role,
-                  }))}
-                  direction="up"
-                  size="sm"
-                  className="w-full"
-                  menuClassName="w-full min-w-full"
-                />
-              </div>
-            ) : (
-              <div className="py-1">
-                <div className="text-xs font-semibold text-[var(--color-text-dark)] truncate">
-                  {currentUser?.name}
-                </div>
-                <div className="text-[10px] text-[var(--color-text-muted)] truncate">
-                  {currentUser?.email}
-                </div>
-              </div>
-            )}
+                  }
+                }}
+                options={DEMO_USERS.map((u) => ({
+                  value: u.id,
+                  label: u.name,
+                  badge: u.role,
+                }))}
+                direction="up"
+                size="sm"
+                className="w-full"
+                menuClassName="w-full min-w-full"
+              />
+            </div>
           </div>
         </div>
       </aside>

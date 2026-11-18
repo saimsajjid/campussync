@@ -42,7 +42,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   onClose,
   studentToEdit,
 }) => {
-  const { currentUser, queueEditOperation, addToast, simulator, syncNow, setDuplicateRecordPrompt, isDemoMode } = useApp();
+  const { currentUser, queueEditOperation, addToast, simulator, syncNow, setDuplicateRecordPrompt } = useApp();
 
   const isEditing = Boolean(studentToEdit);
   const prevIsOpenRef = useRef(false);
@@ -167,6 +167,20 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       window.removeEventListener('campussync:sync_event', handleSyncEvent);
     };
   }, [isOpen, studentToEdit]);
+
+  // Subtle presenter shortcut: Alt+D to populate sample data without showing a prototype button
+  useEffect(() => {
+    if (!isOpen || isEditing) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        fillSampleData();
+        addToast('Sample record details loaded', 'info');
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isOpen, isEditing]);
 
   // Real-time duplicate check (FR-10)
   useEffect(() => {
@@ -339,20 +353,11 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 {isEditing ? `Edit Student: ${studentToEdit?.full_name}` : 'Register New Student Record'}
               </h3>
               <p className="text-xs text-[var(--color-text-muted)]">
-                {isEditing ? `ID: ${studentToEdit?.reg_no} • Version: v${studentToEdit?.version}` : 'Enter student details below'}
+                {isEditing ? `Registration: ${studentToEdit?.reg_no}` : 'Enter student details below'}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {!isEditing && isDemoMode && (
-              <button
-                type="button"
-                onClick={fillSampleData}
-                className="text-xs font-semibold text-[var(--color-primary)] hover:underline px-2.5 py-1 rounded-lg bg-white border border-[var(--color-border-subtle)] shadow-xs transition-colors cursor-pointer"
-              >
-                Fill sample data
-              </button>
-            )}
             <button
               type="button"
               onClick={onClose}

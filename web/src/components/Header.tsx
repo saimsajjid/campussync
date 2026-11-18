@@ -26,12 +26,20 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimula
     0
   );
 
-  const campusOptions: Array<{ value: CampusCode | 'all'; label: string }> = [
-    { value: 'all', label: 'All Campuses (Combined)' },
-    { value: 'Islamabad', label: 'Islamabad Campus' },
-    { value: 'Lahore', label: 'Lahore Campus' },
-    { value: 'Abbottabad', label: 'Abbottabad Campus' },
-  ];
+  const campusOptions: Array<{ value: CampusCode | 'all'; label: string }> =
+    currentUser?.role === 'admin'
+      ? [
+          { value: 'all', label: 'All Campuses (Combined)' },
+          { value: 'Islamabad', label: 'Islamabad Campus' },
+          { value: 'Lahore', label: 'Lahore Campus' },
+          { value: 'Abbottabad', label: 'Abbottabad Campus' },
+        ]
+      : [
+          {
+            value: (currentUser?.campus as CampusCode) || 'Lahore',
+            label: `${currentUser?.campus || 'Campus'} Branch`,
+          },
+        ];
 
   const toggleConnection = () => {
     const nextState = !simulator.isOffline;
@@ -82,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimula
         >
           <span
             className={`w-2 h-2 rounded-full shrink-0 ${
-              simulator.isOffline ? 'bg-[var(--color-status-danger-red)]' : 'bg-[var(--color-status-success-green)] pulse-green'
+              simulator.isOffline ? 'bg-[var(--color-status-danger-red)]' : 'bg-[var(--color-status-success-green)]'
             }`}
           />
           <span className="hidden xs:inline">{simulator.isOffline ? 'Offline' : 'Online'}</span>
@@ -112,15 +120,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimula
           </span>
         </button>
 
-        {/* Simulator Drawer Trigger (Only in DEMO_MODE) */}
+        {/* Diagnostics Drawer Trigger */}
         {isDemoMode && (
           <button
             onClick={onOpenSimulator}
             className="p-1.5 sm:p-2 rounded-xl border border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] hover:border-[var(--color-primary)]/30 transition-all text-xs font-semibold flex items-center gap-1.5 shadow-xs"
-            title="Network & Connectivity Simulator"
+            title="Network Diagnostics & Connectivity"
           >
             <Sliders className="w-4 h-4 text-[var(--color-primary)]" />
-            <span className="hidden md:inline">Simulator</span>
+            <span className="hidden md:inline">Diagnostics</span>
           </button>
         )}
 
