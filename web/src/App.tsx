@@ -15,7 +15,14 @@ import { StudentPortalPage } from './pages/StudentPortalPage';
 import { LoginPage } from './pages/LoginPage';
 import { BrandLogo } from './components/BrandLogo';
 import { useApp } from './context/AppContext';
-import { WifiOff, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import {
+  WifiOff,
+  AlertTriangle,
+  CheckCircle2,
+  AlertCircle,
+  Info,
+  X
+} from 'lucide-react';
 import type { StudentRecord } from './types';
 
 export const AppContent: React.FC = () => {
@@ -38,6 +45,7 @@ export const AppContent: React.FC = () => {
     setDuplicateRecordPrompt,
     syncNow,
     addToast,
+    removeToast,
   } = useApp();
 
   if (authLoading) {
@@ -49,8 +57,67 @@ export const AppContent: React.FC = () => {
     );
   }
 
+  const renderToasts = () => {
+    if (!toasts || toasts.length === 0) return null;
+    return (
+      <div className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className="pointer-events-auto bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl p-3 sm:p-3.5 shadow-lg shadow-slate-900/5 flex items-start gap-3 transition-all animate-in fade-in slide-in-from-bottom-2 duration-150"
+          >
+            {/* Status Micro-Badge */}
+            <div className="shrink-0 mt-0.5">
+              {t.type === 'success' && (
+                <div className="w-5 h-5 rounded-full bg-emerald-50 border border-emerald-200/60 flex items-center justify-center text-emerald-600">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </div>
+              )}
+              {t.type === 'danger' && (
+                <div className="w-5 h-5 rounded-full bg-rose-50 border border-rose-200/60 flex items-center justify-center text-rose-600">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                </div>
+              )}
+              {t.type === 'warning' && (
+                <div className="w-5 h-5 rounded-full bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-600">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                </div>
+              )}
+              {t.type === 'info' && (
+                <div className="w-5 h-5 rounded-full bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
+                  <Info className="w-3.5 h-3.5" />
+                </div>
+              )}
+            </div>
+
+            {/* Notification Text */}
+            <div className="flex-1 min-w-0 pr-1">
+              <p className="text-xs font-medium text-slate-800 leading-relaxed">
+                {t.message}
+              </p>
+            </div>
+
+            {/* Micro Close Button */}
+            <button
+              onClick={() => removeToast(t.id)}
+              className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0 -mr-1 -mt-0.5"
+              aria-label="Dismiss notification"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   if (!isLoggedIn || !currentUser) {
-    return <LoginPage />;
+    return (
+      <>
+        <LoginPage />
+        {renderToasts()}
+      </>
+    );
   }
 
   // Enforce strict RBAC tab access
@@ -213,28 +280,7 @@ export const AppContent: React.FC = () => {
       )}
 
       {/* Toast Notification Container */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-md pointer-events-none">
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={`pointer-events-auto p-3.5 rounded-xl shadow-lg border text-xs font-semibold flex items-center gap-2.5 transition-all ${
-              t.type === 'success'
-                ? 'bg-[var(--color-status-synced-text)] text-white border-emerald-600'
-                : t.type === 'danger'
-                ? 'bg-[var(--color-status-conflict-text)] text-white border-red-600'
-                : t.type === 'warning'
-                ? 'bg-[var(--color-status-pending-text)] text-white border-amber-600'
-                : 'bg-[var(--color-text-dark)] text-white border-slate-700'
-            }`}
-          >
-            {t.type === 'success' && <CheckCircle className="w-4 h-4 flex-shrink-0" />}
-            {t.type === 'danger' && <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
-            {t.type === 'warning' && <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
-            {t.type === 'info' && <Info className="w-4 h-4 flex-shrink-0" />}
-            <span className="flex-1 leading-snug">{t.message}</span>
-          </div>
-        ))}
-      </div>
+      {renderToasts()}
     </div>
   );
 };

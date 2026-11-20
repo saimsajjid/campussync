@@ -73,6 +73,7 @@ interface AppContextType {
   setSimulator: React.Dispatch<React.SetStateAction<SimulatorState>>;
   toasts: ToastItem[];
   addToast: (message: string, type?: ToastItem['type']) => void;
+  removeToast: (id: string) => void;
   syncNow: () => Promise<void>;
   isSyncing: boolean;
   injectRemoteConflict: () => Promise<void>;
@@ -192,7 +193,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+    }, 6000);
+  }, []);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   // 1. Initial Hydration from Server API
@@ -498,6 +503,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSimulator,
         toasts,
         addToast,
+        removeToast,
         syncNow,
         isSyncing,
         injectRemoteConflict,
