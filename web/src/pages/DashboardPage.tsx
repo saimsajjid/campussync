@@ -6,12 +6,8 @@ import {
   ArrowRight,
   UserPlus,
   CheckCircle2,
-  AlertTriangle,
   Building2,
-  Clock,
-  History,
-  ShieldCheck,
-  ChevronRight
+  Clock
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -487,44 +483,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
                 ))
               )}
             </div>
-          </div>
-
-          {/* Quick System Navigation */}
-          <div className="bg-slate-50/80 rounded-2xl border border-slate-200/80 p-3.5 space-y-2 text-xs">
-            <button
-              onClick={() => onNavigate('conflicts')}
-              className="w-full flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200/80 hover:border-slate-300 transition-all font-medium text-slate-800"
-            >
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-3.5 h-3.5 text-slate-500" />
-                <span>Conflicts & Resolution</span>
-              </div>
-              <span className="text-[11px] px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full font-semibold">
-                {openConflictsCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => onNavigate('history')}
-              className="w-full flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200/80 hover:border-slate-300 transition-all font-medium text-slate-800"
-            >
-              <div className="flex items-center gap-2">
-                <History className="w-3.5 h-3.5 text-slate-500" />
-                <span>Audit Trail & Restore</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            </button>
-
-            <button
-              onClick={() => onNavigate('integrity')}
-              className="w-full flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200/80 hover:border-slate-300 transition-all font-medium text-slate-800"
-            >
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
-                <span>Database Integrity Tests</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            </button>
           </div>
         </div>
       </div>
