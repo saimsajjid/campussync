@@ -7,7 +7,8 @@ import {
   RefreshCw,
   Activity,
   Building2,
-  UserCheck
+  UserCheck,
+  CreditCard
 } from 'lucide-react';
 import { useApp, DEMO_USERS } from '../context/AppContext';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -44,36 +45,48 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
 
   if (!currentUser) return null;
 
-  const allNavItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'faculty', 'student'] },
-    {
-      id: 'students',
-      label: currentUser?.role === 'student' ? 'My record' : 'Students',
-      icon: Users,
-      roles: ['admin', 'faculty', 'student'],
-    },
-    {
-      id: 'conflicts',
-      label: 'Conflicts',
-      icon: GitMerge,
-      badge: openConflictsCount && openConflictsCount > 0 ? openConflictsCount : undefined,
-      badgeColor: 'bg-[var(--color-status-conflict-bg)] text-[var(--color-status-danger-dark)]',
-      roles: ['admin'],
-    },
-    { id: 'history', label: 'Change History', icon: History, roles: ['admin', 'faculty', 'student'] },
-    {
-      id: 'sync',
-      label: 'Sync Center',
-      icon: RefreshCw,
-      badge: pendingOutboxCount && pendingOutboxCount > 0 ? pendingOutboxCount : undefined,
-      badgeColor: 'bg-[var(--color-status-pending-bg)] text-[var(--color-status-warning-orange)]',
-      roles: ['admin', 'faculty', 'student'],
-    },
-    { id: 'integrity', label: 'System health', icon: Activity, roles: ['admin'] },
-  ];
+  let navItems: Array<{
+    id: string;
+    label: string;
+    icon: any;
+    badge?: number;
+    badgeColor?: string;
+  }> = [];
 
-  const role = currentUser?.role || 'student';
-  const navItems = allNavItems.filter((item) => item.roles.includes(role));
+  if (currentUser.role === 'student') {
+    navItems = [
+      { id: 'overview', label: 'My Record', icon: LayoutDashboard },
+      { id: 'id-card', label: 'Student ID Card', icon: CreditCard },
+      { id: 'student-history', label: 'Activity Log', icon: History },
+    ];
+  } else if (currentUser.role === 'faculty') {
+    navItems = [
+      { id: 'dashboard', label: 'Campus Dashboard', icon: LayoutDashboard },
+      { id: 'students', label: 'Students Roster', icon: Users },
+      { id: 'history', label: 'Campus History', icon: History },
+    ];
+  } else {
+    navItems = [
+      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'students', label: 'Students', icon: Users },
+      {
+        id: 'conflicts',
+        label: 'Conflicts',
+        icon: GitMerge,
+        badge: openConflictsCount && openConflictsCount > 0 ? openConflictsCount : undefined,
+        badgeColor: 'bg-[var(--color-status-conflict-bg)] text-[var(--color-status-danger-dark)]',
+      },
+      { id: 'history', label: 'Change History', icon: History },
+      {
+        id: 'sync',
+        label: 'Sync Center',
+        icon: RefreshCw,
+        badge: pendingOutboxCount && pendingOutboxCount > 0 ? pendingOutboxCount : undefined,
+        badgeColor: 'bg-[var(--color-status-pending-bg)] text-[var(--color-status-warning-orange)]',
+      },
+      { id: 'integrity', label: 'System health', icon: Activity },
+    ];
+  }
 
   return (
     <>

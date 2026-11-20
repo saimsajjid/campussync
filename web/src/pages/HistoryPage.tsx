@@ -60,13 +60,18 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialStudentId }) =>
     if (initialStudentId) {
       query = db.history.where('studentId').equals(initialStudentId);
     }
-    const all = await query.reverse().sortBy('id');
+    let all = await query.reverse().sortBy('id');
+
+    // Faculty is scoped to their campus activity
+    if (currentUser?.role === 'faculty' && currentUser?.campus) {
+      all = all.filter((h) => h.actorCampus === currentUser.campus);
+    }
 
     if (filterType !== 'all') {
       return all.filter((h) => h.type === filterType);
     }
     return all;
-  }, [initialStudentId, filterType]);
+  }, [initialStudentId, filterType, currentUser]);
 
   // Group history items by day heading
   const groupedEntries = useMemo(() => {

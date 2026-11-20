@@ -58,12 +58,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
     []
   );
 
+  // Scope students for faculty to their campus
+  const facultyCampus = currentUser?.role === 'faculty' ? currentUser?.campus : null;
+  const baseStudents = useMemo(() => {
+    if (!allStudents) return [];
+    if (facultyCampus) {
+      return allStudents.filter((s) => s.campus === facultyCampus);
+    }
+    return allStudents;
+  }, [allStudents, facultyCampus]);
+
   // Filter students based on active campus and search query
   const filteredStudents = useMemo(() => {
-    if (!allStudents) return [];
-    let list = allStudents;
+    let list = baseStudents;
 
-    if (activeCampus !== 'all') {
+    if (!facultyCampus && activeCampus !== 'all') {
       list = list.filter((s) => s.campus === activeCampus);
     }
 
@@ -80,25 +89,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
     }
 
     return list;
-  }, [allStudents, activeCampus, searchQuery]);
+  }, [baseStudents, facultyCampus, activeCampus, searchQuery]);
 
   // Key Counts
-  const totalCount = allStudents.length;
-  const activeCount = allStudents.filter((s) => s.status === 'Active').length;
-  const leaveCount = allStudents.filter((s) => s.status === 'On leave').length;
-  const graduatedCount = allStudents.filter((s) => s.status === 'Graduated').length;
+  const totalCount = baseStudents.length;
+  const activeCount = baseStudents.filter((s) => s.status === 'Active').length;
+  const leaveCount = baseStudents.filter((s) => s.status === 'On leave').length;
+  const graduatedCount = baseStudents.filter((s) => s.status === 'Graduated').length;
 
-  const lahoreCount = allStudents.filter((s) => s.campus === 'Lahore').length;
-  const islamabadCount = allStudents.filter((s) => s.campus === 'Islamabad').length;
-  const abbottabadCount = allStudents.filter((s) => s.campus === 'Abbottabad').length;
+  const lahoreCount = baseStudents.filter((s) => s.campus === 'Lahore').length;
+  const islamabadCount = baseStudents.filter((s) => s.campus === 'Islamabad').length;
+  const abbottabadCount = baseStudents.filter((s) => s.campus === 'Abbottabad').length;
 
   const lahorePct = totalCount > 0 ? Math.round((lahoreCount / totalCount) * 100) : 0;
   const islamabadPct = totalCount > 0 ? Math.round((islamabadCount / totalCount) * 100) : 0;
   const abbottabadPct = totalCount > 0 ? Math.round((abbottabadCount / totalCount) * 100) : 0;
 
-  const csCount = allStudents.filter((s) => s.program === 'BS CS').length;
-  const seCount = allStudents.filter((s) => s.program === 'BS SE').length;
-  const eeCount = allStudents.filter((s) => s.program === 'BS EE').length;
+  const csCount = baseStudents.filter((s) => s.program === 'BS CS').length;
+  const seCount = baseStudents.filter((s) => s.program === 'BS SE').length;
+  const eeCount = baseStudents.filter((s) => s.program === 'BS EE').length;
 
   // Recently added students fallback if change history is empty
   const recentlyAdded = useMemo(() => {
@@ -135,29 +144,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
             Dashboard
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Student records and cross-campus sync status.
+            {currentUser.role === 'faculty'
+              ? `${currentUser.campus || 'Campus'} branch student roster and academic records.`
+              : 'Student records and cross-campus sync status.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           {currentUser.role === 'admin' && (
-            <button
-              onClick={onOpenAddStudent}
-              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Add Student</span>
-            </button>
-          )}
+            <>
+              <button
+                onClick={onOpenAddStudent}
+                className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Add Student</span>
+              </button>
 
-          <button
-            onClick={() => syncNow()}
-            disabled={isSyncing}
-            className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
-          </button>
+              <button
+                onClick={() => syncNow()}
+                disabled={isSyncing}
+                className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 

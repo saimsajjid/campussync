@@ -40,15 +40,22 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Campus Filter Selector */}
-        <div className="max-w-[150px] sm:max-w-none truncate">
-          <CustomDropdown<CampusCode | 'all'>
-            value={activeCampus}
-            onChange={(val) => setActiveCampus(val)}
-            options={campusOptions}
-            icon={<Building2 className="w-4 h-4" />}
-            size="sm"
-          />
+        {/* Campus Filter Selector / Fixed Badge */}
+        <div className="max-w-[220px] sm:max-w-none truncate">
+          {currentUser?.role === 'student' ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200/80 text-xs font-semibold text-slate-700 shadow-2xs">
+              <Building2 className="w-3.5 h-3.5 text-slate-500" />
+              <span>{currentUser?.campus || 'Lahore'} Campus</span>
+            </div>
+          ) : (
+            <CustomDropdown<CampusCode | 'all'>
+              value={activeCampus}
+              onChange={(val) => setActiveCampus(val)}
+              options={campusOptions}
+              icon={<Building2 className="w-4 h-4" />}
+              size="sm"
+            />
+          )}
         </div>
       </div>
 
