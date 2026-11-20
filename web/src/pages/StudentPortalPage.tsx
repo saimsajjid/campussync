@@ -403,38 +403,45 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               </button>
             </div>
 
-            {/* Realistic Student Card Layout */}
-            <div className="relative rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-6 sm:p-7 shadow-lg overflow-hidden border border-slate-700/60 max-w-md mx-auto">
-              {/* Background ambient watermarks */}
-              <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-blue-500/10 blur-2xl pointer-events-none" />
-              <div className="absolute -bottom-12 -left-12 w-48 h-48 rounded-full bg-slate-500/10 blur-2xl pointer-events-none" />
+            {/* Realistic Student Card Layout (Clean Light Theme) */}
+            <div className="relative rounded-2xl bg-white text-slate-900 p-6 sm:p-7 shadow-sm overflow-hidden border border-slate-200/90 max-w-md mx-auto">
+              {/* Top Accent Stripe */}
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-blue-600" />
 
               {/* Card Header */}
-              <div className="flex items-center justify-between border-b border-slate-700/70 pb-4 mb-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5 pt-1">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-xs">
-                    <GraduationCap className="w-4 h-4 text-white" />
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200/60 flex items-center justify-center font-bold text-blue-600 shadow-2xs">
+                    <GraduationCap className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <span className="text-[10px] tracking-widest font-semibold uppercase text-slate-400 block">
+                    <span className="text-[10px] tracking-wider font-bold uppercase text-slate-500 block">
                       CampusSync University
                     </span>
-                    <span className="text-xs font-bold text-white leading-tight">
+                    <span className="text-xs font-bold text-slate-900 leading-tight">
                       {student.campus} Campus
                     </span>
                   </div>
                 </div>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                   {student.status}
                 </span>
               </div>
 
               {/* Card Body: Photo Avatar + Details */}
               <div className="flex items-start gap-4">
-                <div className="w-20 h-24 rounded-xl bg-slate-800 border-2 border-slate-600/80 flex flex-col items-center justify-center text-slate-300 shrink-0 shadow-inner">
-                  <User className="w-10 h-10 text-slate-400 mb-1" />
-                  <span className="text-[9px] font-mono tracking-wider font-semibold text-slate-400">
-                    PHOTO
+                <div className="w-20 h-24 rounded-xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center text-slate-400 shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-slate-200/80 flex items-center justify-center text-slate-700 font-bold text-sm mb-1">
+                    {student.full_name
+                      .split(' ')
+                      .map((n) => n[0])
+                      .slice(0, 2)
+                      .join('')
+                      .toUpperCase()}
+                  </div>
+                  <span className="text-[9px] font-mono tracking-wider font-medium text-slate-400">
+                    VERIFIED
                   </span>
                 </div>
 
@@ -443,7 +450,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                     <span className="text-[10px] uppercase tracking-wider text-slate-400 block font-medium">
                       Student Name
                     </span>
-                    <h4 className="text-base font-bold text-white leading-tight truncate">
+                    <h4 className="text-base font-bold text-slate-900 leading-tight truncate">
                       {student.full_name}
                     </h4>
                   </div>
@@ -452,7 +459,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                     <span className="text-[10px] uppercase tracking-wider text-slate-400 block font-medium">
                       Registration ID
                     </span>
-                    <span className="text-xs font-mono font-bold text-blue-300">
+                    <span className="inline-block text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/60">
                       {student.reg_no}
                     </span>
                   </div>
@@ -461,7 +468,7 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                     <span className="text-[10px] uppercase tracking-wider text-slate-400 block font-medium">
                       Degree Program
                     </span>
-                    <span className="text-xs font-medium text-slate-200">
+                    <span className="text-xs font-medium text-slate-700">
                       {student.program} • Semester {student.semester}
                     </span>
                   </div>
@@ -469,24 +476,23 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
               </div>
 
               {/* Card Footer: QR Code & Security Stamp */}
-              <div className="mt-6 pt-4 border-t border-slate-700/70 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 bg-white rounded-lg p-1 shrink-0 flex items-center justify-center">
-                    <QrCode className="w-full h-full text-slate-900" />
+              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 bg-slate-50 rounded-lg p-1.5 shrink-0 flex items-center justify-center border border-slate-200/80">
+                    <QrCode className="w-full h-full text-slate-800" />
                   </div>
-                  <div className="text-[9px] text-slate-400 font-mono leading-tight">
-                    <span>ID: {student.id.slice(0, 8)}</span>
-                    <br />
-                    <span>VALID THRU: 08/2028</span>
+                  <div className="text-[10px] text-slate-500 font-mono leading-tight">
+                    <span className="block text-slate-700 font-medium">CARD ID: {student.id.slice(0, 8)}</span>
+                    <span className="text-[9px] text-slate-400">VALID THRU: 08/2028</span>
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-400 block font-semibold">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400 block font-semibold">
                     Office of the Registrar
                   </span>
-                  <span className="text-[10px] text-emerald-400 font-semibold flex items-center justify-end gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Digitally Verified
+                  <span className="text-[11px] text-emerald-700 font-medium flex items-center justify-end gap-1 mt-0.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Digitally Verified
                   </span>
                 </div>
               </div>
