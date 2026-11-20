@@ -1,0 +1,47 @@
+import React from 'react';
+
+interface BrandLogoProps {
+  className?: string;
+  size?: number | string;
+}
+
+export const BrandLogo: React.FC<BrandLogoProps> = ({ className = 'w-10 h-10', size }) => {
+  const style = size ? { width: size, height: size } : undefined;
+
+  return (
+    <div className={`relative shrink-0 overflow-hidden rounded-xl shadow-xs ${className}`} style={style}>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+        <defs>
+          <linearGradient id="brand-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#0A0F1D" />
+            <stop offset="100%" stop-color="#111827" />
+          </linearGradient>
+          <linearGradient id="brand-sync" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#00D2FF" />
+            <stop offset="100%" stop-color="#38BDF8" />
+          </linearGradient>
+        </defs>
+
+        {/* Squircle Base Tile */}
+        <rect width="512" height="512" rx="116" fill="url(#brand-bg)" />
+        <rect width="504" height="504" x="4" y="4" rx="112" fill="none" stroke="#00D2FF" stroke-opacity="0.25" stroke-width="4" />
+
+        {/* SYNC LOOP (Lower Center) */}
+        <path d="M 152,246 A 124,124 0 1,0 360,246" fill="none" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" />
+        <path d="M 180,310 A 78,78 0 0,1 324,260" fill="none" stroke="url(#brand-sync)" stroke-width="18" stroke-linecap="round" />
+        <polygon points="340,248 334,286 304,262" fill="#00D2FF" />
+        <path d="M 332,310 A 78,78 0 0,1 188,360" fill="none" stroke="url(#brand-sync)" stroke-width="18" stroke-linecap="round" />
+        <polygon points="172,372 178,334 208,358" fill="#00D2FF" />
+
+        {/* GRADUATION CAP */}
+        <polygon points="256,132 414,195 256,258 98,195" fill="#0D1527" />
+        <polygon points="256,132 414,195 256,258 98,195" fill="none" stroke="#FFFFFF" stroke-width="18" stroke-linejoin="round" />
+        <ellipse cx="256" cy="195" rx="8" ry="6" fill="#FFFFFF" />
+
+        {/* Tassel */}
+        <path d="M 414,195 Q 418,225 418,235" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" />
+        <path d="M 418,235 C 413,235 408,245 408,258 C 408,272 414,278 418,278 C 422,278 428,272 428,258 C 428,245 423,235 418,235 Z" fill="#FFFFFF" />
+      </svg>
+    </div>
+  );
+};

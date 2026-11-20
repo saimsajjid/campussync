@@ -7,13 +7,13 @@ import {
   RefreshCw,
   Activity,
   Building2,
-  Shield,
   UserCheck
 } from 'lucide-react';
 import { useApp, DEMO_USERS } from '../context/AppContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { CustomDropdown } from './CustomDropdown';
+import { BrandLogo } from './BrandLogo';
 
 interface SidebarProps {
   currentTab: string;
@@ -92,9 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
       >
         {/* University Brand Header */}
         <div className="flex items-center gap-3 px-5 py-5 border-b border-[var(--color-border-subtle)]">
-          <div className="w-11 h-11 bg-[var(--color-primary)] rounded-xl flex items-center justify-center text-white shadow-md shadow-[var(--color-primary)]/20 flex-shrink-0">
-            <Shield className="w-6 h-6" />
-          </div>
+          <BrandLogo className="w-11 h-11" />
           <div className="flex flex-col">
             <span className="font-bold text-[16px] text-[var(--color-text-dark)] leading-tight tracking-tight">
               CampusSync

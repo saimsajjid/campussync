@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp, DEMO_USERS } from '../context/AppContext';
 import { ShieldCheck, GraduationCap, UserCheck, Key, Lock, Mail, ArrowRight, RefreshCw } from 'lucide-react';
 import type { CurrentUser } from '../types';
+import { BrandLogo } from '../components/BrandLogo';
 
 export const LoginPage: React.FC = () => {
   const { login, addToast, isDemoMode } = useApp();
@@ -42,10 +43,8 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[var(--color-background)] flex flex-col justify-center items-center p-4 sm:p-6 text-[var(--color-text-dark)]">
       {/* Brand Header */}
-      <div className="text-center mb-6 max-w-md">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[var(--color-primary)] text-white shadow-xs mb-3">
-          <GraduationCap className="w-7 h-7 text-white" />
-        </div>
+      <div className="text-center mb-6 max-w-md flex flex-col items-center">
+        <BrandLogo className="w-16 h-16 mb-3 shadow-md shadow-[var(--color-primary)]/20" />
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[var(--color-text-dark)] mb-1">
           CampusSync
         </h1>
