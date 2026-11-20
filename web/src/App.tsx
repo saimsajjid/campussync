@@ -12,6 +12,7 @@ import { HistoryPage } from './pages/HistoryPage';
 import { SyncCenterPage } from './pages/SyncCenterPage';
 import { IntegritySuitePage } from './pages/IntegritySuitePage';
 import { LoginPage } from './pages/LoginPage';
+import { BrandLogo } from './components/BrandLogo';
 import { useApp } from './context/AppContext';
 import { WifiOff, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import type { StudentRecord } from './types';
@@ -40,9 +41,9 @@ export const AppContent: React.FC = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[var(--color-surface-dark)] flex flex-col items-center justify-center text-white p-4">
-        <div className="w-10 h-10 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-xs text-slate-400 font-medium tracking-wide">Validating session with server...</p>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+        <BrandLogo className="w-12 h-12 mb-3.5 shadow-sm animate-pulse" />
+        <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-800 rounded-full animate-spin" />
       </div>
     );
   }

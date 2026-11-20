@@ -106,9 +106,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let isMounted = true;
     async function checkAuthSession() {
       try {
-        const [meRes, configRes] = await Promise.allSettled([
-          fetchCurrentUser(),
-          fetchServerConfig(),
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Auth timeout')), 2500)
+        );
+        const [meRes, configRes] = await Promise.race([
+          Promise.allSettled([fetchCurrentUser(), fetchServerConfig()]),
+          timeoutPromise,
         ]);
 
         if (isMounted) {
