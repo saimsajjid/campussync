@@ -20,7 +20,7 @@ Wait 10-15 seconds for PostgreSQL 16 migrations and seed data initialization.
 
 5. Open Web Application
 Local URL: http://localhost:3050
-Live Deployment URL: https://150.136.103.208.sslip.io
+Live Deployment URL: https://campussync.ourfabrica.com (Fallback: https://150.136.103.208.sslip.io)
 
 6. Demo Accounts (Password: password123)
 - Central Admin: admin@campussync.local (Full multi-campus read/write, conflict resolution, integrity checks)

@@ -2,7 +2,7 @@
 
 Offline-first multi-campus student record synchronization system with deterministic conflict resolution and append-only audit history.
 
-Live deployment: https://150.136.103.208.sslip.io
+Live deployment: https://campussync.ourfabrica.com (Fallback: https://150.136.103.208.sslip.io)
 
 ---
 
@@ -258,5 +258,5 @@ Simulates 12 concurrent workers issuing 500+ operations with intentional same-fi
 
 ## Live Demo
 
-- **URL:** https://150.136.103.208.sslip.io
+- **URL:** https://campussync.ourfabrica.com (Fallback: https://150.136.103.208.sslip.io)
 - **Admin Login:** `admin@campussync.local` / `password123`
