@@ -1,30 +1,17 @@
 import React from 'react';
-import { Menu, Wifi, WifiOff, Sliders, Building2, UserCircle2, LogOut, RefreshCw } from 'lucide-react';
+import { Menu, Building2, UserCircle2, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
 import type { CampusCode } from '../types';
 import { CustomDropdown } from './CustomDropdown';
 
 interface HeaderProps {
   onToggleMobileMenu: () => void;
-  onOpenSimulator: () => void;
+  onOpenSimulator?: () => void;
   onNavigateTab?: (tab: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimulator, onNavigateTab }) => {
-  const { activeCampus, setActiveCampus, simulator, setSimulator, currentUser, logout, addToast, isDemoMode } = useApp();
-
-  const pendingCount = useLiveQuery(
-    () => {
-      if (currentUser?.role === 'student' && currentUser?.student_id) {
-        return db.outbox.where('studentId').equals(currentUser.student_id).count();
-      }
-      return db.outbox.count();
-    },
-    [currentUser?.role, currentUser?.student_id],
-    0
-  );
+export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
+  const { activeCampus, setActiveCampus, currentUser, logout } = useApp();
 
   const campusOptions: Array<{ value: CampusCode | 'all'; label: string }> =
     currentUser?.role === 'admin'
@@ -40,17 +27,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimula
             label: `${currentUser?.campus || 'Campus'} Branch`,
           },
         ];
-
-  const toggleConnection = () => {
-    const nextState = !simulator.isOffline;
-    setSimulator((prev) => ({ ...prev, isOffline: nextState }));
-    addToast(
-      nextState
-        ? 'Offline Mode: Edits will save locally and sync when reconnected'
-        : 'Online Mode: Background synchronization active',
-      nextState ? 'warning' : 'success'
-    );
-  };
 
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-[var(--color-border-subtle)] h-[70px] px-3 sm:px-4 lg:px-8 flex items-center justify-between gap-2 max-w-full">
@@ -76,68 +52,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimula
         </div>
       </div>
 
-      {/* Right: Simulator Controls, Connection Pill & User Profile */}
-      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-        {/* Connection Status Pill */}
-        <button
-          onClick={toggleConnection}
-          className={`px-2 sm:px-3.5 py-1.5 rounded-full border text-xs font-semibold flex items-center gap-1.5 sm:gap-2 transition-all shadow-xs cursor-pointer ${
-            simulator.isOffline
-              ? 'bg-[var(--color-status-danger-subtle)] border-[var(--color-status-conflict-border)] text-[var(--color-status-danger-text)] hover:bg-[var(--color-status-conflict-bg)]'
-              : 'bg-[var(--color-status-success-bg)] border-[var(--color-status-synced-border)] text-[var(--color-status-synced-dark)] hover:bg-[var(--color-status-synced-bg)]'
-          }`}
-          title="Click to toggle simulated connection state"
-        >
-          <span
-            className={`w-2 h-2 rounded-full shrink-0 ${
-              simulator.isOffline ? 'bg-[var(--color-status-danger-red)]' : 'bg-[var(--color-status-success-green)]'
-            }`}
-          />
-          <span className="hidden xs:inline">{simulator.isOffline ? 'Offline' : 'Online'}</span>
-          {simulator.isOffline ? (
-            <WifiOff className="w-3.5 h-3.5 opacity-80 shrink-0" />
-          ) : (
-            <Wifi className="w-3.5 h-3.5 opacity-80 shrink-0" />
-          )}
-        </button>
-
-        {/* Header Pending Counter linking to Sync Center */}
-        <button
-          onClick={() => onNavigateTab?.('sync')}
-          className="px-2 sm:px-3 py-1.5 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-bg)] hover:bg-[var(--color-primary-light)] hover:border-[var(--color-primary)]/30 text-xs font-semibold text-[var(--color-text-dark)] transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-          title="Open Sync Outbox"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 text-[var(--color-primary)] shrink-0 ${pendingCount > 0 ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">Outbox</span>
-          <span
-            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-              pendingCount > 0
-                ? 'bg-[var(--color-status-warning-amber)] text-white'
-                : 'bg-[var(--color-surface-slate-100)] text-[var(--color-text-muted)]'
-            }`}
-          >
-            {pendingCount}
-          </span>
-        </button>
-
-        {/* Diagnostics Drawer Trigger */}
-        {isDemoMode && (
-          <button
-            onClick={onOpenSimulator}
-            className="p-1.5 sm:p-2 rounded-xl border border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-light)] hover:border-[var(--color-primary)]/30 transition-all text-xs font-semibold flex items-center gap-1.5 shadow-xs"
-            title="Network Diagnostics & Connectivity"
-          >
-            <Sliders className="w-4 h-4 text-[var(--color-primary)]" />
-            <span className="hidden md:inline">Diagnostics</span>
-          </button>
-        )}
-
-        {/* User Profile Info & Logout */}
-        <div className="flex items-center gap-1 sm:gap-2 pl-1 sm:pl-2 border-l border-[var(--color-border-subtle)]">
-          <UserCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-[var(--color-primary)] shrink-0" />
+      {/* Right: User Profile Info & Logout */}
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2.5 pl-2">
+          <UserCircle2 className="w-8 h-8 text-slate-400 shrink-0" />
           <div className="hidden sm:flex flex-col text-left">
-            <span className="text-xs font-bold text-[var(--color-text-dark)] leading-tight">{currentUser?.name || 'User'}</span>
-            <span className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider font-semibold">
+            <span className="text-xs font-semibold text-slate-900 leading-tight">
+              {currentUser?.name || 'User'}
+            </span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
               {currentUser?.role || 'Guest'} {currentUser?.campus ? `• ${currentUser.campus}` : '• Central'}
             </span>
           </div>
@@ -145,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, onOpenSimula
             onClick={logout}
             aria-label="Sign out"
             title="Sign out"
-            className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer ml-1"
           >
             <LogOut className="w-4 h-4" />
           </button>
