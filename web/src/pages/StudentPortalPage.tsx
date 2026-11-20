@@ -29,17 +29,10 @@ interface StudentPortalPageProps {
 }
 
 export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
-  activeSubTab = 'overview',
-  onNavigateSubTab
+  activeSubTab = 'overview'
 }) => {
   const { currentUser, simulator, queueEditOperation, addToast } = useApp();
-
-  const [localTab, setLocalTab] = useState<'overview' | 'id-card' | 'student-history'>(activeSubTab);
-  const currentTab = onNavigateSubTab ? activeSubTab : localTab;
-  const setTab = (t: 'overview' | 'id-card' | 'student-history') => {
-    if (onNavigateSubTab) onNavigateSubTab(t);
-    else setLocalTab(t);
-  };
+  const currentTab = activeSubTab;
 
   // Modal state for editing contact information
   const [isEditContactModalOpen, setIsEditContactModalOpen] = useState(false);
@@ -158,47 +151,18 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Navigation Tabs for Student */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Student Portal</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Verified academic profile and enrollment verification.
-          </p>
-        </div>
-
-        <div className="inline-flex items-center gap-1 bg-slate-100/90 p-1 rounded-lg border border-slate-200/60 self-start sm:self-auto">
-          <button
-            onClick={() => setTab('overview')}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-              currentTab === 'overview'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            My Record
-          </button>
-          <button
-            onClick={() => setTab('id-card')}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-              currentTab === 'id-card'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Student ID Card
-          </button>
-          <button
-            onClick={() => setTab('student-history')}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-              currentTab === 'student-history'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Activity Log
-          </button>
-        </div>
+      {/* Top Header */}
+      <div className="border-b border-slate-200/80 pb-3">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          {currentTab === 'overview' && 'My Record'}
+          {currentTab === 'id-card' && 'Student ID Card'}
+          {currentTab === 'student-history' && 'Activity Log'}
+        </h1>
+        <p className="text-xs text-slate-500 mt-0.5">
+          {currentTab === 'overview' && 'Verified academic profile and enrollment verification.'}
+          {currentTab === 'id-card' && 'Official university identification for campus access, examinations, and library services.'}
+          {currentTab === 'student-history' && 'Chronological audit of administrative actions and personal profile edits.'}
+        </p>
       </div>
 
       {/* TAB 1: OVERVIEW */}
