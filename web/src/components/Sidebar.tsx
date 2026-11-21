@@ -5,7 +5,7 @@ import {
   GitMerge,
   History,
   RefreshCw,
-  CreditCard
+  GraduationCap
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -51,8 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
 
   if (currentUser.role === 'student') {
     navItems = [
-      { id: 'overview', label: 'My Record', icon: LayoutDashboard },
-      { id: 'id-card', label: 'Student ID Card', icon: CreditCard },
+      { id: 'overview', label: 'My Record', icon: GraduationCap },
     ];
   } else if (currentUser.role === 'faculty') {
     navItems = [

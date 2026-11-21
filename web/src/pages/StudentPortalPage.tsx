@@ -10,7 +10,6 @@ import {
   Printer,
   CheckCircle2,
   QrCode,
-  User,
   HeartHandshake,
   BookOpen,
   X,
@@ -18,18 +17,12 @@ import {
   Award,
   Shield,
   Check,
-  Radio,
   AlertCircle
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import type { StudentRecord } from '../types';
-
-interface StudentPortalPageProps {
-  activeSubTab?: 'overview' | 'id-card';
-  onNavigateSubTab?: (tab: string) => void;
-}
 
 interface EnrolledCourse {
   code: string;
@@ -42,11 +35,8 @@ interface EnrolledCourse {
   isPrimarySyncCourse?: boolean;
 }
 
-export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
-  activeSubTab = 'overview'
-}) => {
+export const StudentPortalPage: React.FC = () => {
   const { currentUser, simulator, queueEditOperation, addToast } = useApp();
-  const currentTab = activeSubTab;
 
   // Modal state for editing contact information
   const [isEditContactModalOpen, setIsEditContactModalOpen] = useState(false);
@@ -206,475 +196,309 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Header */}
-      <div className="border-b border-slate-200/80 pb-3 no-print">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-          {currentTab === 'overview' && 'My Record'}
-          {currentTab === 'id-card' && 'Student ID Card'}
-        </h1>
-        <p className="text-xs text-slate-500 mt-0.5">
-          {currentTab === 'overview' && 'Verified academic profile, registered semester courses, and enrollment verification.'}
-          {currentTab === 'id-card' && 'Official university identification for campus access, turnstile security, and examinations.'}
-        </p>
+      {/* Top Header & Quick Actions */}
+      <div className="border-b border-slate-200/80 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            My Record
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Verified academic profile, registered semester courses, and enrollment verification.
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsGatePassOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/70 rounded-lg transition-colors cursor-pointer shadow-2xs"
+          >
+            <QrCode className="w-3.5 h-3.5 text-blue-600" />
+            Gate Access Pass
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer shadow-xs"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            Print Verification Slip
+          </button>
+        </div>
       </div>
 
-      {/* TAB 1: OVERVIEW */}
-      {currentTab === 'overview' && (
-        <div className="space-y-6 no-print">
-          {/* Identity Header Card */}
-          <div className="bg-white rounded-xl border border-slate-200/80 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start sm:items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg tracking-wider shrink-0 shadow-xs">
-                {student.full_name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .slice(0, 2)
-                  .join('')
-                  .toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-bold text-slate-900 truncate">{student.full_name}</h2>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                    {student.status}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-slate-500 mt-1">
-                  <span className="font-mono text-slate-700 font-medium">{student.reg_no}</span>
-                  <span>•</span>
-                  <span>{student.program}</span>
-                  <span>•</span>
-                  <span className="inline-flex items-center gap-1 text-slate-700 font-medium">
-                    <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                    {student.campus} Campus
-                  </span>
-                </div>
-              </div>
+      <div className="space-y-6 no-print">
+        {/* Identity Header Card */}
+        <div className="bg-white rounded-xl border border-slate-200/80 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg tracking-wider shrink-0 shadow-xs">
+              {student.full_name
+                .split(' ')
+                .map((n) => n[0])
+                .slice(0, 2)
+                .join('')
+                .toUpperCase()}
             </div>
-
-            {/* Sync Status Badge */}
-            <div className="shrink-0 flex items-center gap-2">
-              {pendingOpsCount > 0 ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200/80">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                  {pendingOpsCount} change(s) queued offline
-                </span>
-              ) : simulator.isOffline ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                  <span className="w-2 h-2 rounded-full bg-slate-400" />
-                  Offline (Local cache verified)
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  Verified & Synced with Registrar
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Academic Highlights Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
-              <div className="flex items-center justify-between text-slate-400 mb-2">
-                <span className="text-xs font-medium text-slate-500">Current Semester</span>
-                <BookOpen className="w-4 h-4 text-blue-600" />
-              </div>
-              <div className="text-2xl font-bold text-slate-900 tracking-tight">
-                Semester {student.semester}
-              </div>
-              <p className="text-[11px] text-slate-500 mt-1">Spring 2026 • 16 Credit Hours</p>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
-              <div className="flex items-center justify-between text-slate-400 mb-2">
-                <span className="text-xs font-medium text-slate-500">Overall Attendance</span>
-                <Calendar className="w-4 h-4 text-blue-600" />
-              </div>
-              <div className="text-2xl font-bold text-slate-900 tracking-tight flex items-baseline gap-2">
-                {student.attendance}%
-                <span className={`text-xs font-semibold ${student.attendance >= 75 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                  {student.attendance >= 75 ? 'Good Standing' : 'Shortage Notice'}
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    student.attendance >= 75 ? 'bg-blue-600' : 'bg-amber-500'
-                  }`}
-                  style={{ width: `${Math.min(100, Math.max(0, student.attendance))}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
-              <div className="flex items-center justify-between text-slate-400 mb-2">
-                <span className="text-xs font-medium text-slate-500">Academic Standing</span>
-                <Award className="w-4 h-4 text-amber-500" />
-              </div>
-              <div className="text-2xl font-bold text-slate-900 tracking-tight">
-                CGPA 3.68
-              </div>
-              <p className="text-[11px] text-emerald-700 font-medium mt-1">Dean's Honor List • Regular Active</p>
-            </div>
-          </div>
-
-          {/* Registered Semester Courses Roster */}
-          <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
-            <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-blue-600" />
-                  Semester {student.semester} Registered Course Roster
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Spring 2026 Academic Session • {totalCredits} Total Registered Credit Hours
-                </p>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-medium border border-blue-200/50">
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                  Course Registration Confirmed
-                </span>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200/70 bg-slate-50/75 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
-                    <th className="py-3 px-4 sm:px-6">Course Code & Title</th>
-                    <th className="py-3 px-4">Credits</th>
-                    <th className="py-3 px-4">Instructor</th>
-                    <th className="py-3 px-4">Schedule / Room</th>
-                    <th className="py-3 px-4">Attendance</th>
-                    <th className="py-3 px-4 sm:px-6 text-right">Standing</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
-                  {enrolledCourses.map((c) => {
-                    const isGood = c.attendanceRate >= 75;
-                    return (
-                      <tr key={c.code} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-3.5 px-4 sm:px-6">
-                          <div className="font-semibold text-slate-900">{c.title}</div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200/50">
-                              {c.code}
-                            </span>
-                            {c.isPrimarySyncCourse && (
-                              <span className="text-[10px] text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                Live Faculty Sync
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 font-mono font-medium text-slate-700">
-                          {c.credits} Cr
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span className="font-medium text-slate-800">{c.instructor}</span>
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-500 text-[11px]">
-                          <div>{c.schedule}</div>
-                          <div className="text-slate-400 font-mono text-[10px] mt-0.5">{c.room}</div>
-                        </td>
-                        <td className="py-3.5 px-4 min-w-[130px]">
-                          <div className="flex items-center justify-between text-[11px] font-medium mb-1">
-                            <span className="font-mono font-bold text-slate-800">{c.attendanceRate}%</span>
-                            <span className={`text-[10px] font-semibold ${isGood ? 'text-emerald-700' : 'text-amber-700'}`}>
-                              {isGood ? 'Satisfactory' : 'Warning'}
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                isGood ? 'bg-blue-600' : 'bg-amber-500'
-                              }`}
-                              style={{ width: `${Math.min(100, Math.max(0, c.attendanceRate))}%` }}
-                            />
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 sm:px-6 text-right">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium ${
-                              isGood
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                                : 'bg-amber-50 text-amber-700 border border-amber-200/60'
-                            }`}
-                          >
-                            {isGood ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-600" /> Exam Eligible
-                              </>
-                            ) : (
-                              <>
-                                <AlertCircle className="w-3 h-3 text-amber-600" /> Shortage
-                              </>
-                            )}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-3 bg-slate-50 border-t border-slate-100 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6">
-              <span>* 75% minimum course attendance is mandatory for semester end final exam eligibility.</span>
-              <span className="font-medium text-slate-700">Course Roster Status: Certified by Academic Registrar</span>
-            </div>
-          </div>
-
-          {/* Details 2-Column Split */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left: Official Academic & Identity (Read-Only) */}
-            <div className="bg-white rounded-xl border border-slate-200/80 p-5 sm:p-6 shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <GraduationCap className="w-4 h-4 text-blue-600" />
-                    Official Academic Record
-                  </h3>
-                  <span className="text-[11px] text-slate-500 font-medium">Registrar Managed</span>
-                </div>
-
-                <div className="space-y-3.5 text-xs">
-                  <div className="flex items-start justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-500">Registration Number</span>
-                    <span className="font-mono font-semibold text-slate-900">{student.reg_no}</span>
-                  </div>
-
-                  <div className="flex items-start justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-500">National ID (CNIC)</span>
-                    <span className="font-mono text-slate-700">
-                      {student.cnic
-                        ? student.cnic.slice(0, 5) + '-*******-' + student.cnic.slice(-1)
-                        : 'Unregistered'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-start justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-500">Program & Degree</span>
-                    <span className="font-semibold text-slate-900">{student.program}</span>
-                  </div>
-
-                  <div className="flex items-start justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-500">Campus Allocation</span>
-                    <span className="text-slate-900 font-medium">{student.campus} Campus</span>
-                  </div>
-
-                  <div className="flex items-start justify-between py-1 border-b border-slate-50">
-                    <span className="text-slate-500">Institutional Email</span>
-                    <span className="font-mono text-slate-700">{student.email}</span>
-                  </div>
-
-                  <div className="pt-2">
-                    <span className="text-slate-500 block mb-1">Faculty Remarks & Advising</span>
-                    <p className="text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-200/60 leading-relaxed italic text-[11px]">
-                      {student.remarks || 'No disciplinary holds or special academic advisories on record.'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-                <span>Record Version: #{student.version}</span>
-                <span>Last Updated: {new Date(student.updated_at).toLocaleDateString()}</span>
-              </div>
-            </div>
-
-            {/* Right: Personal & Contact Details (Self-Service) */}
-            <div className="bg-white rounded-xl border border-slate-200/80 p-5 sm:p-6 shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <User className="w-4 h-4 text-blue-600" />
-                    Personal & Contact Information
-                  </h3>
-                  <button
-                    onClick={openContactModal}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 rounded-lg transition-colors cursor-pointer"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    Update Contact
-                  </button>
-                </div>
-
-                <div className="space-y-4 text-xs">
-                  <div className="flex items-start gap-3 p-3 bg-slate-50/70 rounded-lg border border-slate-200/50">
-                    <Phone className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
-                    <div>
-                      <span className="text-[11px] text-slate-500 block">Personal Phone Number</span>
-                      <span className="font-medium text-slate-900 mt-0.5 block">
-                        {student.phone || 'Not provided'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-3 bg-slate-50/70 rounded-lg border border-slate-200/50">
-                    <MapPin className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
-                    <div>
-                      <span className="text-[11px] text-slate-500 block">Residential Address</span>
-                      <span className="font-medium text-slate-900 mt-0.5 block leading-relaxed">
-                        {student.address || 'Not provided'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-3 bg-slate-50/70 rounded-lg border border-slate-200/50">
-                    <HeartHandshake className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
-                    <div>
-                      <span className="text-[11px] text-slate-500 block">Emergency Contact</span>
-                      <span className="font-medium text-slate-900 mt-0.5 block leading-relaxed">
-                        {student.emergency_contact || 'Not provided'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-                <span>Self-service contact updates sync automatically across all campuses.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: DIGITAL STUDENT ID CARD */}
-      {currentTab === 'id-card' && (
-        <div className="space-y-6 no-print">
-          <div className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs max-w-2xl mx-auto">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-200/80 mb-6 gap-3">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Digital Student ID Card</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Official university identification for campus access, examinations, and library services.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => setIsGatePassOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/70 rounded-lg transition-colors cursor-pointer shadow-2xs"
-                >
-                  <Radio className="w-3.5 h-3.5 text-blue-600" />
-                  Simulate Gate Scanner
-                </button>
-                <button
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer shadow-xs"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  Print Verification Slip
-                </button>
-              </div>
-            </div>
-
-            {/* Realistic Student Card Layout */}
-            <div className="relative rounded-2xl bg-white text-slate-900 p-6 sm:p-7 shadow-sm overflow-hidden border border-slate-200/90 max-w-md mx-auto">
-              {/* Top Accent Stripe */}
-              <div className="absolute top-0 left-0 right-0 h-1.5 bg-blue-600" />
-
-              {/* Card Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5 pt-1">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200/60 flex items-center justify-center font-bold text-blue-600 shadow-2xs">
-                    <GraduationCap className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] tracking-wider font-bold uppercase text-slate-500 block">
-                      CampusSync University
-                    </span>
-                    <span className="text-xs font-bold text-slate-900 leading-tight">
-                      {student.campus} Campus
-                    </span>
-                  </div>
-                </div>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-900 truncate">{student.full_name}</h2>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                   {student.status}
                 </span>
               </div>
-
-              {/* Card Body: Photo Avatar + Details */}
-              <div className="flex items-start gap-4">
-                <div className="w-20 h-24 rounded-xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center text-slate-400 shrink-0">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm mb-1">
-                    {student.full_name
-                      .split(' ')
-                      .map((n) => n[0])
-                      .slice(0, 2)
-                      .join('')
-                      .toUpperCase()}
-                  </div>
-                  <span className="text-[9px] font-mono tracking-wider font-medium text-slate-400">
-                    VERIFIED
-                  </span>
-                </div>
-
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-slate-400 block font-medium">
-                      Student Name
-                    </span>
-                    <h4 className="text-base font-bold text-slate-900 leading-tight truncate">
-                      {student.full_name}
-                    </h4>
-                  </div>
-
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-slate-400 block font-medium">
-                      Registration ID
-                    </span>
-                    <span className="inline-block text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/60">
-                      {student.reg_no}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-slate-400 block font-medium">
-                      Degree Program
-                    </span>
-                    <span className="text-xs font-medium text-slate-700">
-                      {student.program} • Semester {student.semester}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card Footer: Clickable QR Code & Security Stamp */}
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => setIsGatePassOpen(true)}
-                  title="Click to test Gate Pass scanner"
-                  className="flex items-center gap-2.5 p-1 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer group text-left"
-                >
-                  <div className="w-10 h-10 bg-slate-50 rounded-lg p-1.5 shrink-0 flex items-center justify-center border border-slate-200/80 group-hover:border-blue-400 group-hover:bg-blue-50/50 transition-all">
-                    <QrCode className="w-full h-full text-slate-800 group-hover:text-blue-600 transition-colors" />
-                  </div>
-                  <div className="text-[10px] text-slate-500 font-mono leading-tight">
-                    <span className="block text-slate-700 font-medium group-hover:text-blue-600">CARD ID: {student.id.slice(0, 8)}</span>
-                    <span className="text-[9px] text-blue-600 underline">Tap to simulate scan</span>
-                  </div>
-                </button>
-
-                <div className="text-right">
-                  <span className="text-[10px] uppercase tracking-wider text-slate-400 block font-semibold">
-                    Office of the Registrar
-                  </span>
-                  <span className="text-[11px] text-emerald-700 font-medium flex items-center justify-end gap-1 mt-0.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Digitally Verified
-                  </span>
-                </div>
+              <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-slate-500 mt-1">
+                <span className="font-mono text-slate-700 font-medium">{student.reg_no}</span>
+                <span>•</span>
+                <span>{student.program}</span>
+                <span>•</span>
+                <span className="inline-flex items-center gap-1 text-slate-700 font-medium">
+                  <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                  {student.campus} Campus
+                </span>
+                <span>•</span>
+                <span className="font-mono text-slate-600">{student.email}</span>
               </div>
             </div>
           </div>
+
+          {/* Sync Status Badge */}
+          <div className="shrink-0 flex items-center gap-2">
+            {pendingOpsCount > 0 ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200/80">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                {pendingOpsCount} change(s) queued offline
+              </span>
+            ) : simulator.isOffline ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                Offline (Local cache verified)
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                Verified & Synced with Registrar
+              </span>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Academic Highlights Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
+            <div className="flex items-center justify-between text-slate-400 mb-2">
+              <span className="text-xs font-medium text-slate-500">Current Semester</span>
+              <BookOpen className="w-4 h-4 text-blue-600" />
+            </div>
+            <div className="text-2xl font-bold text-slate-900 tracking-tight">
+              Semester {student.semester}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">Spring 2026 • 16 Credit Hours</p>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
+            <div className="flex items-center justify-between text-slate-400 mb-2">
+              <span className="text-xs font-medium text-slate-500">Overall Attendance</span>
+              <Calendar className="w-4 h-4 text-blue-600" />
+            </div>
+            <div className="text-2xl font-bold text-slate-900 tracking-tight flex items-baseline gap-2">
+              {student.attendance}%
+              <span className={`text-xs font-semibold ${student.attendance >= 75 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {student.attendance >= 75 ? 'Good Standing' : 'Shortage Notice'}
+              </span>
+            </div>
+            <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  student.attendance >= 75 ? 'bg-blue-600' : 'bg-amber-500'
+                }`}
+                style={{ width: `${Math.min(100, Math.max(0, student.attendance))}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs">
+            <div className="flex items-center justify-between text-slate-400 mb-2">
+              <span className="text-xs font-medium text-slate-500">Academic Standing</span>
+              <Award className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="text-2xl font-bold text-slate-900 tracking-tight">
+              CGPA 3.68
+            </div>
+            <p className="text-[11px] text-emerald-700 font-medium mt-1">Dean's Honor List • Regular Active</p>
+          </div>
+        </div>
+
+        {/* Registered Semester Courses Roster */}
+        <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-blue-600" />
+                Semester {student.semester} Registered Course Roster
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Spring 2026 Academic Session • {totalCredits} Total Registered Credit Hours
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-medium border border-blue-200/50">
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                Course Registration Confirmed
+              </span>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200/70 bg-slate-50/75 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
+                  <th className="py-3 px-4 sm:px-6">Course Code & Title</th>
+                  <th className="py-3 px-4">Credits</th>
+                  <th className="py-3 px-4">Instructor</th>
+                  <th className="py-3 px-4">Schedule / Room</th>
+                  <th className="py-3 px-4">Attendance</th>
+                  <th className="py-3 px-4 sm:px-6 text-right">Standing</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs">
+                {enrolledCourses.map((c) => {
+                  const isGood = c.attendanceRate >= 75;
+                  return (
+                    <tr key={c.code} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-3.5 px-4 sm:px-6">
+                        <div className="font-semibold text-slate-900">{c.title}</div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200/50">
+                            {c.code}
+                          </span>
+                          {c.isPrimarySyncCourse && (
+                            <span className="text-[10px] text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              Live Faculty Sync
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono font-medium text-slate-700">
+                        {c.credits} Cr
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="font-medium text-slate-800">{c.instructor}</span>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-500 text-[11px]">
+                        <div>{c.schedule}</div>
+                        <div className="text-slate-400 font-mono text-[10px] mt-0.5">{c.room}</div>
+                      </td>
+                      <td className="py-3.5 px-4 min-w-[130px]">
+                        <div className="flex items-center justify-between text-[11px] font-medium mb-1">
+                          <span className="font-mono font-bold text-slate-800">{c.attendanceRate}%</span>
+                          <span className={`text-[10px] font-semibold ${isGood ? 'text-emerald-700' : 'text-amber-700'}`}>
+                            {isGood ? 'Satisfactory' : 'Warning'}
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              isGood ? 'bg-blue-600' : 'bg-amber-500'
+                            }`}
+                            style={{ width: `${Math.min(100, Math.max(0, c.attendanceRate))}%` }}
+                          />
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 sm:px-6 text-right">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium ${
+                            isGood
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                          }`}
+                        >
+                          {isGood ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-600" /> Exam Eligible
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="w-3 h-3 text-amber-600" /> Shortage
+                            </>
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="p-3 bg-slate-50 border-t border-slate-100 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6">
+            <span>* 75% minimum course attendance is mandatory for semester end final exam eligibility.</span>
+            <span className="font-medium text-slate-700">Course Roster Status: Certified by Academic Registrar</span>
+          </div>
+        </div>
+
+        {/* Contact & Residency Information (Self-Service) */}
+        <div className="bg-white rounded-xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <GraduationCap className="w-4 h-4 text-blue-600" />
+                Contact & Emergency Information
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Self-service student updates synchronize automatically across all university campus nodes.
+              </p>
+            </div>
+            <button
+              onClick={openContactModal}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 rounded-lg transition-colors cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              Update Contact
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+            <div className="flex items-start gap-3 p-3.5 bg-slate-50/70 rounded-lg border border-slate-200/50">
+              <Phone className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <span className="text-[11px] text-slate-500 block font-medium">Personal Phone</span>
+                <span className="font-semibold text-slate-900 mt-0.5 block truncate">
+                  {student.phone || 'Not provided'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-3.5 bg-slate-50/70 rounded-lg border border-slate-200/50">
+              <MapPin className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <span className="text-[11px] text-slate-500 block font-medium">Residential Address</span>
+                <span className="font-semibold text-slate-900 mt-0.5 block truncate">
+                  {student.address || 'Not provided'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-3.5 bg-slate-50/70 rounded-lg border border-slate-200/50">
+              <HeartHandshake className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <span className="text-[11px] text-slate-500 block font-medium">Emergency Contact</span>
+                <span className="font-semibold text-slate-900 mt-0.5 block truncate">
+                  {student.emergency_contact || 'Not provided'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {student.remarks && (
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-start gap-2 text-xs text-slate-600 bg-slate-50/50 p-2.5 rounded-lg border border-slate-200/40">
+              <span className="font-semibold text-slate-800 shrink-0">Academic Advisor Remarks:</span>
+              <span className="italic text-slate-600">{student.remarks}</span>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Interactive Campus Security Gate Pass Modal */}
       {isGatePassOpen && (
