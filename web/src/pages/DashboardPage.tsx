@@ -6,7 +6,6 @@ import {
   ArrowRight,
   UserPlus,
   CheckCircle2,
-  Building2,
   Clock
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -22,7 +21,6 @@ interface DashboardPageProps {
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpenAddStudent }) => {
   const {
     activeCampus,
-    simulator,
     currentUser,
     syncNow,
     isSyncing
@@ -32,20 +30,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
 
   // Fetch all students
   const allStudents = useLiveQuery(() => db.students.toArray(), [], []) as StudentRecord[];
-
-  // Open conflicts count
-  const openConflictsCount = useLiveQuery(
-    () => db.conflicts.where('status').equals('open').count(),
-    [],
-    0
-  );
-
-  // Pending outbox mutations count
-  const pendingOutboxCount = useLiveQuery(
-    () => db.outbox.count(),
-    [],
-    0
-  );
 
   // Recent change history entries
   const recentHistory = useLiveQuery(
@@ -100,10 +84,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
   const lahorePct = totalCount > 0 ? Math.round((lahoreCount / totalCount) * 100) : 0;
   const islamabadPct = totalCount > 0 ? Math.round((islamabadCount / totalCount) * 100) : 0;
   const abbottabadPct = totalCount > 0 ? Math.round((abbottabadCount / totalCount) * 100) : 0;
-
-  const csCount = baseStudents.filter((s) => s.program === 'BS CS').length;
-  const seCount = baseStudents.filter((s) => s.program === 'BS SE').length;
-  const eeCount = baseStudents.filter((s) => s.program === 'BS EE').length;
 
   // Recently added students fallback if change history is empty
   const recentlyAdded = useMemo(() => {
@@ -170,8 +150,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
         </div>
       </div>
 
-      {/* 4 Clean Metric Cards (One Row) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 2 Clean Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Card 1: Total Enrolled */}
         <div
           onClick={() => onNavigate('students')}
@@ -203,60 +183,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
             {leaveCount} On leave • {graduatedCount} Graduated
-          </p>
-        </div>
-
-        {/* Card 3: Programs */}
-        <div
-          onClick={() => onNavigate('students')}
-          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 cursor-pointer transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Programs</span>
-            <Building2 className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="text-2xl font-bold text-slate-900 mt-2">
-            3 <span className="text-xs font-normal text-slate-500">Degrees</span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1 font-mono">
-            {csCount} CS • {seCount} SE • {eeCount} EE
-          </p>
-        </div>
-
-        {/* Card 4: Synchronization State */}
-        <div
-          onClick={() => onNavigate(openConflictsCount > 0 ? 'conflicts' : 'sync')}
-          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 cursor-pointer transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Sync & Health</span>
-            <span
-              className={`w-2 h-2 rounded-full ${
-                simulator.isOffline
-                  ? 'bg-amber-500'
-                  : openConflictsCount > 0
-                  ? 'bg-amber-500'
-                  : 'bg-emerald-500'
-              }`}
-            />
-          </div>
-          <div className="text-2xl font-bold text-slate-900 mt-2 flex items-center gap-1.5">
-            <span>
-              {simulator.isOffline
-                ? 'Offline'
-                : openConflictsCount > 0
-                ? `${openConflictsCount} Conflict${openConflictsCount > 1 ? 's' : ''}`
-                : 'In Sync'}
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">
-            {simulator.isOffline
-              ? `${pendingOutboxCount} edits queued locally`
-              : openConflictsCount > 0
-              ? 'Click to resolve open conflicts'
-              : pendingOutboxCount > 0
-              ? `${pendingOutboxCount} pending sync`
-              : 'All 3 campuses synchronized'}
           </p>
         </div>
       </div>
