@@ -83,8 +83,8 @@ export const SyncCenterPage: React.FC = () => {
           </div>
           <p className="text-xs text-slate-500 mt-1">
             {isStudent
-              ? 'Local outbox operations awaiting synchronization with campus servers.'
-              : 'Cross-campus synchronization queue and offline mutation state.'}
+              ? 'Local changes awaiting synchronization with campus servers.'
+              : 'Cross-campus synchronization status and pending change queue.'}
           </p>
         </div>
 

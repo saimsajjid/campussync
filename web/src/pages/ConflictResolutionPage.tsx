@@ -144,7 +144,7 @@ export const ConflictResolutionPage: React.FC = () => {
         actorName: currentUser.name,
         actorRole: currentUser.role,
         actorCampus: student.campus,
-        device: 'Resolution Engine',
+        device: 'Admin Portal',
         opId: generateUUID(),
         createdAt: new Date().toISOString(),
       });
@@ -182,7 +182,7 @@ export const ConflictResolutionPage: React.FC = () => {
           </h1>
         </div>
         <p className="text-xs text-slate-500 mt-1">
-          Review divergent edits between campuses, inspect versions, and apply deterministic field resolutions.
+          Review divergent edits between campuses and select the authoritative record values.
         </p>
       </div>
 
@@ -295,7 +295,7 @@ export const ConflictResolutionPage: React.FC = () => {
                       </div>
 
                       <div className="mt-3 text-[11px] text-slate-500 space-y-0.5">
-                        <div>Stored in: <span className="font-medium text-slate-800">Central PostgreSQL</span></div>
+                        <div>Stored in: <span className="font-medium text-slate-800">University Central Database</span></div>
                         <div>Version: v{c.serverVersion ?? (c as any).server_version ?? 1}</div>
                         <div>Timestamp: {createdAtFormatted}</div>
                       </div>

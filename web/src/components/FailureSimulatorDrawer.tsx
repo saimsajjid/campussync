@@ -121,7 +121,7 @@ export const FailureSimulatorDrawer: React.FC<FailureSimulatorDrawerProps> = ({ 
                     <span className="text-sm font-bold text-slate-900">Drop Next Response</span>
                   </div>
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                    Server commits the change, but the response packet is discarded in transit. Tests automatic client retry and transaction idempotency.
+                    Server saves the update, but the confirmation response is lost in transit. Verifies that client safely retries without creating duplicates.
                   </p>
                 </div>
                 <input
@@ -130,7 +130,7 @@ export const FailureSimulatorDrawer: React.FC<FailureSimulatorDrawerProps> = ({ 
                   onChange={(e) => {
                     setSimulator((s) => ({ ...s, dropNextResponse: e.target.checked }));
                     if (e.target.checked) {
-                      addToast('Next response will be dropped to test idempotency retry', 'warning');
+                      addToast('Next server confirmation will be dropped to test automatic retry', 'warning');
                     }
                   }}
                   className="w-5 h-5 accent-rose-600 cursor-pointer mt-1"
@@ -142,7 +142,7 @@ export const FailureSimulatorDrawer: React.FC<FailureSimulatorDrawerProps> = ({ 
             <div className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between shadow-xs">
               <div className="space-y-0.5">
                 <span className="text-sm font-semibold text-slate-900">Drop Next Request</span>
-                <p className="text-xs text-slate-500">Fails before reaching server; tests outbox backoff</p>
+                <p className="text-xs text-slate-500">Simulates request failure before reaching the server</p>
               </div>
               <input
                 type="checkbox"

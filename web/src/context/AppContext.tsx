@@ -231,7 +231,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Store sync cursor
         await db.meta.put({ key: 'syncCursor', value: snapshot.latestCursor });
         await db.meta.put({ key: 'lastSyncedAt', value: new Date().toISOString() });
-        addToast(`Connected to CampusSync VPS! Loaded ${snapshot.students.length} records.`, 'success');
       }
     } catch (err: any) {
       console.warn('Initial server hydration warning (will use offline local data):', err.message);
@@ -250,7 +249,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       if (simulator.isOffline) {
-        addToast('Device is offline. Changes remain safely stored in local Outbox.', 'warning');
+        addToast('Working offline. Changes are saved locally.', 'info');
         return;
       }
 
@@ -323,9 +322,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (res.status === 'applied' || res.status === 'duplicate') {
             await db.outbox.delete(res.opId);
             await db.history.filter((h) => h.opId === res.opId).modify({ isPending: false });
-            if (res.status === 'duplicate') {
-              addToast(`Idempotency verified: duplicate opId ${res.opId} safely acknowledged!`, 'info');
-            }
           } else if (res.status === 'conflict') {
             await db.outbox.update(res.opId, {
               status: 'conflict',
@@ -399,7 +395,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await db.meta.put({ key: 'syncCursor', value: pullRes.latestCursor });
       }
       await db.meta.put({ key: 'lastSyncedAt', value: new Date().toISOString() });
-      addToast('Sync complete! State synchronized with VPS backend.', 'success');
+      addToast('Records up to date', 'success');
     } catch (err: any) {
       console.error('Sync failed:', err);
       addToast(`Sync error: ${err.message}`, 'danger');
@@ -447,7 +443,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ) => {
     // Atomically commit local student record mutation, local audit log, and outbox queue entry
     // in a single IndexedDB (Dexie) transaction using pure outbox module
-    const op = await queueOperationAtomically(db, {
+    await queueOperationAtomically(db, {
       studentId,
       field,
       newValue,
@@ -463,7 +459,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     if (simulator.isOffline) {
-      addToast(`Offline: Operation ${op.opId} safely queued in Outbox.`, 'warning');
+      addToast('Saved offline. Changes will sync when reconnected.', 'info');
       return;
     }
 
@@ -474,19 +470,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 5. Inject Remote Conflict (Calls VPS Backend Demo Endpoint)
   const injectRemoteConflict = async () => {
     try {
-      addToast('Injecting remote cross-campus edit from Islamabad...', 'info');
+      addToast('Simulating concurrent update from Islamabad campus...', 'info');
       await injectRemoteConflictServer();
       await syncNow();
-      addToast('Remote edit committed on server! Conflict detected and held for resolution.', 'danger');
+      addToast('Conflicting update detected. Open Conflicts to review.', 'warning');
     } catch (err: any) {
-      addToast(`Failed to inject remote edit: ${err.message}`, 'danger');
+      addToast(`Failed to simulate update: ${err.message}`, 'danger');
     }
   };
 
   // 6. Reset Demo Data (Calls VPS Backend Reset)
   const resetDemoData = async () => {
     try {
-      addToast('Resetting VPS database and local caches...', 'info');
+      addToast('Resetting database to initial state...', 'info');
       await resetDemoServer();
       await db.students.clear();
       await db.outbox.clear();
@@ -494,7 +490,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await db.history.clear();
       await db.meta.clear();
       await hydrateFromServer();
-      addToast('Database & cache reset to clean 3-campus seeded state!', 'success');
+      addToast('Database reset to clean sample state.', 'success');
     } catch (err: any) {
       addToast(`Reset failed: ${err.message}`, 'danger');
     }

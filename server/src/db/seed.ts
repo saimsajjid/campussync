@@ -63,7 +63,7 @@ export async function seedDatabase(forceClean = false) {
           address: 'House 42, Sector G, DHA Phase 5, Lahore',
           emergency_contact: 'Muhammad Raza (Father) - 0300-9876543',
           attendance: 88.5,
-          remarks: 'Prepared for concurrent offline address conflict demo.',
+          remarks: "Dean's Honor List candidate. Completed all core requirements in good academic standing.",
         },
         {
           // Student 2: High-achieving senior
@@ -97,7 +97,7 @@ export async function seedDatabase(forceClean = false) {
           address: 'House 18, Block B, Model Town, Lahore',
           emergency_contact: 'Ahmed Bilal (Father) - 0302-9876541',
           attendance: 85.0,
-          remarks: 'Member of near-duplicate pair for duplicate registration demo.',
+          remarks: 'Admitted in Spring session. Enrolled in standard BS CS curriculum.',
         },
         {
           // Student 4: Near-duplicate pair member B (same name, distinct registration number & CNIC)
@@ -114,7 +114,7 @@ export async function seedDatabase(forceClean = false) {
           address: 'Street 7, Cavalry Ground, Lahore Cantt',
           emergency_contact: 'Farooq Ahmed (Uncle) - 0303-1122334',
           attendance: 81.5,
-          remarks: 'Second student with identical name; registration CS-2026-0103 is blocked if reused.',
+          remarks: 'Transfer student from Islamabad campus. Transcripts verified by Admissions Office.',
         },
 
         // --- ISLAMABAD CAMPUS (4 Students) ---
@@ -237,7 +237,7 @@ export async function seedDatabase(forceClean = false) {
           address: 'House 77, Habibullah Colony, Abbottabad',
           emergency_contact: 'Javed Iqbal (Father) - 0347-4455667',
           attendance: 87.0,
-          remarks: 'Audited record with rich multi-stage revision history.',
+          remarks: 'Maintaining semester GPA above 3.5. Recommended for university merit honors.',
         },
         {
           // Student 12: Senior CS student

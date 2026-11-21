@@ -374,9 +374,8 @@ export const StudentPortalPage: React.FC = () => {
                             {c.code}
                           </span>
                           {c.isPrimarySyncCourse && (
-                            <span className="text-[10px] text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              Live Faculty Sync
+                            <span className="text-[10px] text-blue-700 font-medium bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200/50">
+                              Core Course
                             </span>
                           )}
                         </div>
@@ -447,7 +446,7 @@ export const StudentPortalPage: React.FC = () => {
                 Contact & Emergency Information
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Self-service student updates synchronize automatically across all university campus nodes.
+                Your contact information is maintained and updated across all university campus systems.
               </p>
             </div>
             <button
@@ -509,8 +508,8 @@ export const StudentPortalPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Shield className="w-5 h-5 text-emerald-400" />
                 <div>
-                  <h3 className="text-sm font-bold tracking-tight">Turnstile Access Terminal</h3>
-                  <p className="text-[11px] text-slate-400">Gate 1-A • Lahore Main Campus Node</p>
+                  <h3 className="text-sm font-bold tracking-tight">Main Campus Turnstiles</h3>
+                  <p className="text-[11px] text-slate-400">Gate 1-A • Lahore Campus</p>
                 </div>
               </div>
               <button
@@ -534,7 +533,7 @@ export const StudentPortalPage: React.FC = () => {
                   ACCESS GRANTED • ACTIVE STUDENT
                 </span>
                 <p className="text-xs text-slate-500 mt-1.5">
-                  Identity authenticated against local offline node cache
+                  Active Student Verification • Valid for Spring 2026
                 </p>
               </div>
 
@@ -558,7 +557,7 @@ export const StudentPortalPage: React.FC = () => {
               {/* Multi-Campus Roaming Privileges */}
               <div className="space-y-2 text-xs">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
-                  Campus Roaming Privileges
+                  Campus Access Status
                 </span>
                 <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
                   <div className="bg-emerald-50 text-emerald-800 p-2 rounded-lg border border-emerald-200/60 font-medium">
@@ -567,11 +566,11 @@ export const StudentPortalPage: React.FC = () => {
                   </div>
                   <div className="bg-blue-50 text-blue-800 p-2 rounded-lg border border-blue-200/60 font-medium">
                     <span className="block font-bold">Islamabad</span>
-                    <span className="text-[10px] text-blue-600">Roaming Auth</span>
+                    <span className="text-[10px] text-blue-600">Access Permitted</span>
                   </div>
                   <div className="bg-blue-50 text-blue-800 p-2 rounded-lg border border-blue-200/60 font-medium">
                     <span className="block font-bold">Abbottabad</span>
-                    <span className="text-[10px] text-blue-600">Roaming Auth</span>
+                    <span className="text-[10px] text-blue-600">Access Permitted</span>
                   </div>
                 </div>
               </div>
@@ -579,7 +578,7 @@ export const StudentPortalPage: React.FC = () => {
               {/* Security Zones Authorized */}
               <div className="space-y-1.5 text-xs">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
-                  Authorized Physical Zones
+                  Authorized University Areas
                 </span>
                 <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-700">
                   <div className="flex items-center gap-1.5 bg-slate-50 p-2 rounded border border-slate-200/50">
@@ -596,15 +595,15 @@ export const StudentPortalPage: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-1.5 bg-slate-50 p-2 rounded border border-slate-200/50">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Hostel / Cafeteria</span>
+                    <span>Hostel & Cafeteria</span>
                   </div>
                 </div>
               </div>
 
               {/* Cryptographic Signature Footer */}
               <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                <span>TIMESTAMP: {new Date().toLocaleTimeString()}</span>
-                <span className="truncate max-w-[170px]">SIG: SHA256:{student.id.slice(0, 10)}...</span>
+                <span>SCANNED: {new Date().toLocaleTimeString()}</span>
+                <span className="truncate max-w-[200px]">AUTH CODE: CS-REG-{student.reg_no}</span>
               </div>
             </div>
 
@@ -615,7 +614,7 @@ export const StudentPortalPage: React.FC = () => {
                 onClick={() => setIsGatePassOpen(false)}
                 className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 transition-colors cursor-pointer"
               >
-                Dismiss Terminal Pass
+                Close
               </button>
             </div>
           </div>
@@ -630,7 +629,7 @@ export const StudentPortalPage: React.FC = () => {
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Update Contact Details</h3>
                 <p className="text-[11px] text-slate-500">
-                  Modifications will be saved locally and synchronized across university campus nodes.
+                  Modifications are saved and updated across university campus records.
                 </p>
               </div>
               <button
@@ -781,9 +780,9 @@ export const StudentPortalPage: React.FC = () => {
 
           {/* Security and Verification Clause */}
           <div className="bg-slate-50 p-3 rounded border border-slate-200 text-[10px] text-slate-600 leading-tight">
-            <strong>Cross-Node Verification Notice:</strong> This document is cryptographically verified against the
-            decentralized multi-campus replication ledger of CampusSync University (Node ID: CS-{student.campus.toUpperCase()}-01).
-            Any alteration invalidates this credential.
+            <strong>Official Verification Notice:</strong> This certificate is an official university document issued by
+            the Office of the Registrar. Certified student records are centrally maintained and verifiable across all university
+            branches. Any alteration or unauthorized reproduction renders this credential invalid.
           </div>
 
           {/* Signatures & Seal */}

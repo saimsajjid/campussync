@@ -70,7 +70,7 @@ export const demoRoutes: FastifyPluginAsync = async (fastify) => {
 
     const targetStudentId = studentId || '10000000-0000-0000-0000-000000000001';
     const targetField = field || 'address';
-    const targetValue = newValue || 'Plot 99, Blue Area, Islamabad (Injected via Remote Admin)';
+    const targetValue = newValue || 'House 99, Street 14, F-7/2, Islamabad';
 
     const studentRes = await pool.query('SELECT * FROM students WHERE id = $1', [targetStudentId]);
     if (studentRes.rows.length === 0) {
