@@ -116,10 +116,10 @@ export const SyncCenterPage: React.FC = () => {
                 {simulator.isOffline ? 'Offline Queue Active' : 'Connected to Server'}
               </span>
               <span
-                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${
                   simulator.isOffline
-                    ? 'bg-amber-100 text-amber-800'
-                    : 'bg-emerald-100 text-emerald-800'
+                    ? 'bg-amber-50 text-amber-800 border-amber-200/80'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
                 }`}
               >
                 {simulator.isOffline ? 'Offline' : 'Online'}
@@ -190,7 +190,7 @@ export const SyncCenterPage: React.FC = () => {
                       {formatFieldName(op.field)}
                     </span>
                     <span className="text-slate-500">• New Value:</span>
-                    <span className="font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                    <span className="font-mono text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-md">
                       {displayValue}
                     </span>
                   </div>

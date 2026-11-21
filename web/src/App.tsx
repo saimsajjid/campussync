@@ -6,6 +6,7 @@ import { StudentFormModal } from './components/StudentFormModal';
 import { DuplicateRecordDialog } from './components/DuplicateRecordDialog';
 import { db } from './db';
 import { DashboardPage } from './pages/DashboardPage';
+
 import { StudentsPage } from './pages/StudentsPage';
 import { ConflictResolutionPage } from './pages/ConflictResolutionPage';
 import { HistoryPage } from './pages/HistoryPage';
@@ -152,7 +153,7 @@ export const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-surface-bg)] flex text-[var(--color-text-dark)]">
+    <div className="min-h-screen bg-slate-50 flex text-slate-900">
       {/* Sidebar Navigation */}
       <Sidebar
         currentTab={currentTab}
@@ -175,15 +176,15 @@ export const AppContent: React.FC = () => {
 
         {/* Offline Alert Strip */}
         {simulator.isOffline && (
-          <div className="bg-[var(--color-status-pending-bg)] border-b border-[var(--color-status-pending-border)] px-4 py-2 text-xs font-semibold text-[var(--color-status-pending-dark)] flex items-center justify-between z-20">
+          <div className="bg-amber-50 border-b border-amber-200/80 px-4 py-2 text-xs font-medium text-amber-900 flex items-center justify-between z-20">
             <div className="flex items-center gap-2">
-              <WifiOff className="w-4 h-4 text-[var(--color-status-warning-orange)]" />
+              <WifiOff className="w-4 h-4 text-amber-600" />
               <span>
                 You are currently <strong>offline</strong>. Changes are saved locally on this device and will sync automatically when reconnected.
               </span>
             </div>
-            <span className="bg-[var(--color-status-pending-text)] text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
-              Offline Cache
+            <span className="bg-amber-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-semibold">
+              Offline Mode
             </span>
           </div>
         )}

@@ -29,12 +29,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
         ];
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-[var(--color-border-subtle)] h-[70px] px-3 sm:px-4 lg:px-8 flex items-center justify-between gap-2 max-w-full">
+    <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 h-[70px] px-3 sm:px-4 lg:px-8 flex items-center justify-between gap-2 max-w-full">
       {/* Left: Mobile Toggle & Campus Filter */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
           onClick={onToggleMobileMenu}
-          className="lg:hidden p-1.5 sm:p-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-dark)] hover:bg-[var(--color-surface-bg)] rounded-lg shrink-0"
+          className="lg:hidden p-1.5 sm:p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg shrink-0"
           aria-label="Toggle navigation"
         >
           <Menu className="w-5 h-5" />

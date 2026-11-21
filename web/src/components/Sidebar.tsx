@@ -73,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
         label: 'Conflicts',
         icon: GitMerge,
         badge: openConflictsCount && openConflictsCount > 0 ? openConflictsCount : undefined,
-        badgeColor: 'bg-[var(--color-status-conflict-bg)] text-[var(--color-status-danger-dark)]',
+        badgeColor: 'bg-rose-50 text-rose-700 border border-rose-200/60 font-semibold',
       },
       { id: 'history', label: 'Change History', icon: History },
       {
@@ -81,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
         label: 'Sync Center',
         icon: RefreshCw,
         badge: pendingOutboxCount && pendingOutboxCount > 0 ? pendingOutboxCount : undefined,
-        badgeColor: 'bg-[var(--color-status-pending-bg)] text-[var(--color-status-warning-orange)]',
+        badgeColor: 'bg-amber-50 text-amber-800 border border-amber-200/60 font-semibold',
       },
     ];
   }
@@ -97,19 +97,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 w-[260px] bg-white border-r border-[var(--color-border-subtle)] flex flex-col z-50 transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 bottom-0 left-0 w-[260px] bg-white border-r border-slate-200/80 flex flex-col z-50 transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* University Brand Header */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-[var(--color-border-subtle)]">
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-200/80">
           <BrandLogo className="w-11 h-11" />
           <div className="flex flex-col">
-            <span className="font-bold text-[16px] text-[var(--color-text-dark)] leading-tight tracking-tight">
+            <span className="font-bold text-[16px] text-slate-900 leading-tight tracking-tight">
               CampusSync
             </span>
-            <span className="text-xs text-[var(--color-text-muted)] font-medium flex items-center gap-1">
-              <Building2 className="w-3 h-3 text-[var(--color-primary)]" /> Multi-Campus
+            <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
+              <Building2 className="w-3 h-3 text-blue-600" /> Multi-Campus
             </span>
           </div>
         </div>
@@ -126,13 +126,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
                   onSelectTab(item.id);
                   onCloseMobile();
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative text-left ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative text-left cursor-pointer ${
                   isActive
-                    ? 'bg-[var(--color-primary)] text-white shadow-md shadow-[var(--color-primary)]/30'
-                    : 'text-[var(--color-text-muted)] hover:bg-[var(--color-primary-light)] hover:text-[var(--color-primary)]'
+                    ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/20'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-[var(--color-text-muted)]'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                 <span>{item.label}</span>
                 {item.badge !== undefined && (
                   <span
@@ -149,19 +149,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
         </nav>
 
         {/* User Account Profile */}
-        <div className="p-3 border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-muted)]">
-          <div className="bg-white p-3 rounded-xl border border-[var(--color-border-subtle)] shadow-xs">
+        <div className="p-3 border-t border-slate-200/80 bg-slate-50/60">
+          <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center gap-1">
-                <UserCheck className="w-3 h-3 text-[var(--color-primary)]" /> Authenticated User
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                <UserCheck className="w-3 h-3 text-blue-600" /> Authenticated User
               </span>
               <span
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase border ${
                   currentUser.role === 'admin'
-                    ? 'bg-[var(--color-status-synced-bg)] text-[var(--color-status-synced-text)]'
+                    ? 'bg-blue-50 text-blue-700 border-blue-200/60'
                     : currentUser.role === 'faculty'
-                    ? 'bg-[var(--color-status-info-bg)] text-[var(--color-status-info-text)]'
-                    : 'bg-[var(--color-status-pending-bg)] text-[var(--color-status-pending-text)]'
+                    ? 'bg-purple-50 text-purple-700 border-purple-200/60'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
                 }`}
               >
                 {currentUser.role}
