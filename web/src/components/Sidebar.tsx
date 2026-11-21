@@ -5,14 +5,11 @@ import {
   GitMerge,
   History,
   RefreshCw,
-  Building2,
-  UserCheck,
   CreditCard
 } from 'lucide-react';
-import { useApp, DEMO_USERS } from '../context/AppContext';
+import { useApp } from '../context/AppContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
-import { CustomDropdown } from './CustomDropdown';
 import { BrandLogo } from './BrandLogo';
 
 interface SidebarProps {
@@ -23,7 +20,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpen, onCloseMobile }) => {
-  const { currentUser, login, addToast } = useApp();
+  const { currentUser } = useApp();
 
   const openConflictsCount = useLiveQuery(
     () => db.conflicts.where('status').equals('open').count(),
@@ -103,15 +100,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
       >
         {/* University Brand Header */}
         <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-200/80">
-          <BrandLogo className="w-11 h-11" />
-          <div className="flex flex-col">
-            <span className="font-bold text-[16px] text-slate-900 leading-tight tracking-tight">
-              CampusSync
-            </span>
-            <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
-              <Building2 className="w-3 h-3 text-blue-600" /> Multi-Campus
-            </span>
-          </div>
+          <BrandLogo className="w-10 h-10" />
+          <span className="font-bold text-[17px] text-slate-900 leading-tight tracking-tight">
+            CampusSync
+          </span>
         </div>
 
         {/* Navigation Items */}
@@ -148,51 +140,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
           })}
         </nav>
 
-        {/* User Account Profile */}
+        {/* User Account Profile (Read-Only) */}
         <div className="p-3 border-t border-slate-200/80 bg-slate-50/60">
-          <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                <UserCheck className="w-3 h-3 text-blue-600" /> Authenticated User
-              </span>
-              <span
-                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase border ${
-                  currentUser.role === 'admin'
-                    ? 'bg-blue-50 text-blue-700 border-blue-200/60'
-                    : currentUser.role === 'faculty'
-                    ? 'bg-purple-50 text-purple-700 border-purple-200/60'
-                    : 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
-                }`}
-              >
-                {currentUser.role}
-              </span>
+          <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
+                {currentUser.name
+                  .split(' ')
+                  .map((n) => n[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-semibold text-slate-900 truncate">
+                  {currentUser.name}
+                </div>
+                <div className="text-[10px] text-slate-500 truncate capitalize">
+                  {currentUser.role} {currentUser.campus ? `• ${currentUser.campus}` : '• Central'}
+                </div>
+              </div>
             </div>
-
-            <div className="mt-1">
-              <CustomDropdown
-                value={currentUser?.id || ''}
-                onChange={async (val) => {
-                  const user = DEMO_USERS.find((u) => u.id === val);
-                  if (user) {
-                    try {
-                      await login(user.email, 'password123');
-                      addToast(`Switched account to ${user.name}`, 'info');
-                    } catch (err: any) {
-                      addToast(`Failed to switch account: ${err.message}`, 'danger');
-                    }
-                  }
-                }}
-                options={DEMO_USERS.map((u) => ({
-                  value: u.id,
-                  label: u.name,
-                  badge: u.role,
-                }))}
-                direction="up"
-                size="sm"
-                className="w-full"
-                menuClassName="w-full min-w-full"
-              />
-            </div>
+            <span
+              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase border shrink-0 ${
+                currentUser.role === 'admin'
+                  ? 'bg-blue-50 text-blue-700 border-blue-200/60'
+                  : currentUser.role === 'faculty'
+                  ? 'bg-purple-50 text-purple-700 border-purple-200/60'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+              }`}
+            >
+              {currentUser.role}
+            </span>
           </div>
         </div>
       </aside>
