@@ -218,9 +218,7 @@ export const AppContent: React.FC = () => {
             <HistoryPage initialStudentId={selectedStudentHistoryId} />
           )}
 
-          {effectiveTab === 'sync' && <SyncCenterPage initialSection="outbox" />}
-
-          {effectiveTab === 'integrity' && <SyncCenterPage initialSection="integrity" />}
+          {effectiveTab === 'sync' && <SyncCenterPage />}
         </main>
       </div>
 
