@@ -176,12 +176,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => window.removeEventListener('campussync:duplicate_record', handleDuplicate);
   }, []);
 
-  // Automatically sync activeCampus when currentUser changes
+  // Automatically sync activeCampus and device ID when currentUser changes
   useEffect(() => {
     if (currentUser?.campus) {
       setActiveCampus(currentUser.campus);
     } else if (currentUser?.role === 'admin') {
       setActiveCampus('all');
+    }
+
+    if (currentUser?.role === 'student') {
+      setSimulator((s) => ({ ...s, currentDeviceId: 'device-student-galaxy-s24' }));
+    } else {
+      setSimulator((s) => ({ ...s, currentDeviceId: 'Device A (Admin/Campus)' }));
     }
   }, [currentUser]);
 
@@ -343,6 +349,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               status: 'rejected',
               errorReason: res.reason,
             });
+            // Roll back local student record to oldValue
+            const failedOp = pendingOps.find((op) => op.opId === res.opId);
+            if (failedOp && failedOp.studentId && failedOp.field && failedOp.field !== '*' && failedOp.oldValue !== undefined) {
+              await db.students.update(failedOp.studentId, {
+                [failedOp.field]: failedOp.oldValue,
+              });
+            }
             addToast(`Server rejected operation: ${res.reason}`, 'danger');
           } else if (res.status === 'duplicate_record') {
             await db.outbox.update(res.opId, {
@@ -408,12 +421,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addToast('Records up to date', 'success');
     } catch (err: any) {
       console.error('Sync failed:', err);
-      addToast(`Sync error: ${err.message}`, 'danger');
+      if (err.message?.includes('fetch') || err.message?.includes('NetworkError') || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+        addToast('Offline: Changes queued in Outbox', 'info');
+      } else {
+        addToast(`Sync error: ${err.message}`, 'danger');
+      }
     } finally {
       isSyncingRef.current = false;
       setIsSyncing(false);
     }
   }, [simulator, addToast]);
+
+  const prevOfflineRef = useRef(simulator.isOffline);
+  useEffect(() => {
+    if (prevOfflineRef.current && !simulator.isOffline) {
+      addToast('Connection restored. Syncing with central database...', 'info');
+      syncNow();
+    }
+    prevOfflineRef.current = simulator.isOffline;
+  }, [simulator.isOffline, syncNow, addToast]);
+
+  // Auto-detect browser online / offline state
+  useEffect(() => {
+    const handleOnline = () => {
+      setSimulator((s) => ({ ...s, isOffline: false }));
+      addToast('Connection restored. Syncing with central database...', 'info');
+      syncNow();
+    };
+    const handleOffline = () => {
+      setSimulator((s) => ({ ...s, isOffline: true }));
+      addToast('Working offline. All changes will be saved to IndexedDB.', 'info');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setSimulator((s) => ({ ...s, isOffline: true }));
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [syncNow, addToast]);
 
   // 3. Server-Sent Events (SSE) Live Broadcast Listener
   useEffect(() => {

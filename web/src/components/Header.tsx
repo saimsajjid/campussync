@@ -10,7 +10,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
-  const { activeCampus, setActiveCampus, currentUser, logout } = useApp();
+  const { activeCampus, setActiveCampus, currentUser, logout, simulator, setSimulator } = useApp();
 
   const campusOptions: Array<{ value: CampusCode | 'all'; label: string }> =
     currentUser?.role === 'admin'
@@ -58,8 +58,21 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
         </div>
       </div>
 
-      {/* Right: User Profile & Sign Out (No diagnostic button, no dark mode toggle) */}
+      {/* Right: Network Status, User Profile & Sign Out */}
       <div className="flex items-center gap-3 shrink-0">
+        <button
+          onClick={() => setSimulator((s) => ({ ...s, isOffline: !s.isOffline }))}
+          title={simulator.isOffline ? 'Offline mode active (Click to reconnect)' : 'Online (Click to go offline)'}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
+            simulator.isOffline
+              ? 'bg-zinc-900 text-zinc-50 border-zinc-900 hover:bg-zinc-800'
+              : 'bg-zinc-100 text-zinc-800 border-zinc-200 hover:bg-zinc-200'
+          }`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${simulator.isOffline ? 'bg-zinc-400' : 'bg-zinc-900'}`} />
+          <span>{simulator.isOffline ? 'Offline' : 'Online'}</span>
+        </button>
+
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-zinc-900 text-zinc-50 flex items-center justify-center font-semibold text-xs shrink-0 shadow-2xs">
             {currentUser?.name

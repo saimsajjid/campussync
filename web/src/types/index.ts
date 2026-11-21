@@ -103,5 +103,5 @@ export interface SimulatorState {
   isSlowNetwork: boolean;
   dropNextRequest: boolean;
   dropNextResponse: boolean; // KEY DEMO MOMENT: server commits, response lost, client retries opId
-  currentDeviceId: 'Device A (Admin/Campus)' | 'Device B (Student/Mobile)';
+  currentDeviceId: string;
 }

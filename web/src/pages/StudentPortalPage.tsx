@@ -34,6 +34,7 @@ export const StudentPortalPage: React.FC = () => {
     address: '',
     emergency_contact: '',
   });
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   // Query Authoritative Student Record
   const student = useLiveQuery(async () => {
@@ -45,6 +46,16 @@ export const StudentPortalPage: React.FC = () => {
   const pendingOpsCount = useLiveQuery(async () => {
     if (!currentUser?.student_id) return 0;
     return await db.outbox.where('studentId').equals(currentUser.student_id).count();
+  }, [currentUser?.student_id], 0);
+
+  // Track quarantined conflicts for this student
+  const openConflictsCount = useLiveQuery(async () => {
+    if (!currentUser?.student_id) return 0;
+    return await db.conflicts
+      .where('status')
+      .equals('open')
+      .and((c) => c.studentId === currentUser.student_id)
+      .count();
   }, [currentUser?.student_id], 0);
 
   // Initialize contact form when student loads
@@ -74,6 +85,14 @@ export const StudentPortalPage: React.FC = () => {
   const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!student) return;
+
+    // Validate Pakistani mobile: 11 digits starting with 03 (optional hyphen)
+    const PAK_PHONE_REGEX = /^(03\d{2}-?\d{7})$/;
+    if (contactForm.phone && !PAK_PHONE_REGEX.test(contactForm.phone.trim())) {
+      setPhoneError('Invalid phone number. Must be 11 digits (e.g. 0300-1234567)');
+      return;
+    }
+    setPhoneError(null);
 
     try {
       const updates: Array<{ field: string; val: string }> = [
@@ -173,7 +192,12 @@ export const StudentPortalPage: React.FC = () => {
 
           {/* Sync Status Badge */}
           <div className="shrink-0 flex items-center gap-2">
-            {pendingOpsCount > 0 ? (
+            {openConflictsCount && openConflictsCount > 0 ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-900 text-zinc-50 border border-zinc-900">
+                <span className="w-2 h-2 rounded-full bg-zinc-400 animate-pulse" />
+                1 Conflict quarantined for Admin review
+              </span>
+            ) : pendingOpsCount > 0 ? (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
                 <span className="w-2 h-2 rounded-full bg-zinc-600" />
                 {pendingOpsCount} change(s) queued offline
@@ -496,11 +520,21 @@ export const StudentPortalPage: React.FC = () => {
                 <input
                   type="text"
                   value={contactForm.phone}
-                  onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                  onChange={(e) => {
+                    setContactForm({ ...contactForm, phone: e.target.value });
+                    if (phoneError) setPhoneError(null);
+                  }}
                   placeholder="0300-1234567"
-                  className="w-full text-xs px-3 py-2 rounded-lg border border-zinc-200 bg-transparent text-zinc-900 focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors"
+                  className={`w-full text-xs px-3 py-2 rounded-lg border bg-transparent text-zinc-900 focus:outline-hidden transition-colors ${
+                    phoneError
+                      ? 'border-red-500 focus:ring-1 focus:ring-red-500'
+                      : 'border-zinc-200 focus:ring-1 focus:ring-zinc-950'
+                  }`}
                   required
                 />
+                {phoneError && (
+                  <p className="text-[11px] text-red-600 mt-1 font-medium">{phoneError}</p>
+                )}
               </div>
 
               <div>

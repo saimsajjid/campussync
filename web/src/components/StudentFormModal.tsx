@@ -211,6 +211,12 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const PAK_PHONE_REGEX = /^(03\d{2}-?\d{7})$/;
+    if (formData.phone && !PAK_PHONE_REGEX.test(formData.phone.trim())) {
+      setValidationError('Validation Error: Phone must be a valid 11-digit Pakistani mobile (e.g. 0300-1234567).');
+      return;
+    }
+
     if (formData.status === 'Graduated' && formData.semester !== 8) {
       setValidationError('Validation Error: A student with status "Graduated" must be in Semester 8.');
       return;
