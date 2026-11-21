@@ -41,7 +41,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
         </button>
 
         {/* Campus Filter Selector / Fixed Badge */}
-        <div className="max-w-[220px] sm:max-w-none truncate">
+        <div className="max-w-[220px] sm:max-w-none">
           {currentUser?.role === 'student' ? (
             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200/80 text-xs font-semibold text-slate-700 shadow-2xs">
               <Building2 className="w-3.5 h-3.5 text-slate-500" />

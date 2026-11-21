@@ -38,7 +38,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
     []
   );
 
-  // Scope students for faculty to their campus
+  // Scope students for faculty or active campus
   const facultyCampus = currentUser?.role === 'faculty' ? currentUser?.campus : null;
   const baseStudents = useMemo(() => {
     if (!allStudents) return [];
@@ -48,13 +48,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
     return allStudents;
   }, [allStudents, facultyCampus]);
 
+  const campusStudents = useMemo(() => {
+    if (!facultyCampus && activeCampus !== 'all') {
+      return baseStudents.filter((s) => s.campus === activeCampus);
+    }
+    return baseStudents;
+  }, [baseStudents, facultyCampus, activeCampus]);
+
   // Filter students based on active campus and search query
   const filteredStudents = useMemo(() => {
-    let list = baseStudents;
-
-    if (!facultyCampus && activeCampus !== 'all') {
-      list = list.filter((s) => s.campus === activeCampus);
-    }
+    let list = campusStudents;
 
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase().trim();
@@ -69,13 +72,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
     }
 
     return list;
-  }, [baseStudents, facultyCampus, activeCampus, searchQuery]);
+  }, [campusStudents, searchQuery]);
 
   // Key Counts
-  const totalCount = baseStudents.length;
-  const activeCount = baseStudents.filter((s) => s.status === 'Active').length;
-  const leaveCount = baseStudents.filter((s) => s.status === 'On leave').length;
-  const graduatedCount = baseStudents.filter((s) => s.status === 'Graduated').length;
+  const totalCount = campusStudents.length;
+  const activeCount = campusStudents.filter((s) => s.status === 'Active').length;
+  const leaveCount = campusStudents.filter((s) => s.status === 'On leave').length;
+  const graduatedCount = campusStudents.filter((s) => s.status === 'Graduated').length;
 
   const lahoreCount = baseStudents.filter((s) => s.campus === 'Lahore').length;
   const islamabadCount = baseStudents.filter((s) => s.campus === 'Islamabad').length;
@@ -158,14 +161,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
           className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 cursor-pointer transition-all"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Total Students</span>
+            <span className="text-xs font-medium text-slate-500">
+              {activeCampus === 'all' || facultyCampus ? 'Total Students' : `${activeCampus} Students`}
+            </span>
             <Users className="w-4 h-4 text-slate-400" />
           </div>
           <div className="text-2xl font-bold text-slate-900 mt-2">
             {totalCount}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            Lahore ({lahoreCount}) • Islamabad ({islamabadCount}) • Abbottabad ({abbottabadCount})
+            {activeCampus === 'all'
+              ? `Lahore (${lahoreCount}) • Islamabad (${islamabadCount}) • Abbottabad (${abbottabadCount})`
+              : `${activeCampus} Campus Roster`}
           </p>
         </div>
 
