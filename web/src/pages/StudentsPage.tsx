@@ -44,8 +44,8 @@ export const StudentsPage: React.FC<StudentsPageProps> = ({
       return false;
     }
 
-    // 2. Campus selector filter
-    if (activeCampus !== 'all' && s.campus !== activeCampus) {
+    // 2. Campus selector filter (for Admin only, since Faculty is locked to currentUser.campus)
+    if (currentUser.role === 'admin' && activeCampus !== 'all' && s.campus !== activeCampus) {
       return false;
     }
 

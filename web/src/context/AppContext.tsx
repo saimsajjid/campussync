@@ -166,9 +166,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => window.removeEventListener('campussync:duplicate_record', handleDuplicate);
   }, []);
 
+  // Automatically sync activeCampus when currentUser changes
+  useEffect(() => {
+    if (currentUser?.campus) {
+      setActiveCampus(currentUser.campus);
+    } else if (currentUser?.role === 'admin') {
+      setActiveCampus('all');
+    }
+  }, [currentUser]);
+
   const login = async (email: string, password = 'password123'): Promise<CurrentUser> => {
     const res = await loginUser(email, password);
     setCurrentUser(res.user);
+    if (res.user?.campus) {
+      setActiveCampus(res.user.campus);
+    } else {
+      setActiveCampus('all');
+    }
     setIsLoggedIn(true);
     await hydrateFromServer();
     return res.user;
@@ -178,6 +192,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await logoutUser();
     setCurrentUser(null);
     setIsLoggedIn(false);
+    setActiveCampus('all');
   };
 
   const [simulator, setSimulator] = useState<SimulatorState>({

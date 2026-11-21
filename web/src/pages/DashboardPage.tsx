@@ -93,6 +93,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
   const islamabadPct = totalAllCampuses > 0 ? Math.round((islamabadCount / totalAllCampuses) * 100) : 0;
   const abbottabadPct = totalAllCampuses > 0 ? Math.round((abbottabadCount / totalAllCampuses) * 100) : 0;
 
+  // Program breakdown for faculty view
+  const programBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    campusStudents.forEach((s) => {
+      const prog = s.program || 'Other';
+      counts[prog] = (counts[prog] || 0) + 1;
+    });
+    return Object.entries(counts).map(([program, count]) => ({
+      program,
+      count,
+      pct: totalCount > 0 ? Math.round((count / totalCount) * 100) : 0,
+    }));
+  }, [campusStudents, totalCount]);
+
   // Recently added students fallback if change history is empty
   const recentlyAdded = useMemo(() => {
     if (!allStudents) return [];
@@ -136,25 +150,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
 
         <div className="flex items-center gap-2">
           {currentUser.role === 'admin' && (
-            <>
-              <button
-                onClick={onOpenAddStudent}
-                className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>Add Student</span>
-              </button>
-
-              <button
-                onClick={() => syncNow()}
-                disabled={isSyncing}
-                className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
-              </button>
-            </>
+            <button
+              onClick={onOpenAddStudent}
+              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Add Student</span>
+            </button>
           )}
+
+          <button
+            onClick={() => syncNow()}
+            disabled={isSyncing}
+            className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
+          </button>
         </div>
       </div>
 
@@ -175,7 +187,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
             {totalCount}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            {activeCampus === 'all'
+            {facultyCampus
+              ? `${facultyCampus} branch verified roster`
+              : activeCampus === 'all'
               ? 'Enrolled across all university branches'
               : `${activeCampus} branch verified roster`}
           </p>
@@ -212,7 +226,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Showing {filteredStudents.length} of {totalCount} total students
-                  {activeCampus !== 'all' ? ` in ${activeCampus}` : ''}
+                  {facultyCampus ? ` in ${facultyCampus}` : activeCampus !== 'all' ? ` in ${activeCampus}` : ''}
                 </p>
               </div>
 
@@ -308,51 +322,85 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
 
         {/* Right Column (4 cols): Campus Enrollment Share & Recent Activity */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Campus Breakdown Card */}
+          {/* Breakdown Card: Program Breakdown for Faculty, Campus Breakdown for Admin */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h2 className="font-semibold text-sm text-slate-900">
-                Campus Enrollment
-              </h2>
-              <span className="text-xs text-slate-500 font-mono">
-                {totalAllCampuses} total
-              </span>
-            </div>
+            {facultyCampus ? (
+              <>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h2 className="font-semibold text-sm text-slate-900">
+                    Program Enrollment
+                  </h2>
+                  <span className="text-xs text-slate-500 font-mono">
+                    {totalCount} total
+                  </span>
+                </div>
 
-            <div className="space-y-3.5 mt-4">
-              {/* Lahore */}
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="font-medium text-slate-700">Lahore</span>
-                  <span className="text-slate-500 font-mono text-[11px]">{lahoreCount} students ({lahorePct}%)</span>
+                <div className="space-y-3.5 mt-4">
+                  {programBreakdown.map((item) => (
+                    <div key={item.program}>
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span className="font-medium text-slate-700">{item.program}</span>
+                        <span className="text-slate-500 font-mono text-[11px]">
+                          {item.count} student{item.count !== 1 ? 's' : ''} ({item.pct}%)
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-slate-800 rounded-full transition-all duration-300"
+                          style={{ width: `${item.pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-slate-800 rounded-full transition-all duration-300" style={{ width: `${lahorePct}%` }} />
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h2 className="font-semibold text-sm text-slate-900">
+                    Campus Enrollment
+                  </h2>
+                  <span className="text-xs text-slate-500 font-mono">
+                    {totalAllCampuses} total
+                  </span>
                 </div>
-              </div>
 
-              {/* Islamabad */}
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="font-medium text-slate-700">Islamabad</span>
-                  <span className="text-slate-500 font-mono text-[11px]">{islamabadCount} students ({islamabadPct}%)</span>
-                </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-slate-800 rounded-full transition-all duration-300" style={{ width: `${islamabadPct}%` }} />
-                </div>
-              </div>
+                <div className="space-y-3.5 mt-4">
+                  {/* Lahore */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-medium text-slate-700">Lahore</span>
+                      <span className="text-slate-500 font-mono text-[11px]">{lahoreCount} students ({lahorePct}%)</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-slate-800 rounded-full transition-all duration-300" style={{ width: `${lahorePct}%` }} />
+                    </div>
+                  </div>
 
-              {/* Abbottabad */}
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="font-medium text-slate-700">Abbottabad</span>
-                  <span className="text-slate-500 font-mono text-[11px]">{abbottabadCount} students ({abbottabadPct}%)</span>
+                  {/* Islamabad */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-medium text-slate-700">Islamabad</span>
+                      <span className="text-slate-500 font-mono text-[11px]">{islamabadCount} students ({islamabadPct}%)</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-slate-800 rounded-full transition-all duration-300" style={{ width: `${islamabadPct}%` }} />
+                    </div>
+                  </div>
+
+                  {/* Abbottabad */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-medium text-slate-700">Abbottabad</span>
+                      <span className="text-slate-500 font-mono text-[11px]">{abbottabadCount} students ({abbottabadPct}%)</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-slate-800 rounded-full transition-all duration-300" style={{ width: `${abbottabadPct}%` }} />
+                    </div>
+                  </div>
                 </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-slate-800 rounded-full transition-all duration-300" style={{ width: `${abbottabadPct}%` }} />
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
 
           {/* Recent Updates Feed */}
