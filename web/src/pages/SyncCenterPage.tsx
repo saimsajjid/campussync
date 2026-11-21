@@ -137,10 +137,6 @@ export const SyncCenterPage: React.FC = () => {
             </p>
           </div>
         </div>
-
-        <div className="text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-          Device ID: <span className="font-mono text-slate-900 font-bold">{simulator.currentDeviceId}</span>
-        </div>
       </div>
 
       {/* Outbox Items List */}
