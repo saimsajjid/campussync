@@ -33,7 +33,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
 
   // Recent change history entries
   const recentHistory = useLiveQuery(
-    () => db.history.reverse().limit(4).toArray(),
+    async () => {
+      const items = await db.history.toArray();
+      items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      return items.slice(0, 4);
+    },
     [],
     []
   );

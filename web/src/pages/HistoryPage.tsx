@@ -40,7 +40,7 @@ function getDayHeading(dateStr: string | Date): string {
   const entryDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const diffDays = Math.round((today.getTime() - entryDate.getTime()) / (1000 * 3600 * 24));
 
-  if (diffDays === 0) return 'Today';
+  if (diffDays <= 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   const day = d.getDate();
   const month = d.toLocaleString('en-US', { month: 'short' });
@@ -59,7 +59,17 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialStudentId }) =>
     if (initialStudentId) {
       query = db.history.where('studentId').equals(initialStudentId);
     }
-    let all = await query.reverse().sortBy('id');
+    let all = await query.toArray();
+
+    // Sort strictly by timestamp descending (newest entries first)
+    all.sort((a, b) => {
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      if (timeB !== timeA) {
+        return timeB - timeA;
+      }
+      return Number(b.id || 0) - Number(a.id || 0);
+    });
 
     // Faculty is scoped to their campus activity
     if (currentUser?.role === 'faculty' && currentUser?.campus) {
@@ -72,19 +82,28 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialStudentId }) =>
     return all;
   }, [initialStudentId, filterType, currentUser]);
 
-  // Group history items by day heading
+  // Group history items by day heading (newest days at top, newest items within day first)
   const groupedEntries = useMemo(() => {
     if (!historyEntries || historyEntries.length === 0) return [];
-    const groups: { dayHeading: string; entries: HistoryItem[] }[] = [];
+    const groups: { dayHeading: string; maxTime: number; entries: HistoryItem[] }[] = [];
+
     historyEntries.forEach((entry) => {
       const heading = getDayHeading(entry.createdAt);
+      const entryTime = new Date(entry.createdAt || 0).getTime();
       const existing = groups.find((g) => g.dayHeading === heading);
       if (existing) {
         existing.entries.push(entry);
+        if (entryTime > existing.maxTime) {
+          existing.maxTime = entryTime;
+        }
       } else {
-        groups.push({ dayHeading: heading, entries: [entry] });
+        groups.push({ dayHeading: heading, maxTime: entryTime, entries: [entry] });
       }
     });
+
+    // Explicitly guarantee newest dates at top (Today -> Yesterday -> older dates)
+    groups.sort((a, b) => b.maxTime - a.maxTime);
+
     return groups;
   }, [historyEntries]);
 

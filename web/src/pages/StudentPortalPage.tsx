@@ -68,8 +68,8 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
       const historyItems = await db.history
         .where('studentId')
         .equals(student.id)
-        .reverse()
-        .sortBy('id');
+        .toArray();
+      historyItems.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       return historyItems as HistoryItem[];
     },
     [student?.id]
