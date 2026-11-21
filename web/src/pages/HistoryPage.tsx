@@ -1,15 +1,14 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   History,
-  RotateCcw,
   ArrowRight,
   Building2,
   Filter,
   CheckCircle2,
   UserCheck,
   Clock,
-  CheckCircle,
-  Calendar
+  Calendar,
+  Undo2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -166,17 +165,35 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialStudentId }) =>
     addToast(`Restored ${entry.studentName}'s ${entry.field} back to previous value`, 'success');
   };
 
+  const getEventTypeLabel = (type: string) => {
+    switch (type) {
+      case 'edit':
+        return { label: 'Edit', class: 'bg-blue-50 text-blue-700 border-blue-200/60' };
+      case 'restore':
+        return { label: 'Restored', class: 'bg-purple-50 text-purple-700 border-purple-200/60' };
+      case 'resolve':
+        return { label: 'Resolved', class: 'bg-amber-50 text-amber-700 border-amber-200/60' };
+      case 'create':
+        return { label: 'New Record', class: 'bg-emerald-50 text-emerald-700 border-emerald-200/60' };
+      default:
+        return { label: type, class: 'bg-slate-100 text-slate-700 border-slate-200/60' };
+    }
+  };
+
   return (
-    <div className="space-y-6 text-left max-w-[1200px] w-full mx-auto">
+    <div className="space-y-6 text-left max-w-[1200px] w-full mx-auto pb-10">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <History className="w-6 h-6 text-[var(--color-primary)]" />
-            <h1 className="text-xl sm:text-2xl font-bold text-[var(--color-text-dark)] tracking-tight">
+            <History className="w-6 h-6 text-blue-600" />
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               Change History
             </h1>
           </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Immutable audit trail of record edits, conflict resolutions, and cross-campus sync events.
+          </p>
         </div>
 
         {/* Filter by Event Type */}
@@ -203,19 +220,18 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialStudentId }) =>
             <div key={group.dayHeading} className="space-y-3">
               {/* Day Heading */}
               <div className="flex items-center gap-2 pt-2">
-                <Calendar className="w-4 h-4 text-[var(--color-primary)]" />
-                <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+                <Calendar className="w-4 h-4 text-blue-600" />
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                   {group.dayHeading}
                 </h2>
-                <div className="h-px bg-slate-200 flex-1 ml-2" />
+                <div className="h-px bg-slate-200/80 flex-1 ml-2" />
               </div>
 
               {/* Day Entries */}
               <div className="space-y-3">
                 {group.entries.map((entry) => {
-                  const isRestore = entry.type === 'restore';
-                  const isResolve = entry.type === 'resolve';
                   const isCreate = entry.type === 'create';
+                  const eventTypeInfo = getEventTypeLabel(entry.type);
 
                   // Parse create payload if applicable
                   let createSummary = '';
@@ -237,69 +253,63 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialStudentId }) =>
                   return (
                     <div
                       key={entry.id}
-                      className="bg-white rounded-2xl border border-[var(--color-border-subtle)] p-5 shadow-xs hover:border-[var(--color-border-muted)] transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                      className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:border-slate-300 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
                     >
                       {/* Left: Event Type, Student & Diff */}
-                      <div className="space-y-1.5 flex-1">
+                      <div className="space-y-2 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-[11px] font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-slate-100)] px-2 py-0.5 rounded">
-                            {typeof entry.id === 'number' && entry.id > 1000000000 ? `Log #${String(entry.id).slice(-4)}` : `#${entry.id}`}
+                          <span className="font-mono text-xs text-slate-400 font-medium">
+                            {typeof entry.id === 'number' && entry.id > 1000000000
+                              ? `#${String(entry.id).slice(-4)}`
+                              : `#${entry.id}`}
                           </span>
 
                           {entry.isPending ? (
-                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[var(--color-status-pending-bg)] text-[var(--color-status-pending-dark)] border border-[var(--color-status-pending-border)] flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-[var(--color-status-warning-orange)]" /> PENDING SYNC
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200/60">
+                              <Clock className="w-3 h-3" /> Pending
                             </span>
                           ) : (
-                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[var(--color-status-synced-bg)] text-[var(--color-status-synced-text)] border border-[var(--color-status-synced-border)] flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3 text-[var(--color-status-success-emerald)]" /> CONFIRMED
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Synced
                             </span>
                           )}
 
                           <span
-                            className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                              isRestore
-                                ? 'bg-[var(--color-status-orange-light)] text-[var(--color-status-orange-text)] border border-[var(--color-status-orange-border)]'
-                                : isResolve
-                                ? 'bg-[var(--color-status-pending-bg)] text-[var(--color-status-pending-text)] border border-[var(--color-status-pending-border)]'
-                                : isCreate
-                                ? 'bg-[var(--color-status-synced-bg)] text-[var(--color-status-synced-text)] border border-[var(--color-status-synced-border)]'
-                                : 'bg-[var(--color-primary-light)] text-[var(--color-status-info-text)] border border-[var(--color-status-info-border)]'
-                            }`}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-medium border ${eventTypeInfo.class}`}
                           >
-                            {entry.type}
+                            {eventTypeInfo.label}
                           </span>
 
-                          <span className="font-bold text-sm text-[var(--color-text-dark)]">
+                          <span className="font-semibold text-sm text-slate-900">
                             {entry.studentName}
                           </span>
-                          <span className="text-xs font-mono text-[var(--color-text-subtle)]">({entry.reg_no})</span>
+                          <span className="text-xs font-mono text-slate-400">
+                            ({entry.reg_no})
+                          </span>
                         </div>
 
                         {/* Event Content Line */}
                         {isCreate ? (
-                          <div className="text-xs flex flex-wrap items-center gap-2 pt-1">
-                            <span className="font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
-                              Record created
-                            </span>
-                            <span className="text-[var(--color-text-dark)] font-medium">
+                          <div className="text-xs flex flex-wrap items-center gap-2 pt-0.5">
+                            <span className="font-medium text-slate-500">Registered:</span>
+                            <span className="text-slate-800 font-semibold bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-md">
                               {createSummary}
                             </span>
                           </div>
                         ) : (
-                          <div className="text-xs flex flex-wrap items-center gap-2 pt-1">
-                            <span className="font-bold text-[var(--color-text-dark)] bg-gray-100 px-1.5 py-0.5 rounded">
-                              {entry.field}
+                          <div className="text-xs flex flex-wrap items-center gap-2 pt-0.5">
+                            <span className="font-medium text-slate-500 capitalize">
+                              {entry.field.replace(/_/g, ' ')}:
                             </span>
                             {entry.oldValue !== null && entry.oldValue !== undefined && (
                               <>
-                                <span className="text-red-700 line-through bg-red-50 px-1.5 py-0.5 rounded">
+                                <span className="font-mono text-xs text-slate-400 line-through">
                                   {String(entry.oldValue)}
                                 </span>
-                                <ArrowRight className="w-3.5 h-3.5 text-[var(--color-text-light)]" />
+                                <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
                               </>
                             )}
-                            <span className="text-emerald-800 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">
+                            <span className="font-mono text-xs font-semibold text-slate-900 bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-md">
                               {String(entry.newValue)}
                             </span>
                           </div>
@@ -307,15 +317,15 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialStudentId }) =>
                       </div>
 
                       {/* Right: Meta & Restore Button */}
-                      <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-3 md:pt-0 border-gray-100 text-xs text-[var(--color-text-muted)]">
-                        <div className="text-right space-y-0.5">
-                          <div className="font-semibold text-[var(--color-text-dark)] flex items-center gap-1 justify-end">
-                            <UserCheck className="w-3.5 h-3.5 text-[var(--color-primary)]" />
+                      <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 text-xs text-slate-500">
+                        <div className="text-left md:text-right space-y-0.5">
+                          <div className="font-medium text-slate-800 flex items-center gap-1.5 md:justify-end">
+                            <UserCheck className="w-3.5 h-3.5 text-blue-600" />
                             <span>{entry.actorName}</span>
                           </div>
-                          <div className="text-[11px] text-[var(--color-text-muted)] flex items-center gap-1.5 justify-end">
-                            <Building2 className="w-3 h-3 text-[var(--color-text-subtle)]" />
-                            <span>{entry.actorCampus}</span>
+                          <div className="text-[11px] text-slate-400 flex items-center gap-1.5 md:justify-end">
+                            <Building2 className="w-3 h-3 text-slate-400" />
+                            <span>{entry.actorCampus} Campus</span>
                             <span>•</span>
                             <span>{formatFullDate(entry.createdAt)}</span>
                           </div>
@@ -326,10 +336,10 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialStudentId }) =>
                           <button
                             type="button"
                             onClick={() => setRestoreEntry(entry)}
-                            className="px-3 py-1.5 bg-[var(--color-surface-muted)] hover:bg-[var(--color-primary-light)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] border border-[var(--color-border-muted)] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
+                            className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 bg-white hover:bg-blue-50/50 border border-slate-200/80 hover:border-blue-200 rounded-xl transition-all flex items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-2xs"
                             title="Roll back field to this historical value"
                           >
-                            <RotateCcw className="w-3.5 h-3.5" />
+                            <Undo2 className="w-3.5 h-3.5" />
                             <span>Restore</span>
                           </button>
                         )}
@@ -342,37 +352,41 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({ initialStudentId }) =>
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-[var(--color-border-subtle)] p-12 text-center text-[var(--color-text-muted)] shadow-xs">
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center text-slate-500 shadow-xs">
           <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
-          <p className="font-semibold">No audit history entries found for the selected filter.</p>
+          <p className="font-semibold text-slate-800">No audit history entries found</p>
+          <p className="text-xs text-slate-500 mt-1">Changes made to student records will appear in this timeline.</p>
         </div>
       )}
 
       {/* Restore Confirmation Dialog */}
       {restoreEntry && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[var(--color-border-subtle)] text-left">
-            <h3 className="text-base font-bold text-[var(--color-text-dark)] mb-2">
-              Confirm restore
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200/80 text-left">
+            <h3 className="text-base font-bold text-slate-900 mb-2">
+              Confirm Record Restore
             </h3>
-            <p className="text-xs text-[var(--color-text-muted)] leading-relaxed mb-6">
-              Restore <span className="font-semibold text-[var(--color-text-dark)]">{restoreEntry.field}</span> to the value from <span className="font-semibold text-[var(--color-text-dark)]">{formatFullDate(restoreEntry.createdAt)}</span>? This adds a new entry to the history. Nothing is deleted.
+            <p className="text-xs text-slate-500 leading-relaxed mb-6">
+              Roll back <span className="font-semibold text-slate-800">{restoreEntry.field}</span> to historical value <span className="font-mono font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200/60">{String(restoreEntry.oldValue)}</span> from <span className="font-semibold text-slate-800">{formatFullDate(restoreEntry.createdAt)}</span>?
+              <br /><br />
+              This appends a new restore entry to the immutable ledger. Nothing is deleted.
             </p>
             <div className="flex items-center justify-end gap-3">
               <button
                 ref={cancelBtnRef}
                 type="button"
                 onClick={() => setRestoreEntry(null)}
-                className="px-4 py-2 text-xs font-bold text-[var(--color-text-dark)] bg-[var(--color-surface-slate-100)] hover:bg-slate-200 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={executeRestore}
-                className="px-4 py-2 text-xs font-bold text-white bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] rounded-xl transition-all shadow-sm cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
               >
-                Restore field
+                <Undo2 className="w-3.5 h-3.5" />
+                <span>Confirm Restore</span>
               </button>
             </div>
           </div>
