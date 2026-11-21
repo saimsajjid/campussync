@@ -3,7 +3,6 @@ import {
   Search,
   UserPlus,
   Edit3,
-  History,
   Building2,
   GraduationCap
 } from 'lucide-react';
@@ -16,13 +15,12 @@ import { CustomDropdown } from '../components/CustomDropdown';
 interface StudentsPageProps {
   onOpenAddModal: () => void;
   onOpenEditModal: (student: StudentRecord) => void;
-  onOpenHistory: (studentId: string) => void;
+  onOpenHistory?: (studentId: string) => void;
 }
 
 export const StudentsPage: React.FC<StudentsPageProps> = ({
   onOpenAddModal,
   onOpenEditModal,
-  onOpenHistory,
 }) => {
   const { activeCampus, currentUser } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
@@ -210,7 +208,7 @@ export const StudentsPage: React.FC<StudentsPageProps> = ({
 
                     {/* Actions */}
                     <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end">
                         <button
                           type="button"
                           onClick={() => onOpenEditModal(s)}
@@ -219,15 +217,6 @@ export const StudentsPage: React.FC<StudentsPageProps> = ({
                           className="p-1.5 rounded-lg border border-slate-200 hover:border-blue-300 text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 transition-all cursor-pointer"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onOpenHistory(s.id)}
-                          aria-label={`View history for ${s.full_name}`}
-                          title={`View history for ${s.full_name}`}
-                          className="p-1.5 rounded-lg border border-slate-200 hover:border-blue-300 text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 transition-all cursor-pointer"
-                        >
-                          <History className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
