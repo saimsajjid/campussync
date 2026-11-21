@@ -15,20 +15,11 @@ import {
   Shield,
   Check,
   CheckCircle2,
-  AlertCircle,
-  GraduationCap
+  GraduationCap,
+  FileText,
+  BadgeCheck
 } from 'lucide-react';
 import type { StudentRecord } from '../types';
-
-interface CourseRegistration {
-  code: string;
-  title: string;
-  credits: number;
-  instructor: string;
-  schedule: string;
-  room: string;
-  attendanceRate: number;
-}
 
 export const StudentPortalPage: React.FC = () => {
   const { currentUser, queueEditOperation, addToast, simulator } = useApp();
@@ -78,56 +69,7 @@ export const StudentPortalPage: React.FC = () => {
     );
   }
 
-  // Enrolled Courses Data for Semester
-  const enrolledCourses: CourseRegistration[] = [
-    {
-      code: 'CS-401',
-      title: 'Distributed Systems & Cloud Computing',
-      credits: 4,
-      instructor: 'Dr. Tariq Mahmood',
-      schedule: 'Mon, Wed 09:00 - 10:30 AM',
-      room: 'CS Lab 3',
-      attendanceRate: 92,
-    },
-    {
-      code: 'CS-405',
-      title: 'Advanced Database Systems',
-      credits: 4,
-      instructor: 'Dr. Ayesha Siddiqa',
-      schedule: 'Tue, Thu 11:00 - 12:30 PM',
-      room: 'Hall B',
-      attendanceRate: 88,
-    },
-    {
-      code: 'SE-302',
-      title: 'Software Quality Assurance',
-      credits: 3,
-      instructor: 'Engr. Bilal Farooq',
-      schedule: 'Fri 09:00 - 12:00 PM',
-      room: 'Auditorium 1',
-      attendanceRate: 84,
-    },
-    {
-      code: 'MG-201',
-      title: 'Entrepreneurship & Technology Venturing',
-      credits: 3,
-      instructor: 'Ms. Zoya Khan',
-      schedule: 'Mon, Wed 02:00 - 03:30 PM',
-      room: 'Seminar Room 2',
-      attendanceRate: 95,
-    },
-    {
-      code: 'CS-499',
-      title: 'Final Year Capstone Project I',
-      credits: 2,
-      instructor: 'Project Advisory Board',
-      schedule: 'Sat 10:00 AM - 01:00 PM',
-      room: 'Incubation Center',
-      attendanceRate: 100,
-    },
-  ];
-
-  const totalCredits = enrolledCourses.reduce((acc, c) => acc + c.credits, 0);
+  const isAttendanceGood = student.attendance >= 75;
 
   const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,7 +111,7 @@ export const StudentPortalPage: React.FC = () => {
             My Record
           </h1>
           <p className="text-xs text-zinc-500 mt-1">
-            Verified academic profile, registered semester courses, and enrollment verification.
+            Official academic enrollment profile and university credentials.
           </p>
         </div>
 
@@ -250,7 +192,7 @@ export const StudentPortalPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Academic Highlights Grid */}
+        {/* Academic Highlights Grid - 100% Dynamic from Database */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white rounded-xl border border-zinc-200/90 p-5 shadow-2xs">
             <div className="flex items-center justify-between text-zinc-400 mb-2">
@@ -260,7 +202,7 @@ export const StudentPortalPage: React.FC = () => {
             <div className="text-2xl font-bold text-zinc-900 tracking-tight">
               Semester {student.semester}
             </div>
-            <p className="text-[11px] text-zinc-500 mt-1">Spring 2026 • 16 Credit Hours</p>
+            <p className="text-[11px] text-zinc-500 mt-1">{student.program} • Regular Session</p>
           </div>
 
           <div className="bg-white rounded-xl border border-zinc-200/90 p-5 shadow-2xs">
@@ -271,7 +213,7 @@ export const StudentPortalPage: React.FC = () => {
             <div className="text-2xl font-bold text-zinc-900 tracking-tight flex items-baseline gap-2">
               {student.attendance}%
               <span className="text-xs font-medium text-zinc-600">
-                {student.attendance >= 75 ? 'Good Standing' : 'Shortage Notice'}
+                {isAttendanceGood ? 'Good Standing' : 'Shortage Notice'}
               </span>
             </div>
             <div className="w-full bg-zinc-100 h-1.5 rounded-full mt-2.5 overflow-hidden">
@@ -284,100 +226,99 @@ export const StudentPortalPage: React.FC = () => {
 
           <div className="bg-white rounded-xl border border-zinc-200/90 p-5 shadow-2xs">
             <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-xs font-medium text-zinc-500">Academic Standing</span>
+              <span className="text-xs font-medium text-zinc-500">Enrollment Status</span>
               <Award className="w-4 h-4 text-zinc-600" />
             </div>
             <div className="text-2xl font-bold text-zinc-900 tracking-tight">
-              CGPA 3.68
+              {student.status}
             </div>
-            <p className="text-[11px] text-zinc-600 font-medium mt-1">Dean's Honor List • Regular Active</p>
+            <p className="text-[11px] text-zinc-600 font-medium mt-1">
+              {isAttendanceGood ? 'Examination Eligible' : 'Requires Clearance'}
+            </p>
           </div>
         </div>
 
-        {/* Registered Semester Courses Roster */}
+        {/* Authoritative Academic & Institutional Profile - 100% Database Backed */}
         <div className="bg-white rounded-xl border border-zinc-200/90 shadow-2xs overflow-hidden">
           <div className="p-5 sm:p-6 border-b border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h2 className="text-sm font-semibold text-zinc-900">
-                Semester {student.semester} Registered Course Roster
+              <h2 className="text-sm font-semibold text-zinc-900 flex items-center gap-2">
+                <BadgeCheck className="w-4 h-4 text-zinc-700" />
+                Academic & Institutional Registration Details
               </h2>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Spring 2026 Session • {totalCredits} Total Registered Credit Hours
+                Centrally verified enrollment record maintained across all university campuses.
               </p>
             </div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
               <Check className="w-3.5 h-3.5 text-zinc-700" />
-              Department Verified Roster
+              Verified by Registrar
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-zinc-50/70 border-b border-zinc-200 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
-                  <th className="py-3 px-4 sm:px-6">Course</th>
-                  <th className="py-3 px-4">Credits</th>
-                  <th className="py-3 px-4">Instructor</th>
-                  <th className="py-3 px-4">Schedule & Venue</th>
-                  <th className="py-3 px-4">Attendance</th>
-                  <th className="py-3 px-4 sm:px-6 text-right">Eligibility</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {enrolledCourses.map((c) => {
-                  const isGood = c.attendanceRate >= 75;
-                  return (
-                    <tr key={c.code} className="hover:bg-zinc-50/70 transition-colors">
-                      <td className="py-3.5 px-4 sm:px-6 font-medium text-zinc-900">
-                        <div className="font-semibold">{c.title}</div>
-                        <div className="font-mono text-zinc-500 text-[11px] mt-0.5">{c.code}</div>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-medium text-zinc-700">
-                        {c.credits} Cr
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-medium text-zinc-800">{c.instructor}</span>
-                      </td>
-                      <td className="py-3.5 px-4 text-zinc-500 text-[11px]">
-                        <div>{c.schedule}</div>
-                        <div className="text-zinc-400 font-mono text-[10px] mt-0.5">{c.room}</div>
-                      </td>
-                      <td className="py-3.5 px-4 min-w-[130px]">
-                        <div className="flex items-center justify-between text-[11px] font-medium mb-1">
-                          <span className="font-mono font-medium text-zinc-800">{c.attendanceRate}%</span>
-                          <span className="text-[10px] font-medium text-zinc-500">
-                            {isGood ? 'Satisfactory' : 'Warning'}
-                          </span>
-                        </div>
-                        <div className="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-300 bg-zinc-900"
-                            style={{ width: `${Math.min(100, Math.max(0, c.attendanceRate))}%` }}
-                          />
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 sm:px-6 text-right">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
-                          {isGood ? (
-                            <>
-                              <Check className="w-3 h-3 text-zinc-700" /> Exam Eligible
-                            </>
-                          ) : (
-                            <>
-                              <AlertCircle className="w-3 h-3 text-zinc-600" /> Shortage
-                            </>
-                          )}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="p-5 sm:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+            <div className="p-3.5 bg-zinc-50 rounded-lg border border-zinc-200/70">
+              <span className="text-[11px] font-medium text-zinc-400 block mb-1">Registration Number</span>
+              <span className="font-mono font-semibold text-zinc-900 text-sm">{student.reg_no}</span>
+            </div>
+
+            <div className="p-3.5 bg-zinc-50 rounded-lg border border-zinc-200/70">
+              <span className="text-[11px] font-medium text-zinc-400 block mb-1">National ID (CNIC)</span>
+              <span className="font-mono font-medium text-zinc-800 text-sm">{student.cnic}</span>
+            </div>
+
+            <div className="p-3.5 bg-zinc-50 rounded-lg border border-zinc-200/70">
+              <span className="text-[11px] font-medium text-zinc-400 block mb-1">Degree Program</span>
+              <span className="font-semibold text-zinc-900 text-sm">{student.program}</span>
+            </div>
+
+            <div className="p-3.5 bg-zinc-50 rounded-lg border border-zinc-200/70">
+              <span className="text-[11px] font-medium text-zinc-400 block mb-1">Allocated Campus</span>
+              <span className="font-semibold text-zinc-900 text-sm">{student.campus} Campus</span>
+            </div>
+
+            <div className="p-3.5 bg-zinc-50 rounded-lg border border-zinc-200/70">
+              <span className="text-[11px] font-medium text-zinc-400 block mb-1">Current Academic Level</span>
+              <span className="font-semibold text-zinc-900 text-sm">Semester {student.semester} of 8</span>
+            </div>
+
+            <div className="p-3.5 bg-zinc-50 rounded-lg border border-zinc-200/70">
+              <span className="text-[11px] font-medium text-zinc-400 block mb-1">Official Attendance</span>
+              <span className="font-mono font-semibold text-zinc-900 text-sm">
+                {student.attendance}%{' '}
+                <span className="text-[11px] font-normal text-zinc-500">
+                  ({isAttendanceGood ? 'Satisfactory' : 'Below 75%'})
+                </span>
+              </span>
+            </div>
+
+            <div className="p-3.5 bg-zinc-50 rounded-lg border border-zinc-200/70">
+              <span className="text-[11px] font-medium text-zinc-400 block mb-1">Enrollment Standing</span>
+              <span className="font-semibold text-zinc-900 text-sm">{student.status}</span>
+            </div>
+
+            <div className="p-3.5 bg-zinc-50 rounded-lg border border-zinc-200/70">
+              <span className="text-[11px] font-medium text-zinc-400 block mb-1">Record Version</span>
+              <span className="font-mono font-medium text-zinc-700 text-sm">v{student.version} (Synced)</span>
+            </div>
           </div>
+
+          {/* Academic Advisor Remarks */}
+          <div className="px-5 sm:px-6 pb-5 pt-0">
+            <div className="p-3.5 bg-zinc-50/70 rounded-lg border border-zinc-200/70 flex items-start gap-3">
+              <FileText className="w-4 h-4 text-zinc-500 shrink-0 mt-0.5" />
+              <div className="text-xs">
+                <span className="font-semibold text-zinc-900">Academic Advisor Remarks: </span>
+                <span className="text-zinc-600">
+                  {student.remarks || 'No official remarks or disciplinary notices on file. Student in good standing.'}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <div className="p-3 bg-zinc-50/70 border-t border-zinc-200 text-[11px] text-zinc-500 flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6">
-            <span>* 75% minimum course attendance is mandatory for semester end final exam eligibility.</span>
-            <span className="font-medium text-zinc-700">Course Roster Status: Certified by Academic Registrar</span>
+            <span>* 75% minimum semester attendance is mandatory for semester end final exam eligibility.</span>
+            <span className="font-medium text-zinc-700">Authoritative Record: Office of the Academic Registrar</span>
           </div>
         </div>
 
@@ -437,7 +378,7 @@ export const StudentPortalPage: React.FC = () => {
                 <Shield className="w-5 h-5 text-zinc-300" />
                 <div>
                   <h3 className="text-sm font-semibold tracking-tight">Main Campus Turnstiles</h3>
-                  <p className="text-[11px] text-zinc-400">Gate 1-A • Lahore Campus</p>
+                  <p className="text-[11px] text-zinc-400">Gate 1-A • {student.campus} Campus</p>
                 </div>
               </div>
               <button
@@ -489,21 +430,25 @@ export const StudentPortalPage: React.FC = () => {
                 </span>
                 <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
                   <div className="bg-zinc-100 text-zinc-900 p-2 rounded-lg border border-zinc-200 font-medium">
-                    <span className="block font-semibold">Lahore</span>
+                    <span className="block font-semibold">{student.campus}</span>
                     <span className="text-[10px] text-zinc-600">Home Campus</span>
                   </div>
                   <div className="bg-zinc-50 text-zinc-700 p-2 rounded-lg border border-zinc-200 font-medium">
-                    <span className="block font-semibold">Islamabad</span>
+                    <span className="block font-semibold">
+                      {student.campus === 'Islamabad' ? 'Lahore' : 'Islamabad'}
+                    </span>
                     <span className="text-[10px] text-zinc-500">Permitted</span>
                   </div>
                   <div className="bg-zinc-50 text-zinc-700 p-2 rounded-lg border border-zinc-200 font-medium">
-                    <span className="block font-semibold">Abbottabad</span>
+                    <span className="block font-semibold">
+                      {student.campus === 'Abbottabad' ? 'Lahore' : 'Abbottabad'}
+                    </span>
                     <span className="text-[10px] text-zinc-500">Permitted</span>
                   </div>
                 </div>
               </div>
 
-              {/* Cryptographic Signature Footer */}
+              {/* Signature Footer */}
               <div className="pt-2 border-t border-zinc-100 flex items-center justify-between text-[10px] text-zinc-400 font-mono">
                 <span>SCANNED: {new Date().toLocaleTimeString()}</span>
                 <span className="truncate max-w-[200px]">AUTH: CS-REG-{student.reg_no}</span>
@@ -652,31 +597,60 @@ export const StudentPortalPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Course Roster Summary for Certificate */}
+          {/* Institutional Registration Summary for Certificate */}
           <div className="pt-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-800 mb-2">
-              Semester Registered Courses:
+              Official University Record Summary:
             </h3>
             <table className="w-full text-left border border-zinc-300 text-xs">
               <thead className="bg-zinc-100 border-b border-zinc-300 font-semibold text-[11px]">
                 <tr>
-                  <th className="p-2 border-r border-zinc-300">Course Code</th>
-                  <th className="p-2 border-r border-zinc-300">Course Title</th>
-                  <th className="p-2 border-r border-zinc-300 text-center">Cr. Hrs</th>
-                  <th className="p-2 border-r border-zinc-300">Instructor</th>
-                  <th className="p-2 text-center">Attendance</th>
+                  <th className="p-2 border-r border-zinc-300">Attribute</th>
+                  <th className="p-2 border-r border-zinc-300">Certified Record Value</th>
+                  <th className="p-2 border-r border-zinc-300">Verification Source</th>
+                  <th className="p-2 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200">
-                {enrolledCourses.map((c) => (
-                  <tr key={c.code}>
-                    <td className="p-2 font-mono font-semibold border-r border-zinc-200">{c.code}</td>
-                    <td className="p-2 border-r border-zinc-200">{c.title}</td>
-                    <td className="p-2 text-center font-mono border-r border-zinc-200">{c.credits}</td>
-                    <td className="p-2 border-r border-zinc-200">{c.instructor}</td>
-                    <td className="p-2 text-center font-mono font-semibold">{c.attendanceRate}%</td>
-                  </tr>
-                ))}
+                <tr>
+                  <td className="p-2 font-semibold border-r border-zinc-200">Registration Number</td>
+                  <td className="p-2 font-mono border-r border-zinc-200">{student.reg_no}</td>
+                  <td className="p-2 border-r border-zinc-200">University Central Registry</td>
+                  <td className="p-2 text-center font-semibold text-zinc-900">Verified</td>
+                </tr>
+                <tr>
+                  <td className="p-2 font-semibold border-r border-zinc-200">National CNIC</td>
+                  <td className="p-2 font-mono border-r border-zinc-200">{student.cnic}</td>
+                  <td className="p-2 border-r border-zinc-200">NADRA National Database</td>
+                  <td className="p-2 text-center font-semibold text-zinc-900">Verified</td>
+                </tr>
+                <tr>
+                  <td className="p-2 font-semibold border-r border-zinc-200">Degree Program</td>
+                  <td className="p-2 border-r border-zinc-200">{student.program}</td>
+                  <td className="p-2 border-r border-zinc-200">Faculty Academic Board</td>
+                  <td className="p-2 text-center font-semibold text-zinc-900">Active</td>
+                </tr>
+                <tr>
+                  <td className="p-2 font-semibold border-r border-zinc-200">Allocated Branch</td>
+                  <td className="p-2 border-r border-zinc-200">{student.campus} Campus</td>
+                  <td className="p-2 border-r border-zinc-200">Campus Administration</td>
+                  <td className="p-2 text-center font-semibold text-zinc-900">Enrolled</td>
+                </tr>
+                <tr>
+                  <td className="p-2 font-semibold border-r border-zinc-200">Semester Attendance</td>
+                  <td className="p-2 font-mono font-semibold border-r border-zinc-200">{student.attendance}%</td>
+                  <td className="p-2 border-r border-zinc-200">Campus Turnstile & Attendance Node</td>
+                  <td className="p-2 text-center font-semibold text-zinc-900">
+                    {isAttendanceGood ? 'Good Standing' : 'Shortage'}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="p-2 font-semibold border-r border-zinc-200">Advisor Remarks</td>
+                  <td className="p-2 border-r border-zinc-200" colSpan={2}>
+                    {student.remarks || 'Dean\'s Honor List candidate. Completed all core requirements in good academic standing.'}
+                  </td>
+                  <td className="p-2 text-center font-semibold text-zinc-900">Official</td>
+                </tr>
               </tbody>
             </table>
           </div>

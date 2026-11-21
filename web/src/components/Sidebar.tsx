@@ -20,7 +20,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpen, onCloseMobile }) => {
-  const { currentUser, simulator } = useApp();
+  const { currentUser } = useApp();
 
   const openConflictsCount = useLiveQuery(
     () => db.conflicts.where('status').equals('open').count(),
@@ -148,21 +148,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
             );
           })}
         </nav>
-
-        {/* Footer: System Status */}
-        <div className="p-3 border-t border-zinc-200/90">
-          <div className="px-3 py-2 rounded-lg bg-zinc-50 border border-zinc-200/80 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${simulator.isOffline ? 'bg-zinc-400' : 'bg-zinc-900'}`} />
-              <span className="font-medium text-zinc-800 text-xs">
-                {simulator.isOffline ? 'Offline Queue' : 'Connected'}
-              </span>
-            </div>
-            <span className="text-[11px] text-zinc-400 font-mono">
-              v1.0
-            </span>
-          </div>
-        </div>
       </aside>
     </>
   );
