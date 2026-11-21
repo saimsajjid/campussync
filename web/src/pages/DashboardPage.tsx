@@ -36,7 +36,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
     async () => {
       const items = await db.history.toArray();
       items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-      return items.slice(0, 4);
+      return items.slice(0, 6);
     },
     [],
     []
@@ -87,10 +87,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
   const lahoreCount = baseStudents.filter((s) => s.campus === 'Lahore').length;
   const islamabadCount = baseStudents.filter((s) => s.campus === 'Islamabad').length;
   const abbottabadCount = baseStudents.filter((s) => s.campus === 'Abbottabad').length;
-
-  const lahorePct = totalCount > 0 ? Math.round((lahoreCount / totalCount) * 100) : 0;
-  const islamabadPct = totalCount > 0 ? Math.round((islamabadCount / totalCount) * 100) : 0;
-  const abbottabadPct = totalCount > 0 ? Math.round((abbottabadCount / totalCount) * 100) : 0;
 
   // Recently added students fallback if change history is empty
   const recentlyAdded = useMemo(() => {
@@ -186,7 +182,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
           className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 cursor-pointer transition-all"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Enrollment Status</span>
+            <span className="text-xs font-medium text-slate-500">Student Status</span>
             <CheckCircle2 className="w-4 h-4 text-slate-400" />
           </div>
           <div className="text-2xl font-bold text-slate-900 mt-2">
@@ -305,56 +301,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
           </div>
         </div>
 
-        {/* Right Column (4 cols): Campus Enrollment Share & Recent Activity */}
-        <div className="lg:col-span-4 space-y-6">
-          {/* Campus Breakdown Card */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h2 className="font-semibold text-sm text-slate-900">
-                Campus Enrollment
-              </h2>
-              <span className="text-xs text-slate-500">
-                {totalCount} total
-              </span>
-            </div>
-
-            <div className="space-y-3.5 mt-4">
-              {/* Lahore */}
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="font-medium text-slate-700">Lahore</span>
-                  <span className="text-slate-500 font-mono text-[11px]">{lahoreCount} students ({lahorePct}%)</span>
-                </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-slate-800 rounded-full transition-all duration-300" style={{ width: `${lahorePct}%` }} />
-                </div>
-              </div>
-
-              {/* Islamabad */}
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="font-medium text-slate-700">Islamabad</span>
-                  <span className="text-slate-500 font-mono text-[11px]">{islamabadCount} students ({islamabadPct}%)</span>
-                </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-slate-800 rounded-full transition-all duration-300" style={{ width: `${islamabadPct}%` }} />
-                </div>
-              </div>
-
-              {/* Abbottabad */}
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="font-medium text-slate-700">Abbottabad</span>
-                  <span className="text-slate-500 font-mono text-[11px]">{abbottabadCount} students ({abbottabadPct}%)</span>
-                </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-slate-800 rounded-full transition-all duration-300" style={{ width: `${abbottabadPct}%` }} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Updates Feed */}
+        {/* Right Column (4 cols): Recent Activity Feed */}
+        <div className="lg:col-span-4">
           <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-1.5">
@@ -365,7 +313,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
               </div>
               <button
                 onClick={() => onNavigate('history')}
-                className="text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:underline"
+                className="text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:underline cursor-pointer"
               >
                 View all
               </button>
