@@ -96,14 +96,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
         {/* Brand Header */}
         <div className="flex items-center gap-3 px-6 h-16 border-b border-zinc-200/90">
           <BrandLogo className="w-8 h-8 rounded-lg shadow-2xs" />
-          <div className="flex flex-col">
-            <span className="font-semibold text-base text-zinc-900 tracking-tight leading-none">
-              CampusSync
-            </span>
-            <span className="text-[10px] text-zinc-500 tracking-wider uppercase font-medium mt-1">
-              Multi-Campus SIS
-            </span>
-          </div>
+          <span className="font-semibold text-base text-zinc-900 tracking-tight">
+            CampusSync
+          </span>
         </div>
 
         {/* Navigation Items */}
