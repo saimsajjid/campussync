@@ -7,7 +7,6 @@ import {
   MapPin,
   ShieldCheck,
   Edit3,
-  Clock,
   Printer,
   CheckCircle2,
   QrCode,
@@ -16,7 +15,6 @@ import {
   BookOpen,
   X,
   Save,
-  FileCheck,
   Award,
   Shield,
   Check,
@@ -26,10 +24,10 @@ import {
 import { useApp } from '../context/AppContext';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
-import type { StudentRecord, HistoryItem } from '../types';
+import type { StudentRecord } from '../types';
 
 interface StudentPortalPageProps {
-  activeSubTab?: 'overview' | 'id-card' | 'student-history';
+  activeSubTab?: 'overview' | 'id-card';
   onNavigateSubTab?: (tab: string) => void;
 }
 
@@ -61,9 +59,6 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   // Modal state for Interactive Security Gate Pass
   const [isGatePassOpen, setIsGatePassOpen] = useState(false);
 
-  // History filtering state
-  const [historyFilter, setHistoryFilter] = useState<'all' | 'academic' | 'contact'>('all');
-
   // Query this student's live record
   const student = useLiveQuery(async () => {
     if (!currentUser) return null;
@@ -80,20 +75,6 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
   // Query outbox mutations for this student
   const studentOutbox = useLiveQuery(
     () => (student ? db.outbox.where('studentId').equals(student.id).toArray() : []),
-    [student?.id]
-  );
-
-  // Query audit history strictly scoped to this student
-  const studentHistory = useLiveQuery(
-    async () => {
-      if (!student) return [];
-      const historyItems = await db.history
-        .where('studentId')
-        .equals(student.id)
-        .toArray();
-      historyItems.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-      return historyItems as HistoryItem[];
-    },
     [student?.id]
   );
 
@@ -223,26 +204,6 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
 
   const totalCredits = enrolledCourses.reduce((acc, c) => acc + c.credits, 0);
 
-  // Filter history items
-  const filteredHistory = (studentHistory || []).filter((item) => {
-    if (historyFilter === 'all') return true;
-    if (historyFilter === 'academic') {
-      return item.field === 'attendance' || item.field === 'remarks' || item.field === '*';
-    }
-    if (historyFilter === 'contact') {
-      return item.field === 'phone' || item.field === 'address' || item.field === 'emergency_contact';
-    }
-    return true;
-  });
-
-  const academicHistoryCount = (studentHistory || []).filter(
-    (i) => i.field === 'attendance' || i.field === 'remarks' || i.field === '*'
-  ).length;
-
-  const contactHistoryCount = (studentHistory || []).filter(
-    (i) => i.field === 'phone' || i.field === 'address' || i.field === 'emergency_contact'
-  ).length;
-
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -250,12 +211,10 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
           {currentTab === 'overview' && 'My Record'}
           {currentTab === 'id-card' && 'Student ID Card'}
-          {currentTab === 'student-history' && 'Activity Log'}
         </h1>
         <p className="text-xs text-slate-500 mt-0.5">
           {currentTab === 'overview' && 'Verified academic profile, registered semester courses, and enrollment verification.'}
           {currentTab === 'id-card' && 'Official university identification for campus access, turnstile security, and examinations.'}
-          {currentTab === 'student-history' && 'Chronological audit of administrative actions and personal profile edits.'}
         </p>
       </div>
 
@@ -713,134 +672,6 @@ export const StudentPortalPage: React.FC<StudentPortalPageProps> = ({
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: ACTIVITY LOG */}
-      {currentTab === 'student-history' && (
-        <div className="space-y-4 no-print">
-          <div className="bg-white rounded-xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 mb-4 gap-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-blue-600" />
-                  My Record Activity & Updates
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Chronological audit of administrative actions and personal profile edits for your record.
-                </p>
-              </div>
-
-              {/* Event Filter Pills */}
-              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg text-xs self-start sm:self-auto">
-                <button
-                  type="button"
-                  onClick={() => setHistoryFilter('all')}
-                  className={`px-2.5 py-1 rounded-md font-medium transition-all cursor-pointer ${
-                    historyFilter === 'all'
-                      ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  All ({studentHistory?.length || 0})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setHistoryFilter('academic')}
-                  className={`px-2.5 py-1 rounded-md font-medium transition-all cursor-pointer ${
-                    historyFilter === 'academic'
-                      ? 'bg-white text-blue-600 shadow-2xs font-semibold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Faculty & Academic ({academicHistoryCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setHistoryFilter('contact')}
-                  className={`px-2.5 py-1 rounded-md font-medium transition-all cursor-pointer ${
-                    historyFilter === 'contact'
-                      ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Contact Updates ({contactHistoryCount})
-                </button>
-              </div>
-            </div>
-
-            {!filteredHistory || filteredHistory.length === 0 ? (
-              <div className="text-center py-10 text-slate-400">
-                <FileCheck className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                <p className="text-xs font-medium text-slate-500">
-                  {historyFilter === 'all'
-                    ? 'No recent modifications recorded on this account.'
-                    : `No ${historyFilter} events found for this record.`}
-                </p>
-              </div>
-            ) : (
-              <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-                {filteredHistory.map((item) => {
-                  const isAcademic = item.field === 'attendance' || item.field === 'remarks' || item.field === '*';
-                  const isContact = item.field === 'phone' || item.field === 'address' || item.field === 'emergency_contact';
-
-                  return (
-                    <div key={item.id} className="relative group">
-                      <div
-                        className={`absolute -left-6 top-1 w-2.5 h-2.5 rounded-full border-2 border-white shadow-xs ${
-                          isAcademic ? 'bg-blue-600' : isContact ? 'bg-indigo-600' : 'bg-slate-800'
-                        }`}
-                      />
-                      <div className="bg-slate-50 rounded-lg p-3.5 border border-slate-200/60 hover:bg-slate-50/80 transition-colors">
-                        <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-slate-900">
-                              {item.field === '*'
-                                ? 'Record Created & Registered'
-                                : `Updated ${item.field.replace(/_/g, ' ')}`}
-                            </span>
-                            <span
-                              className={`text-[10px] px-2 py-0.5 rounded font-medium ${
-                                isAcademic
-                                  ? 'bg-blue-50 text-blue-700 border border-blue-200/50'
-                                  : 'bg-slate-100 text-slate-600 border border-slate-200'
-                              }`}
-                            >
-                              {isAcademic ? 'Academic' : 'Contact'}
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-slate-400 font-medium">
-                            {new Date(item.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-
-                        <div className="text-xs text-slate-600 space-y-1 mt-1">
-                          {item.field !== '*' && (
-                            <div className="flex items-center gap-2 font-mono text-[11px] bg-white p-2 rounded border border-slate-200/50">
-                              <span className="text-slate-400 line-through truncate max-w-[150px]">
-                                {String(item.oldValue || 'None')}
-                              </span>
-                              <span className="text-slate-400">→</span>
-                              <span className="text-slate-900 font-semibold truncate max-w-[200px]">
-                                {String(item.newValue)}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2 text-[10px] text-slate-500 pt-1">
-                            <span>
-                              Modified by: <strong className="text-slate-700">{item.actorName}</strong> ({item.actorRole})
-                            </span>
-                            <span>•</span>
-                            <span>Node: {item.actorCampus || 'Central Node'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
         </div>
       )}

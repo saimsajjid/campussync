@@ -123,16 +123,16 @@ export const AppContent: React.FC = () => {
   // Enforce strict RBAC tab access
   let effectiveTab = currentTab;
   if (currentUser.role === 'student') {
-    if (!['overview', 'id-card', 'student-history'].includes(effectiveTab)) {
+    if (!['overview', 'id-card'].includes(effectiveTab)) {
       effectiveTab = 'overview';
     }
   } else if (currentUser.role === 'faculty') {
-    if (['conflicts', 'integrity', 'overview', 'id-card', 'student-history', 'sync'].includes(effectiveTab)) {
+    if (['conflicts', 'integrity', 'overview', 'id-card', 'sync'].includes(effectiveTab)) {
       effectiveTab = 'dashboard';
     }
   } else {
     // Admin
-    if (['overview', 'id-card', 'student-history'].includes(effectiveTab)) {
+    if (['overview', 'id-card'].includes(effectiveTab)) {
       effectiveTab = 'dashboard';
     }
   }
@@ -191,9 +191,9 @@ export const AppContent: React.FC = () => {
 
         {/* Active Page View */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          {['overview', 'id-card', 'student-history'].includes(effectiveTab) && (
+          {['overview', 'id-card'].includes(effectiveTab) && (
             <StudentPortalPage
-              activeSubTab={effectiveTab as 'overview' | 'id-card' | 'student-history'}
+              activeSubTab={effectiveTab as 'overview' | 'id-card'}
               onNavigateSubTab={(tab) => setCurrentTab(tab)}
             />
           )}

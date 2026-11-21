@@ -53,7 +53,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
     navItems = [
       { id: 'overview', label: 'My Record', icon: LayoutDashboard },
       { id: 'id-card', label: 'Student ID Card', icon: CreditCard },
-      { id: 'student-history', label: 'Activity Log', icon: History },
     ];
   } else if (currentUser.role === 'faculty') {
     navItems = [
