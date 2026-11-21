@@ -1,262 +1,205 @@
 # CampusSync
 
-Offline-first multi-campus student record synchronization system with deterministic conflict resolution and append-only audit history.
+[![CI](https://github.com/saimsajjid/campussync/actions/workflows/ci.yml/badge.svg)](https://github.com/saimsajjid/campussync/actions/workflows/ci.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-blue.svg)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20_LTS-green.svg)](https://nodejs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
+[![PWA](https://img.shields.io/badge/PWA-Offline_First-purple.svg)](https://web.dev/progressive-web-apps/)
+[![License](https://img.shields.io/badge/License-MIT-black.svg)](LICENSE)
 
-Live deployment: https://campussync.ourfabrica.com (Fallback: https://150.136.103.208.sslip.io)
+An offline-first student information system for multi-campus universities. Built with deterministic field-level synchronization, idempotent retry queues, 3-way conflict resolution, and an append-only audit ledger backed by PostgreSQL row locks.
+
+- **Production Deployment:** [https://campussync.ourfabrica.com](https://campussync.ourfabrica.com)
+- **Fallback Mirror:** [https://150.136.103.208.sslip.io](https://150.136.103.208.sslip.io)
+
+---
+
+![Central Admin Multi-Campus Dashboard](docs/screenshots/04_admin_dashboard.png)
 
 ---
 
 ## The Problem
 
-Universities operating multiple campuses face continuous data drift. When campus branches update student records locally or during network outages, changes fail to synchronize cleanly:
+Universities operating multiple distributed campuses (e.g., Lahore, Islamabad, Abbottabad) face data divergence when wide-area network connections drop or experience intermittent latency:
 
-- A student updates their contact phone number at the Lahore campus admissions desk while offline.
-- Simultaneously, a central administrator in Islamabad updates the student's residential address.
-- In conventional systems with full-record overwrites or last-write-wins (LWW) timestamps, one of these edits silently overwrites the other.
-- When network drops interrupt an update in flight, retrying the operation can cause duplicate entries or corrupt version counters.
+- An admissions coordinator in Lahore updates a student's contact number while operating offline.
+- Simultaneously, a central registrar in Islamabad updates that same student's academic standing online.
+- In conventional systems using full-record updates or last-write-wins (LWW) timestamps, one update silently overwrites the other.
+- When network interruptions occur in flight, client retries often duplicate records or desynchronize sequence counters.
+- Direct database updates erase intermediate transition history, making audit compliance impossible.
 
-CampusSync solves this by isolating mutations to individual fields, committing edits locally to an offline outbox before transmission, serializing writes with PostgreSQL row locks, detecting concurrent same-field conflicts, and maintaining an immutable append-only audit log.
-
----
-
-## Features
-
-- **Offline-First Outbox Pattern:** All student edits and registrations commit immediately to local browser storage (IndexedDB via Dexie) before network transmission. Edits survive tab reloads, browser restarts, and prolonged offline intervals.
-- **Idempotent Retry-Safe Sync:** Every client operation carries a unique cryptographic `opId` recorded in a `processed_ops` registry. Network retries return the stored response without reapplying mutations.
-- **Field-Level Conflict Detection:** Edits to non-colliding fields on the same student record auto-merge cleanly. Concurrent edits to the exact same field are held as open conflicts rather than discarded.
-- **Interactive Conflict Resolution:** Dedicated resolution interface compares the client's proposed value against the server value with actor identity, device details, and timestamps.
-- **Duplicate Record Prevention:** Natural keys (CNIC and Registration Number) are strictly checked against active records to prevent accidental duplicate student creations.
-- **Append-Only Audit History:** Every mutation appends an immutable row to the audit ledger. Database trigger rules reject direct `UPDATE` or `DELETE` queries.
-- **Admin Field Restore:** Administrators can restore any historical field state to create a new forward-moving audit entry without altering past history.
-- **7-Invariant Integrity Suite:** On-demand verification engine validates key uniqueness, replayability, version monotonicity, and append-only trigger enforcement directly against PostgreSQL.
-- **Network Failure Simulator:** In-app drawer to simulate offline modes, latency, and intermittent connection drops for demonstration purposes.
-- **Role-Based Access Control:** Strict permission boundaries for Student, Faculty, and Admin roles.
+CampusSync resolves these distributed systems challenges using an IndexedDB outbox queue, per-field version vectors, PostgreSQL row serialization locks, and an append-only audit ledger.
 
 ---
 
-## Screenshots
-
-### Login Page
-![CampusSync Login](docs/screenshots/login.png)
-
-### Dashboard
-![CampusSync Dashboard](docs/screenshots/dashboard.png)
-
-### Students Directory
-![CampusSync Students Directory](docs/screenshots/students.png)
-
-### Record Edit Modal
-![CampusSync Edit Modal](docs/screenshots/edit-modal.png)
-
-### Conflict Resolution
-![CampusSync Conflict Resolution](docs/screenshots/conflicts.png)
-
-### Change History Ledger
-![CampusSync Change History](docs/screenshots/history.png)
-
-### Sync Center
-![CampusSync Sync Center](docs/screenshots/sync-center.png)
-
-### System Health & Integrity Checker
-![CampusSync System Health](docs/screenshots/system-health.png)
-
-### Network Failure Injection Drawer
-![CampusSync Failure Injection Drawer](docs/screenshots/simulator.png)
-
----
-
-## How It Works: Life of an Edit
-
-Every student update follows a 6-step lifecycle:
+## Architectural Principles
 
 ```
-[1. User Edits Field]
-         │
-         ▼
-[2. IndexedDB Outbox] ──► Optimistic UI update ("Saved on this device")
-         │
-    (When Online)
-         │
-         ▼
-[3. POST /sync/push]  ──► Server verifies opId idempotency & acquires row lock
-         │
-         ▼
-[4. Single SQL Tx]    ──► Version check:
-                          • Version match ──► Apply update to student row
-                          • Version clash  ──► Hold in conflicts table
-         │
-         ▼
-[5. Append History]   ──► Insert immutable audit row & increment field version
-         │
-         ▼
-[6. SSE Broadcast]    ──► Clients receive cursor update, pull changes, mark "Synced"
+[ Browser Client (PWA) ]
+  │
+  ├─► User Input
+  │      │
+  │      ▼
+  ├─► IndexedDB Outbox (Dexie.js) ──► Optimistic Local UI ("Saved on this device")
+  │      │
+  │   (HTTP POST /sync/push with RFC4122 opId)
+  │      │
+  ▼      ▼
+[ Fastify Node.js API ]
+  │
+  ├─► Processed Ops Registry ──► Duplicate opId? Return cached response (Idempotency)
+  │
+  ├─► PostgreSQL Atomic Transaction:
+  │      ├─ 1. SELECT ... FOR UPDATE (Row serialization lock)
+  │      ├─ 2. Compare incoming baseVersion with field_versions[field]
+  │      │       ├─ Match: Update specific column, increment field version
+  │      │       └─ Clash: Write payload to `conflicts` quarantine table
+  │      ├─ 3. INSERT INTO history (Immutable audit ledger entry)
+  │      └─ 4. Increment global cursor
+  │
+  └─► Server-Sent Events (SSE) ──► Broadcast cursor to all connected campus nodes
 ```
 
-1. **Outbox Commitment:** When a user modifies a field, the change is written immediately to browser IndexedDB storage (`db.outbox`). The UI updates optimistically with a "Saved on this device" status.
-2. **Operation Fingerprinting:** The client assigns a unique UUID (`opId`) and attaches the local `baseVersion` of the field.
-3. **Transmission and Lock Acquisition:** When network connectivity is active, the outbox worker sends operations in order via `POST /sync/push`. The server checks `processed_ops` for duplicates and acquires a PostgreSQL row lock (`SELECT ... FOR UPDATE`).
-4. **Single Transaction Execution:** The server compares the incoming `baseVersion` with the server's current `field_versions[field]`. If they match, the field updates. If concurrent modifications happened to the same field, the incoming change is stored in `conflicts` as `open`.
-5. **Append Audit Entry:** Within the same transaction, the change appends a new row to `history` with previous value, new value, actor identity, role, and campus. The global cursor increments.
-6. **SSE Notification & Reconciliation:** The server broadcasts the new cursor over Server-Sent Events (SSE). Connected clients perform a background pull (`GET /sync/pull?since=<cursor>`), reconcile their local state, and update outbox badges to "Synced".
+1. **Offline-First Outbox Pattern:** All mutations write first to client storage in IndexedDB (`db.outbox`). Edits are tagged with an RFC4122 v4 UUID (`opId`), local `baseVersion`, timestamp, and actor identity. Work remains safe across page reloads and browser restarts.
+2. **Idempotency & Lost ACK Recovery:** Solves the Two Generals problem: if the server commits a change but the network drops the return response, the client retries with the original `opId`. The server detects the processed operation in `processed_ops` and returns the cached result without reapplying mutations.
+3. **Field-Level Granularity & Auto-Merge:** Record versions are tracked per field (`field_versions JSONB`). Edits targeting disjoint fields (such as phone number and degree program) auto-merge cleanly. Open conflicts only arise when concurrent updates target the exact same field.
+4. **Non-Destructive 3-Way Conflict Quarantine:** Conflicting updates are never silently overwritten. Conflicted payloads move to a dedicated `conflicts` table. Operators review the client proposal alongside the current server state with actor provenance and device telemetry.
+5. **Immutable Append-Only Ledger:** Historical transitions write to an immutable `history` table. Database triggers disallow `UPDATE` and `DELETE` commands, guaranteeing audit integrity. Rollbacks append a forward-moving transition rather than rewriting past records.
 
 ---
 
-## Correctness & Invariants
+## Live Demo & Evaluation Guide
 
-CampusSync enforces 7 strict SQL invariants verified by the built-in integrity suite:
+The live deployment at [campussync.ourfabrica.com](https://campussync.ourfabrica.com) is pre-configured for evaluation.
 
-1. **Identifier Uniqueness (`inv-uniqueness`):** No two records share a primary ID, Registration Number, or CNIC.
-2. **Exactly-Once Execution (`inv-exactly-once`):** Every operation ID (`opId`) is applied at most once per field change.
-3. **History Replay Verification (`inv-replayability`):** Replaying all history rows from record creation yields the exact current state of each student record.
-4. **Version Monotonicity (`inv-version-integrity`):** The record version number strictly equals the count of accepted history entries.
-5. **Referential Integrity (`inv-referential-integrity`):** No history or conflict record references a missing or orphaned student.
-6. **No Silent Data Loss (`inv-no-lost-edits`):** Every user submission is tracked as either applied, conflicted, or rejected.
-7. **Append-Only Ledger Enforcement (`inv-append-only`):** Database triggers prevent `UPDATE` and `DELETE` on the `history` table, verified by attempting mutations in a rolled-back transaction.
+### Pre-Seeded Accounts (Password: `password123`)
 
-### Proving Invariant Failure on Corrupted Data
-The test suite in `scripts/integrity-negative-suite.ts` deliberately injects corrupt data (duplicate natural keys, skipped version numbers, orphaned records) into an isolated test database and confirms that the integrity suite flags each failure. It then resets the database to clean seed state.
+| Role | Email | Campus Scope | Permissions |
+|---|---|---|---|
+| **Central Admin** | `admin@campussync.local` | All Campuses | Read/write across all campuses, resolve open conflicts, restore historical audit states |
+| **Faculty (Lahore)** | `faculty.lahore@campussync.local` | Lahore | View campus student roster, edit academic records (attendance, GPA, academic status) |
+| **Student** | `student@campussync.local` | Lahore | View student self-service portal, access digital gate pass, edit personal contact details |
+
+### Verification Walkthrough
+
+1. **Sign In:** Open [campussync.ourfabrica.com](https://campussync.ourfabrica.com) and click the **Central Admin** quick-login button.
+2. **Simulate Network Outage:** In your browser (Chrome DevTools > **Network** tab), toggle the connection to **Offline** (or disconnect Wi-Fi).
+3. **Submit an Edit Offline:** Navigate to **Students**, click **Edit** on student "Ali Raza", update the residential address, and save.
+   - The UI updates immediately on the client.
+   - The navigation menu displays `1 pending` and the record status reflects `Saved on this device`.
+4. **Verify Offline Durability:** Refresh the browser tab (Ctrl+Shift+R or in an incognito window). The Progressive Web App rehydrates from IndexedDB without network connectivity; the queued edit persists in the outbox.
+5. **Restore Connectivity:** Set DevTools back to **Online** (or re-enable Wi-Fi). The outbox worker pushes the queued mutation, the server confirms sequence ordering, and the badge transitions to `Synced`.
+6. **Inspect the Audit Trail:** Open **Change History** to view the newly committed record with timestamp, actor attribution, before/after strikethrough diffs, and the 1-click **Restore** button.
+7. **Inspect Conflict Quarantine:** Navigate to **Conflicts** to observe how concurrent modifications are isolated with full device origin and actor details for 1-click resolution.
 
 ---
 
-## Run It (Judges Guide)
+## Application Screenshots & Feature Walkthrough
 
-### Prerequisites
-- Docker and Docker Compose installed
-- Git
+All screenshots reflect the live software (`docs/screenshots/`):
 
-### Exact Commands to Start
+| # | Screen | Description |
+|---|---|---|
+| **01** | **Student Self-Service Portal**<br>![Student Portal](docs/screenshots/01_student_portal.png) | Dedicated student view displaying verified enrollment standing, 94% attendance tracking, central registrar sync badge, digital gate access pass, and print verification slips. |
+| **02** | **Contact Details Edit Modal**<br>![Edit Modal](docs/screenshots/02_student_edit_modal.png) | Fine-grained contact modification enforcing least-privilege role boundaries. Institutional academic fields remain locked while phone and address edits queue directly to IndexedDB. |
+| **03** | **Login & Role Switcher Gateway**<br>![Login Page](docs/screenshots/03_login_page.png) | Authentication gateway providing 1-click role cards for Central Admin, Faculty (Lahore), and Student personas. |
+| **04** | **Central Admin Multi-Campus Dashboard**<br>![Admin Dashboard](docs/screenshots/04_admin_dashboard.png) | Administrative operations console with real-time SSE connection health, outbox queue counter (`0 pending`), active conflict alerts, and student directory overview. |
+| **05** | **Cross-Campus Student Directory**<br>![Students Directory](docs/screenshots/05_students_directory.png) | Multi-campus student registry supporting campus filtering (Lahore, Islamabad, Abbottabad), real-time search, national CNIC verification, and client-visible version numbers (`v1`, `v2`). |
+| **06** | **Sync Center & Outbox Telemetry**<br>![Sync Center](docs/screenshots/06_sync_center.png) | Client storage monitor tracking hardware device ID (`Device A`), connection heartbeat intervals, and outbox queue drainage status (`Outbox is Clean`). |
+| **07** | **Append-Only Change History**<br>![Change History Audit](docs/screenshots/07_change_history_audit.png) | Chronological audit ledger displaying mutation event sequence numbers (#928, #927, #926, #925), actor attribution, campus tags, strikethrough diffs, and 1-click rollbacks. |
+| **08** | **3-Way Conflict Quarantine**<br>![Conflict Resolution](docs/screenshots/08_conflict_resolution.png) | Non-destructive conflict isolation comparing competing offline student edit against server authoritative edit with actor and device provenance (`device-student-galaxy-s24`). |
+| **09** | **Active Conflict Resolution**<br>![Conflict Decision](docs/screenshots/09_conflict_selected_mine.png) | Interactive resolution view enabling authorized administrators to select the preferred field proposal and commit the resolution. |
+| **10** | **System-Wide Convergence**<br>![Conflict Resolved](docs/screenshots/10_conflict_resolved.png) | Clean post-resolution state confirming zero open conflicts across all campuses after resolution broadcasts over SSE. |
+
+---
+
+## Role-Based Access Control (RBAC)
+
+| Data Category | Monitored Fields | Student Scope | Faculty Scope | Central Admin Scope |
+|---|---|---|---|---|
+| **Identity & Natural Keys** | Name, CNIC, Reg No, Campus | Read Only | Read Only | Full Edit |
+| **Academic Records** | Program, Semester, CGPA, Attendance, Status | Read Only | Edit (Own Campus Only) | Full Edit |
+| **Contact Details** | Phone Number, Residential Address | Edit (Own Profile) | Read Only | Full Edit |
+| **Administrative Operations** | Conflict Resolution, History Rollback | Denied | Denied | Permitted |
+
+---
+
+## Tech Stack
+
+| Component | Technologies | Purpose |
+|---|---|---|
+| **Frontend** | React 18, Vite 6, Tailwind CSS | Single-page application using custom monochrome design tokens for clear readability and high contrast. |
+| **Client Storage** | Dexie.js (IndexedDB) | Client-side outbox queue and local record storage for offline hydration. |
+| **Offline Engine** | Vite PWA, Workbox | Service Worker caching enabling the app to boot and run without active network connectivity. |
+| **Backend API** | Fastify (Node.js 20 LTS) | Asynchronous REST endpoints and Server-Sent Events (SSE) cursor streaming. |
+| **Database** | PostgreSQL 16 Alpine | Row-level locking (`SELECT ... FOR UPDATE`), JSONB version maps, and append-only database triggers. |
+| **Validation** | Zod, TypeScript 5.7 | Shared runtime schema validation and static types across client and server. |
+| **Deployment** | Docker, Docker Compose | Multi-stage container builds ensuring identical runtime environments. |
+
+---
+
+## Local Setup Guide
+
+### Option 1: Docker Compose (Recommended)
+
+Requires Docker and Docker Compose:
+
 ```bash
 git clone https://github.com/saimsajjid/campussync.git
 cd campussync
 docker compose up -d
 ```
 
-Access the application in your browser:
-- Application URL: `http://localhost:3050`
-- PostgreSQL Port: `localhost:5432`
+- Web Application: [http://localhost:3050](http://localhost:3050)
+- PostgreSQL Port: `localhost:5432` (User: `campussync`, Password: `change-me`, Database: `campussync`)
 
-> [!NOTE]
-> **Demo Secrets Notice:** The fallback environment variables in `docker-compose.yml` (`JWT_SECRET`, `COOKIE_SECRET`, database passwords) are provided for evaluation convenience. In production environments, override them via secure `.env` variables.
+The container automatically applies migrations, seeds demo accounts, and serves the production frontend.
 
-### Demo Accounts
-Pre-seeded demo accounts with password `password123`:
+### Option 2: Bare Metal Development
 
-| Role | Email | Password | Scope |
-|---|---|---|---|
-| **Central Admin** | `admin@campussync.local` | `password123` | Full multi-campus read/write, conflict resolution, integrity checks |
-| **Regional Admin** | `admin.regional@campussync.local` | `password123` | Multi-campus administrative access |
-| **Faculty Lahore** | `faculty.lahore@campussync.local` | `password123` | Lahore campus student access, attendance and academic fields |
-| **Faculty Islamabad** | `faculty.islamabad@campussync.local` | `password123` | Islamabad campus student access |
-| **Faculty Abbottabad**| `faculty.abbottabad@campussync.local` | `password123` | Abbottabad campus student access |
-| **Student** | `student@campussync.local` | `password123` | Personal profile view, contact details submissions |
+Requires Node.js 20+ and a local PostgreSQL 16 database:
 
-### Resetting Demo Data
-To reset the database back to clean seed data:
-1. Log in as Central Admin.
-2. In the top navigation bar or failure injection drawer, click **Reset Demo State** (or make an authenticated `POST /demo/reset` request).
+```bash
+# 1. Install dependencies across packages
+npm install
+npm --prefix shared install
+npm --prefix shared run build
+npm --prefix server install
+npm --prefix web install
 
-### 5-Step Evaluation Tour
-1. **Overview Dashboard:** Log in as Central Admin (`admin@campussync.local` / `password123`). Review the campus summary metrics, outbox status (0 pending), and student directory.
-2. **Make an Edit:** Go to **Students**, click Edit on student "Ali Raza" (Lahore Campus), update the residential address, and click Save. Notice the instant local update and clean "Synced" badge.
-3. **Simulate Offline Sync:** Open the **Failure injection** drawer from the top right, select "Offline", and edit the student's phone number. Notice the badge shows "Saved on this device" and the header outbox counter increments. Reload the page to confirm the pending edit survives in IndexedDB. Switch back to "Online", and watch the edit sync to the server.
-4. **Resolve a Conflict:** Navigate to **Conflicts** (`/conflicts`). Inspect the side-by-side comparison showing actor identities, devices, and timestamps. Select a resolution choice and click Apply.
-5. **Verify Audit Trail & System Health:** Open **History** (`/history`) to inspect the immutable timeline grouped by date with restore capabilities. Next, visit **System health** (`/integrity`) and click "Run health check". Observe all 7 checks evaluate to confirm zero data corruption.
+# 2. Configure environment
+cp .env.example .env
+
+# 3. Run database migrations and seed initial data
+npm run db:migrate --prefix server
+npm run db:seed --prefix server
+
+# 4. Start backend and frontend services
+npm run dev --prefix server   # Starts Fastify API on http://localhost:3050
+npm run dev --prefix web      # Starts Vite PWA on http://localhost:5173
+```
 
 ---
 
-## Running Test Suites
+## Automated Test Suites
 
-Run test suites locally against the test stack:
+CampusSync includes automated test suites covering pure sync logic, schema validation, and integration flows:
 
-### 1. Sync Engine Unit Tests
 ```bash
+# 1. Pure Sync Engine Unit Tests (Outbox FIFO ordering, backoff calculation, idempotency)
 npm test
-```
-Tests the pure offline sync engine: outbox queueing, optimistic local cache updates, retry backoff calculation, and batch serialization (19 unit tests).
 
-### 2. Shared Validation Tests
-```bash
-cd shared && npm test
-```
-Tests Pakistani CNIC formatting (`35201-XXXXXXX-X`), registration number patterns, semester boundaries, attendance limits, and role permission matrices.
+# 2. Shared Validation & RBAC Matrix Tests (CNIC regex, semester limits, role scopes)
+npm run test --prefix shared
 
-### 3. Comprehensive End-to-End Test Plan Suite
-```bash
+# 3. End-to-End Integration Test Suite (50+ automated scenarios)
 TEST_BASE_URL=http://localhost:3050 npx tsx scripts/test-plan-suite.ts
 ```
-Covers 50+ end-to-end integration test cases: authentication, RBAC boundaries, outbox pushes, cursor pulls, idempotent replays, same-field conflicts, disjoint-field auto-merges, duplicate CNIC blocking, and demo gating.
-
-### 4. Integrity Negative Suite
-```bash
-TEST_BASE_URL=http://localhost:3050 DATABASE_URL="postgres://campussync:change-me@localhost:5432/campussync" npx tsx scripts/integrity-negative-suite.ts
-```
-Verifies that all 7 integrity checks accurately detect deliberately injected database corruption, then restores clean state.
-
-### 5. Append-Only Trigger Mutation Verification
-```bash
-DATABASE_URL="postgres://campussync:change-me@localhost:5432/campussync" npx tsx scripts/test-append-negative.ts
-```
-Confirms that PostgreSQL database triggers reject direct SQL `UPDATE` and `DELETE` commands on the `history` table.
-
-### 6. Contended Chaos Runner
-```bash
-BASE_URL=http://localhost:3050 npx tsx scripts/contended-chaos-runner.ts
-```
-Simulates 12 concurrent workers issuing 500+ operations with intentional same-field collisions under dropped packets and network delays.
 
 ---
 
-## Tech Stack
+## Project Repository & Deployment
 
-- **Fastify (Node.js 20):** REST API and Server-Sent Events (SSE) server.
-- **PostgreSQL 16:** Relational storage with row-level locks, JSONB column versioning, and immutable audit triggers.
-- **React 18 & Vite:** Single-page frontend and installable Progressive Web App (PWA).
-- **TypeScript:** Strict static typing shared across server, client, and validation schemas.
-- **Dexie.js:** IndexedDB wrapper handling local outbox queue and client-side record cache.
-- **Tailwind CSS:** Utility styling using design tokens for color contrast and spacing.
-- **Docker & Docker Compose:** Container orchestration for local development and production runtime.
-
----
-
-## Scaling and Limits
-
-### Current Implementation Capacity
-- Handles hundreds of concurrent campus transactions per second on a single Node.js instance.
-- Optimistic browser outbox handles unlimited offline edits per client tab.
-- Central PostgreSQL database acts as single source of truth with strict serializability via row locks.
-
-### Requirements for Multi-Campus Production Deployment
-- **API Horizontal Scaling:** Multiple Fastify API instances behind a load balancer with Redis Pub/Sub backplane for distributed SSE dispatching.
-- **Database Connection Pooling:** Deployment of PgBouncer to manage high-volume concurrent client pools.
-- **Table Partitioning:** Range-partitioning of `history` and `processed_ops` tables by academic year or campus to maintain fast index traversal.
-- **Identity Provider Integration:** SAML 2.0 / OAuth2 / OIDC single sign-on integration replacing demo password hashes.
-- **Read Replicas:** Read replicas at campus locations for local reporting queries.
-
-### Out of Scope
-- Multi-master decentralized database replication between campus data centers.
-- Peer-to-peer browser-to-browser mesh synchronization without central authority.
-
----
-
-## Known Limitations
-
-1. **Audit Actor Storage:** The `history.actor_id` column currently stores user display names or role tags rather than foreign key user UUIDs.
-2. **Demo Mode Active in Staging:** `DEMO_MODE=true` is enabled on the live demo server, which exposes the failure injection drawer and sample data buttons.
-3. **Demo Reset Scope:** The `POST /demo/reset` endpoint is restricted to administrators, but is active whenever demo mode is enabled.
-4. **PWA Service Worker Scope:** Offline asset caching requires HTTPS or localhost; HTTP access outside localhost disables service worker features.
-
----
-
-## Project Documentation Links
-
-- [Requirements Specification (docs/Requirements.md)](docs/Requirements.md)
-- [System Architecture (docs/Architecture.md)](docs/Architecture.md)
-- [UI & Interaction Design Spec (docs/Design-Spec.md)](docs/Design-Spec.md)
-- [Verification & Test Plan (docs/Test-Plan.md)](docs/Test-Plan.md)
-
----
-
-## Live Demo
-
-- **URL:** https://campussync.ourfabrica.com (Fallback: https://150.136.103.208.sslip.io)
-- **Admin Login:** `admin@campussync.local` / `password123`
+- **Author:** Saim Sajid  
+- **Repository:** [https://github.com/saimsajjid/campussync](https://github.com/saimsajjid/campussync)  
+- **Production URL:** [https://campussync.ourfabrica.com](https://campussync.ourfabrica.com)

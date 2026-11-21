@@ -35,6 +35,15 @@ bright-future-university/
 # Specification & internal documents (do not publish to public repo)
 *.md
 !README.md
-!docs/*.md
 !.github/pull_request_template.md
 *.pdf
+*.txt
+!LICENSE
+docs/internal/
+docs/*.md
+docs/*.txt
+
+# Local assets and presentation files
+*.pptx
+create_presentation.py
+/screenshots/

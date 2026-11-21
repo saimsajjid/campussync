@@ -1,9 +1,12 @@
 {
   "name": "campussync",
   "version": "1.0.0",
+  "description": "Offline-first multi-campus student record synchronization system",
   "private": true,
   "scripts": {
-    "test": "tsx scripts/test-sync-engine.ts"
+    "build": "npm --prefix shared run build && npm --prefix server run build && npm --prefix web run build",
+    "test": "tsx scripts/test-sync-engine.ts",
+    "test:shared": "npm --prefix shared test"
   },
   "devDependencies": {
     "dexie": "^4.4.7",
