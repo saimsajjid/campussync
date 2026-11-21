@@ -6,6 +6,7 @@
   --color-primary-hover: var(--color-primary-hover);
   --color-primary-light: var(--color-primary-light);
   --color-surface-bg: var(--color-surface-bg);
+  --color-surface-card: var(--color-surface-card);
   --color-text-dark: var(--color-text-dark);
   --color-text-muted: var(--color-text-muted);
   --color-border-subtle: var(--color-border-subtle);
@@ -50,10 +51,10 @@ body {
   min-height: 100vh;
 }
 
-/* Modern sleek custom scrollbar (replaces default blocky 17px Windows scrollbars & stops layout shifts) */
+/* Modern sleek custom scrollbar (shadcn zinc aesthetic) */
 html, body, * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+  scrollbar-color: rgba(161, 161, 170, 0.35) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -66,27 +67,28 @@ html, body, * {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: rgba(148, 163, 184, 0.4);
+  background-color: rgba(161, 161, 170, 0.35);
   border-radius: 9999px;
   border: 1px solid transparent;
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(100, 116, 139, 0.7);
+  background-color: rgba(113, 113, 122, 0.65);
 }
 
-/* Custom Dropdown / Select Global Styles */
+/* Focus Ring */
 :focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
 
+/* Custom Dropdown / Select Global Styles */
 select {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2.2' stroke='%232563EB'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2.2' stroke='%2371717A'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
   background-position: right 0.75rem center;
   background-repeat: no-repeat;
   background-size: 0.95rem;
@@ -102,20 +104,19 @@ select:hover:not(:disabled) {
 select:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(79, 125, 243, 0.18);
+  box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.12);
 }
 
 select:disabled {
   cursor: not-allowed;
   opacity: 0.65;
   background-color: var(--color-surface-slate-100);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%2394A3B8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
 }
 
 /* Custom styled dropdown options */
 select option {
-  background-color: #ffffff;
-  color: #1e293b;
+  background-color: var(--color-surface-card);
+  color: var(--color-text-dark);
   padding: 10px 14px;
   font-size: 13px;
   font-weight: 500;
@@ -123,29 +124,19 @@ select option {
 
 select option:checked {
   background-color: var(--color-primary-light);
-  color: var(--color-primary-dark);
+  color: var(--color-primary);
   font-weight: 600;
-}
-
-@keyframes pulse-dot {
-  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-  70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-}
-
-.pulse-green {
-  animation: pulse-dot 2s infinite;
 }
 
 /* Print Optimization for Official Student Verification Certificate */
 @media print {
-  header, nav, aside, .no-print, button, #failure-simulator-drawer, .toast-container {
+  header, nav, aside, .no-print, button, .toast-container {
     display: none !important;
   }
 
   body, html, #root, main {
     background: #ffffff !important;
-    color: #0f172a !important;
+    color: #09090b !important;
     padding: 0 !important;
     margin: 0 !important;
     width: 100% !important;
@@ -157,7 +148,7 @@ select option:checked {
 
   .print-certificate-container {
     box-shadow: none !important;
-    border: 2px solid #0f172a !important;
+    border: 2px solid #09090b !important;
     padding: 2.5rem !important;
     margin: 1rem auto !important;
     max-width: 800px !important;

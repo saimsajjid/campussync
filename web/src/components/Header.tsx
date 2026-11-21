@@ -6,7 +6,6 @@ import { CustomDropdown } from './CustomDropdown';
 
 interface HeaderProps {
   onToggleMobileMenu: () => void;
-  onOpenSimulator?: () => void;
   onNavigateTab?: (tab: string) => void;
 }
 
@@ -16,7 +15,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
   const campusOptions: Array<{ value: CampusCode | 'all'; label: string }> =
     currentUser?.role === 'admin'
       ? [
-          { value: 'all', label: 'All Campuses (Combined)' },
+          { value: 'all', label: 'All Campuses' },
           { value: 'Islamabad', label: 'Islamabad Campus' },
           { value: 'Lahore', label: 'Lahore Campus' },
           { value: 'Abbottabad', label: 'Abbottabad Campus' },
@@ -29,22 +28,22 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
         ];
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 h-[70px] px-3 sm:px-4 lg:px-8 flex items-center justify-between gap-2 max-w-full">
+    <header className="sticky top-0 z-30 bg-white border-b border-zinc-200 h-16 px-4 lg:px-8 flex items-center justify-between gap-3 max-w-full">
       {/* Left: Mobile Toggle & Campus Filter */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
           onClick={onToggleMobileMenu}
-          className="lg:hidden p-1.5 sm:p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg shrink-0"
+          className="lg:hidden p-2 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg shrink-0 cursor-pointer transition-colors"
           aria-label="Toggle navigation"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-4 h-4" />
         </button>
 
         {/* Campus Filter Selector / Fixed Badge */}
         <div className="max-w-[220px] sm:max-w-none">
           {currentUser?.role !== 'admin' ? (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200/80 text-xs font-semibold text-slate-700 shadow-2xs">
-              <Building2 className="w-3.5 h-3.5 text-slate-500" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 border border-zinc-200 text-xs font-medium text-zinc-800 shadow-2xs">
+              <Building2 className="w-3.5 h-3.5 text-zinc-500" />
               <span>{currentUser?.campus || 'Lahore'} Campus</span>
             </div>
           ) : (
@@ -52,45 +51,43 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
               value={activeCampus}
               onChange={(val) => setActiveCampus(val)}
               options={campusOptions}
-              icon={<Building2 className="w-4 h-4" />}
+              icon={<Building2 className="w-3.5 h-3.5" />}
               size="sm"
             />
           )}
         </div>
       </div>
 
-      {/* Right: User Profile Info & Logout */}
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="flex items-center gap-3 pl-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0 border border-blue-200/50">
-              {currentUser?.name
-                ? currentUser.name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .slice(0, 2)
-                    .join('')
-                    .toUpperCase()
-                : 'U'}
-            </div>
-            <div className="hidden sm:flex flex-col text-left">
-              <span className="text-xs font-semibold text-slate-900 leading-tight">
-                {currentUser?.name || 'User'}
-              </span>
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
-                {currentUser?.role || 'Guest'} {currentUser?.campus ? `• ${currentUser.campus}` : '• Central'}
-              </span>
-            </div>
+      {/* Right: User Profile & Sign Out (No diagnostic button, no dark mode toggle) */}
+      <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-zinc-900 text-zinc-50 flex items-center justify-center font-semibold text-xs shrink-0 shadow-2xs">
+            {currentUser?.name
+              ? currentUser.name
+                  .split(' ')
+                  .map((n) => n[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase()
+              : 'U'}
           </div>
-          <button
-            onClick={logout}
-            aria-label="Sign out"
-            title="Sign out"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer ml-1"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+          <div className="hidden sm:flex flex-col text-left">
+            <span className="text-xs font-semibold text-zinc-900 leading-tight">
+              {currentUser?.name || 'User'}
+            </span>
+            <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
+              {currentUser?.role || 'Guest'} {currentUser?.campus ? `• ${currentUser.campus}` : '• Central'}
+            </span>
+          </div>
         </div>
+        <button
+          onClick={logout}
+          aria-label="Sign out"
+          title="Sign out"
+          className="p-2 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
     </header>
   );

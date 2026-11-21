@@ -19,51 +19,51 @@ export const DuplicateRecordDialog: React.FC<DuplicateRecordDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl max-w-md w-full shadow-2xl border border-zinc-200 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-rose-100 bg-rose-50/70 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-5 h-5 text-rose-600" />
+        <div className="px-6 py-4 border-b border-zinc-200 bg-zinc-50 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-zinc-100 text-zinc-900 border border-zinc-200 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-4 h-4 text-zinc-800" />
           </div>
           <div>
-            <h3 className="font-bold text-base text-rose-950">
-              Duplicate Student Record Detected
+            <h3 className="font-semibold text-base text-zinc-900">
+              Duplicate Record Detected
             </h3>
           </div>
         </div>
 
         {/* Content */}
         <div className="p-6 space-y-4 text-left">
-          <p className="text-sm text-slate-700 leading-relaxed">
-            The registration number or CNIC you entered already exists in the university database.
+          <p className="text-xs text-zinc-600 leading-relaxed">
+            The registration number or CNIC you entered already exists in the authoritative registry.
           </p>
 
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 font-mono break-words">
+          <div className="p-3 rounded-lg bg-zinc-50 border border-zinc-200 text-xs text-zinc-800 font-mono break-words">
             {reason}
           </div>
 
-          <p className="text-xs text-slate-500">
-            Choose an action below to proceed without data loss or record duplication:
+          <p className="text-xs text-zinc-500">
+            Choose an action below to proceed without data loss or duplicate records:
           </p>
         </div>
 
         {/* Actions */}
-        <div className="px-6 py-4 bg-slate-50/60 border-t border-slate-100 flex flex-col-reverse sm:flex-row gap-2.5 sm:justify-end">
+        <div className="px-6 py-4 bg-zinc-50/70 border-t border-zinc-200 flex flex-col-reverse sm:flex-row gap-2.5 sm:justify-end">
           <button
             type="button"
             onClick={onCancelCreation}
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 border border-slate-200 hover:bg-slate-100 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-2 rounded-lg text-xs font-medium text-zinc-700 border border-zinc-200 hover:bg-zinc-100 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <X className="w-4 h-4" /> Cancel Creation
+            <X className="w-3.5 h-3.5" /> Cancel Creation
           </button>
 
           <button
             type="button"
             onClick={() => onOpenExisting(existingRecordId || '')}
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-50 bg-zinc-900 hover:bg-zinc-800 shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <ExternalLink className="w-4 h-4" /> Open Existing Record
+            <ExternalLink className="w-3.5 h-3.5" /> Open Existing Record
           </button>
         </div>
       </div>

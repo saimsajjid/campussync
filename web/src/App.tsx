@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
-import { FailureSimulatorDrawer } from './components/FailureSimulatorDrawer';
 import { StudentFormModal } from './components/StudentFormModal';
 import { DuplicateRecordDialog } from './components/DuplicateRecordDialog';
 import { db } from './db';
 import { DashboardPage } from './pages/DashboardPage';
-
 import { StudentsPage } from './pages/StudentsPage';
 import { ConflictResolutionPage } from './pages/ConflictResolutionPage';
 import { HistoryPage } from './pages/HistoryPage';
@@ -28,7 +26,6 @@ import type { StudentRecord } from './types';
 export const AppContent: React.FC = () => {
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
 
   // Modal State
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
@@ -50,9 +47,9 @@ export const AppContent: React.FC = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-        <BrandLogo className="w-12 h-12 mb-3.5 shadow-sm animate-pulse" />
-        <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-800 rounded-full animate-spin" />
+      <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-4">
+        <BrandLogo className="w-12 h-12 mb-3.5 shadow-2xs animate-pulse" />
+        <div className="w-5 h-5 border-2 border-zinc-300 border-t-zinc-900 rounded-full animate-spin" />
       </div>
     );
   }
@@ -60,31 +57,31 @@ export const AppContent: React.FC = () => {
   const renderToasts = () => {
     if (!toasts || toasts.length === 0) return null;
     return (
-      <div className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0">
+      <div className="fixed bottom-5 right-5 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0">
         {toasts.map((t) => (
           <div
             key={t.id}
-            className="pointer-events-auto bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl p-3 sm:p-3.5 shadow-lg shadow-slate-900/5 flex items-start gap-3 transition-all animate-in fade-in slide-in-from-bottom-2 duration-150"
+            className="pointer-events-auto bg-white/98 backdrop-blur-md border border-zinc-200/90 rounded-lg p-3 sm:p-3.5 shadow-md flex items-start gap-3 transition-all animate-in fade-in slide-in-from-bottom-2 duration-150"
           >
-            {/* Status Micro-Badge */}
+            {/* Status Micro-Badge (Monochrome Zinc) */}
             <div className="shrink-0 mt-0.5">
               {t.type === 'success' && (
-                <div className="w-5 h-5 rounded-full bg-emerald-50 border border-emerald-200/60 flex items-center justify-center text-emerald-600">
+                <div className="w-5 h-5 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-900">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                 </div>
               )}
               {t.type === 'danger' && (
-                <div className="w-5 h-5 rounded-full bg-rose-50 border border-rose-200/60 flex items-center justify-center text-rose-600">
+                <div className="w-5 h-5 rounded-full bg-zinc-100 border border-zinc-300 flex items-center justify-center text-zinc-950 font-bold">
                   <AlertCircle className="w-3.5 h-3.5" />
                 </div>
               )}
               {t.type === 'warning' && (
-                <div className="w-5 h-5 rounded-full bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-600">
+                <div className="w-5 h-5 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-800">
                   <AlertTriangle className="w-3.5 h-3.5" />
                 </div>
               )}
               {t.type === 'info' && (
-                <div className="w-5 h-5 rounded-full bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600">
+                <div className="w-5 h-5 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-700">
                   <Info className="w-3.5 h-3.5" />
                 </div>
               )}
@@ -92,7 +89,7 @@ export const AppContent: React.FC = () => {
 
             {/* Notification Text */}
             <div className="flex-1 min-w-0 pr-1">
-              <p className="text-xs font-medium text-slate-800 leading-relaxed">
+              <p className="text-xs font-medium text-zinc-900 leading-relaxed">
                 {t.message}
               </p>
             </div>
@@ -100,7 +97,7 @@ export const AppContent: React.FC = () => {
             {/* Micro Close Button */}
             <button
               onClick={() => removeToast(t.id)}
-              className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0 -mr-1 -mt-0.5"
+              className="p-1 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors cursor-pointer shrink-0 -mr-1 -mt-0.5"
               aria-label="Dismiss notification"
             >
               <X className="w-3.5 h-3.5" />
@@ -151,7 +148,7 @@ export const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex text-slate-900">
+    <div className="min-h-screen bg-zinc-50 flex text-zinc-900">
       {/* Sidebar Navigation */}
       <Sidebar
         currentTab={currentTab}
@@ -168,20 +165,19 @@ export const AppContent: React.FC = () => {
         {/* Sticky Top Header */}
         <Header
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          onOpenSimulator={() => setIsSimulatorOpen(true)}
           onNavigateTab={(tab) => setCurrentTab(tab)}
         />
 
-        {/* Offline Alert Strip */}
+        {/* Offline Alert Strip (Monochrome Zinc) */}
         {simulator.isOffline && (
-          <div className="bg-amber-50 border-b border-amber-200/80 px-4 py-2 text-xs font-medium text-amber-900 flex items-center justify-between z-20">
+          <div className="bg-zinc-100 border-b border-zinc-200 px-4 py-2 text-xs font-medium text-zinc-800 flex items-center justify-between z-20">
             <div className="flex items-center gap-2">
-              <WifiOff className="w-4 h-4 text-amber-600" />
+              <WifiOff className="w-4 h-4 text-zinc-600" />
               <span>
-                You are currently <strong>offline</strong>. Changes are saved locally on this device and will sync automatically when reconnected.
+                You are currently <strong>offline</strong>. Changes are queued locally and will automatically synchronize upon reconnection.
               </span>
             </div>
-            <span className="bg-amber-600 text-white text-[10px] px-2.5 py-0.5 rounded-full font-semibold">
+            <span className="bg-zinc-900 text-zinc-50 text-[10px] px-2.5 py-0.5 rounded-full font-semibold">
               Offline Mode
             </span>
           </div>
@@ -218,19 +214,14 @@ export const AppContent: React.FC = () => {
         </main>
       </div>
 
-      {/* Modals & Drawers */}
-      <FailureSimulatorDrawer
-        isOpen={isSimulatorOpen}
-        onClose={() => setIsSimulatorOpen(false)}
-      />
-
+      {/* Student Form Modal */}
       <StudentFormModal
         isOpen={isStudentModalOpen}
         onClose={() => setIsStudentModalOpen(false)}
         studentToEdit={studentToEdit}
       />
 
-      {/* Duplicate Record Dialog (FR-6) */}
+      {/* Duplicate Record Dialog */}
       {duplicateRecordPrompt && duplicateRecordPrompt.isOpen && (
         <DuplicateRecordDialog
           isOpen={duplicateRecordPrompt.isOpen}

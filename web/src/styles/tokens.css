@@ -1,78 +1,107 @@
+/* shadcn/ui Design System Design Tokens (Pure Light Mode - Monochrome Zinc)
+ * Matched to Pietro Schirano's official shadcn/ui Figma UI Kit (Zinc Theme)
+ */
+
 :root {
-  /* Brand / Primary - Royal Blue */
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-primary-light: #eff6ff;
-  --color-primary-dark: #1e40af;
-  --color-primary-deep: #1e3a8a;
-  --color-primary-blue-500: #3b82f6;
-  --color-primary-blue-600: #2563eb;
-  --color-primary-10: rgba(37, 99, 235, 0.1);
-  --color-primary-20: rgba(37, 99, 235, 0.2);
-  --color-primary-30: rgba(37, 99, 235, 0.3);
+  /* Core Surface & Text */
+  --background: #fafafa;
+  --foreground: #09090b;
 
-  /* Surfaces & Backgrounds */
-  --color-surface-bg: #f8fafc;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+
+  /* Primary (Dark Obsidian in light mode for maximum contrast & crispness) */
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  --primary-hover: #27272a;
+  --color-primary: #18181b;
+  --color-primary-hover: #27272a;
+  --color-primary-light: #f4f4f5;
+  --color-primary-dark: #09090b;
+  --color-primary-deep: #000000;
+  --color-primary-10: rgba(24, 24, 27, 0.06);
+  --color-primary-20: rgba(24, 24, 27, 0.12);
+  --color-primary-30: rgba(24, 24, 27, 0.20);
+
+  /* Secondary & Muted */
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+
+  /* Accent */
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+
+  /* Destructive - clean zinc/obsidian */
+  --destructive: #18181b;
+  --destructive-foreground: #fafafa;
+
+  /* Borders & Inputs */
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #18181b;
+  --radius: 0.75rem;
+
+  /* CampusSync Variables Mapped to monochrome Zinc Tokens */
+  --color-surface-bg: #fafafa;
   --color-surface-card: #ffffff;
-  --color-surface-muted: #f8fafc;
-  --color-surface-slate-100: #f1f5f9;
-  --color-surface-dark: #0f172a;
-  --color-surface-slate-800: #1e293b;
+  --color-surface-muted: #f4f4f5;
+  --color-surface-slate-100: #f4f4f5;
+  --color-surface-dark: #09090b;
+  --color-surface-slate-800: #18181b;
 
-  /* Text Colors */
-  --color-text-dark: #0f172a;
-  --color-text-muted: #64748b;
-  --color-text-secondary: #334155;
-  --color-text-subtle: #475569;
-  --color-text-light: #64748b;
+  --color-text-dark: #09090b;
+  --color-text-muted: #71717a;
+  --color-text-secondary: #3f3f46;
+  --color-text-subtle: #52525b;
+  --color-text-light: #71717a;
 
-  /* Borders */
-  --color-border-subtle: #e2e8f0;
-  --color-border-muted: #cbd5e1;
-  --color-border-light: #f1f5f9;
+  --color-border-subtle: #e4e4e7;
+  --color-border-muted: #d4d4d8;
+  --color-border-light: #f4f4f5;
 
-  /* Status: Synced / Success */
-  --color-status-synced-bg: #ecfdf5;
-  --color-status-synced-text: #047857;
-  --color-status-synced-border: #a7f3d0;
-  --color-status-synced-dark: #065f46;
-  --color-status-success-green: #10b981;
-  --color-status-success-emerald: #059669;
-  --color-status-success-bg: #ecfdf5;
+  /* Status Tokens: Monochrome Zinc (No green, yellow, or red) */
+  --color-status-synced-bg: #f4f4f5;
+  --color-status-synced-text: #18181b;
+  --color-status-synced-border: #e4e4e7;
+  --color-status-synced-dark: #09090b;
+  --color-status-success-green: #18181b;
+  --color-status-success-emerald: #18181b;
+  --color-status-success-bg: #f4f4f5;
 
-  /* Status: Pending / Warning */
-  --color-status-pending-bg: #fffbeb;
-  --color-status-pending-text: #b45309;
-  --color-status-pending-border: #fde68a;
-  --color-status-pending-dark: #92400e;
-  --color-status-warning-amber: #d97706;
-  --color-status-warning-orange: #ea580c;
-  --color-status-orange-light: #fff7ed;
-  --color-status-orange-border: #fed7aa;
-  --color-status-orange-text: #c2410c;
+  --color-status-pending-bg: #f4f4f5;
+  --color-status-pending-text: #3f3f46;
+  --color-status-pending-border: #e4e4e7;
+  --color-status-pending-dark: #18181b;
+  --color-status-warning-amber: #3f3f46;
+  --color-status-warning-orange: #3f3f46;
+  --color-status-orange-light: #f4f4f5;
+  --color-status-orange-border: #e4e4e7;
+  --color-status-orange-text: #3f3f46;
 
-  /* Status: Conflict / Purple */
-  --color-status-conflict-bg: #f5f3ff;
-  --color-status-conflict-text: #6d28d9;
-  --color-status-conflict-border: #ddd6fe;
-  --color-status-conflict-dark: #5b21b6;
-  --color-status-conflict-subtle: #faf5ff;
-  --color-status-danger-red: #e11d48;
-  --color-status-danger-dark: #be123c;
-  --color-status-danger-subtle: #fff1f2;
-  --color-status-danger-text: #9f1239;
+  --color-status-conflict-bg: #f4f4f5;
+  --color-status-conflict-text: #09090b;
+  --color-status-conflict-border: #d4d4d8;
+  --color-status-conflict-dark: #09090b;
+  --color-status-conflict-subtle: #f4f4f5;
+  --color-status-danger-red: #09090b;
+  --color-status-danger-dark: #09090b;
+  --color-status-danger-subtle: #f4f4f5;
+  --color-status-danger-text: #09090b;
 
-  /* Status: Rejected / Rose */
-  --color-status-rejected-bg: #fff1f2;
-  --color-status-rejected-text: #be123c;
-  --color-status-rejected-border: #fecdd3;
+  --color-status-rejected-bg: #f4f4f5;
+  --color-status-rejected-text: #52525b;
+  --color-status-rejected-border: #e4e4e7;
 
-  /* Status: Info / Role */
-  --color-status-info-bg: #eff6ff;
-  --color-status-info-text: #1d4ed8;
-  --color-status-info-light: #dbeafe;
-  --color-status-info-border: #bfdbfe;
-  --color-status-sky-light: #f0f9ff;
-  --color-status-sky-border: #bae6fd;
-  --color-status-sky-text: #0284c7;
+  --color-status-info-bg: #f4f4f5;
+  --color-status-info-text: #18181b;
+  --color-status-info-light: #f4f4f5;
+  --color-status-info-border: #e4e4e7;
+  --color-status-sky-light: #f4f4f5;
+  --color-status-sky-border: #e4e4e7;
+  --color-status-sky-text: #18181b;
 }

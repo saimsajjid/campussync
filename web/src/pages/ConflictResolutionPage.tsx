@@ -165,24 +165,24 @@ export const ConflictResolutionPage: React.FC = () => {
 
     addToast(
       `Conflict resolved: ${formatFieldName(conflict.field)} updated successfully.`,
-      'success'
+      'info'
     );
   };
 
   if (!currentUser) return null;
 
   return (
-    <div className="space-y-6 text-left max-w-[1200px] w-full mx-auto pb-10">
+    <div className="space-y-6 text-left max-w-[1240px] w-full mx-auto pb-10">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2">
-          <GitMerge className="w-6 h-6 text-blue-600" />
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+        <div className="flex items-center gap-2.5">
+          <GitMerge className="w-6 h-6 text-zinc-900" />
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
             Conflict Resolution
           </h1>
         </div>
-        <p className="text-xs text-slate-500 mt-1">
-          Review divergent edits between campuses and select the authoritative record values.
+        <p className="text-xs text-zinc-500 mt-1">
+          Review divergent concurrent edits across campuses and select the authoritative values.
         </p>
       </div>
 
@@ -205,28 +205,28 @@ export const ConflictResolutionPage: React.FC = () => {
             return (
               <div
                 key={c.id}
-                className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden"
+                className="bg-white rounded-xl border border-zinc-200/90 shadow-2xs overflow-hidden"
               >
                 {/* Card Top Title Bar */}
-                <div className="p-4 bg-slate-50/80 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                <div className="p-4 bg-zinc-50/70 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-slate-400 font-medium bg-white px-2 py-0.5 rounded border border-slate-200/60">
+                    <span className="font-mono text-xs text-zinc-600 font-medium bg-white px-2 py-0.5 rounded border border-zinc-200">
                       #{shortId}
                     </span>
-                    <span className="font-semibold text-sm text-slate-900">
+                    <span className="font-semibold text-sm text-zinc-900">
                       {c.studentName}
                     </span>
-                    <span className="text-xs font-mono text-slate-400">
+                    <span className="text-xs font-mono text-zinc-400">
                       ({c.reg_no})
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span className="flex items-center gap-1 font-medium text-slate-700">
-                      <Building2 className="w-3.5 h-3.5 text-blue-600" /> {c.campus} Campus
+                  <div className="flex items-center gap-2 text-xs text-zinc-500">
+                    <span className="flex items-center gap-1 font-medium text-zinc-700">
+                      <Building2 className="w-3.5 h-3.5 text-zinc-400" /> {c.campus} Campus
                     </span>
                     <span>•</span>
-                    <span className="font-semibold text-slate-800">
+                    <span className="font-semibold text-zinc-900">
                       {friendlyField}
                     </span>
                   </div>
@@ -238,31 +238,31 @@ export const ConflictResolutionPage: React.FC = () => {
                     {/* Left Card: Incoming Change */}
                     <div
                       onClick={() => handleSelectChoice(c.id, 'mine')}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      className={`p-4 rounded-xl border cursor-pointer transition-all ${
                         currentDecision === 'mine'
-                          ? 'border-blue-600 bg-blue-50/40 shadow-xs ring-2 ring-blue-500/10'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
+                          ? 'border-zinc-900 bg-zinc-50/80 ring-1 ring-zinc-900'
+                          : 'border-zinc-200 bg-white hover:border-zinc-300'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
-                          <Smartphone className="w-4 h-4 text-blue-600" /> {leftLabel}
+                        <span className="text-xs font-semibold text-zinc-900 flex items-center gap-1.5">
+                          <Smartphone className="w-4 h-4 text-zinc-500" /> {leftLabel}
                         </span>
                         <input
                           type="radio"
                           name={`choice-${c.id}`}
                           checked={currentDecision === 'mine'}
                           onChange={() => handleSelectChoice(c.id, 'mine')}
-                          className="w-4 h-4 accent-blue-600 cursor-pointer"
+                          className="w-4 h-4 accent-zinc-900 cursor-pointer"
                         />
                       </div>
 
-                      <div className="p-3 bg-white border border-slate-200/80 rounded-lg text-sm font-mono font-semibold text-slate-900 break-all shadow-2xs">
+                      <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-lg text-sm font-mono font-medium text-zinc-900 break-all">
                         {String(c.incomingValue ?? (c as any).incoming_value ?? '')}
                       </div>
 
-                      <div className="mt-3 text-[11px] text-slate-500 space-y-0.5">
-                        <div>Submitted by: <span className="font-medium text-slate-800">{incomingActor}</span></div>
+                      <div className="mt-3 text-[11px] text-zinc-500 space-y-0.5">
+                        <div>Submitted by: <span className="font-medium text-zinc-800">{incomingActor}</span></div>
                         <div>Client device: {c.device || (c as any).device_id || 'Client Terminal'}</div>
                         <div>Timestamp: {createdAtFormatted}</div>
                       </div>
@@ -271,31 +271,31 @@ export const ConflictResolutionPage: React.FC = () => {
                     {/* Right Card: Current value on the server */}
                     <div
                       onClick={() => handleSelectChoice(c.id, 'current')}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      className={`p-4 rounded-xl border cursor-pointer transition-all ${
                         currentDecision === 'current'
-                          ? 'border-emerald-600 bg-emerald-50/40 shadow-xs ring-2 ring-emerald-500/10'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
+                          ? 'border-zinc-900 bg-zinc-50/80 ring-1 ring-zinc-900'
+                          : 'border-zinc-200 bg-white hover:border-zinc-300'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold text-emerald-700 flex items-center gap-1.5">
-                          <Server className="w-4 h-4 text-emerald-600" /> Current Authoritative Value
+                        <span className="text-xs font-semibold text-zinc-900 flex items-center gap-1.5">
+                          <Server className="w-4 h-4 text-zinc-600" /> Current Authoritative Value
                         </span>
                         <input
                           type="radio"
                           name={`choice-${c.id}`}
                           checked={currentDecision === 'current'}
                           onChange={() => handleSelectChoice(c.id, 'current')}
-                          className="w-4 h-4 accent-emerald-600 cursor-pointer"
+                          className="w-4 h-4 accent-zinc-900 cursor-pointer"
                         />
                       </div>
 
-                      <div className="p-3 bg-white border border-slate-200/80 rounded-lg text-sm font-mono font-semibold text-slate-900 break-all shadow-2xs">
+                      <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-lg text-sm font-mono font-medium text-zinc-900 break-all">
                         {String(c.serverValue ?? (c as any).server_value ?? '')}
                       </div>
 
-                      <div className="mt-3 text-[11px] text-slate-500 space-y-0.5">
-                        <div>Stored in: <span className="font-medium text-slate-800">University Central Database</span></div>
+                      <div className="mt-3 text-[11px] text-zinc-500 space-y-0.5">
+                        <div>Stored in: <span className="font-medium text-zinc-800">University Central Database</span></div>
                         <div>Version: v{c.serverVersion ?? (c as any).server_version ?? 1}</div>
                         <div>Timestamp: {createdAtFormatted}</div>
                       </div>
@@ -307,7 +307,7 @@ export const ConflictResolutionPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => toggleTechDetails(c.id)}
-                      className="text-xs font-medium text-slate-500 hover:text-blue-600 flex items-center gap-1 transition-colors cursor-pointer"
+                      className="text-xs font-medium text-zinc-500 hover:text-zinc-900 flex items-center gap-1 transition-colors cursor-pointer"
                     >
                       {techDetailsOpen[c.id] ? (
                         <ChevronDown className="w-3.5 h-3.5" />
@@ -318,17 +318,17 @@ export const ConflictResolutionPage: React.FC = () => {
                     </button>
 
                     {techDetailsOpen[c.id] && (
-                      <div className="mt-2.5 p-3.5 bg-slate-900 rounded-xl text-slate-300 font-mono text-xs space-y-1 border border-slate-800 shadow-inner">
-                        <div>Base version: <span className="text-amber-400 font-bold">v{c.baseVersion ?? (c as any).base_version ?? 1}</span></div>
-                        <div>Server version: <span className="text-emerald-400 font-bold">v{c.serverVersion ?? (c as any).server_version ?? 1}</span></div>
+                      <div className="mt-2.5 p-3.5 bg-zinc-900 rounded-lg text-zinc-300 font-mono text-xs space-y-1 border border-zinc-800 shadow-inner">
+                        <div>Base version: <span className="text-zinc-100 font-medium">v{c.baseVersion ?? (c as any).base_version ?? 1}</span></div>
+                        <div>Server version: <span className="text-zinc-100 font-medium">v{c.serverVersion ?? (c as any).server_version ?? 1}</span></div>
                         <div>Device fingerprint: <span>{c.device || (c as any).device_id || 'N/A'}</span></div>
-                        <div>Incoming mutation ID: <span className="text-slate-400 font-xs">{(c as any).incoming_op_id || 'N/A'}</span></div>
+                        <div>Incoming mutation ID: <span className="text-zinc-400">{(c as any).incoming_op_id || 'N/A'}</span></div>
                       </div>
                     )}
                   </div>
 
                   {/* Option 3: Manual Custom Merged Value */}
-                  <div className="mt-4 pt-4 border-t border-slate-100">
+                  <div className="mt-4 pt-4 border-t border-zinc-100">
                     <div className="flex items-center gap-2 mb-2">
                       <input
                         type="radio"
@@ -336,11 +336,11 @@ export const ConflictResolutionPage: React.FC = () => {
                         name={`choice-${c.id}`}
                         checked={currentDecision === 'custom'}
                         onChange={() => handleSelectChoice(c.id, 'custom')}
-                        className="w-4 h-4 accent-blue-600 cursor-pointer"
+                        className="w-4 h-4 accent-zinc-900 cursor-pointer"
                       />
                       <label
                         htmlFor={`custom-${c.id}`}
-                        className="text-xs font-semibold text-slate-800 cursor-pointer"
+                        className="text-xs font-medium text-zinc-800 cursor-pointer"
                       >
                         Enter custom merged value manually
                       </label>
@@ -352,7 +352,7 @@ export const ConflictResolutionPage: React.FC = () => {
                         value={customVal}
                         onChange={(e) => handleCustomValueChange(c.id, e.target.value)}
                         placeholder={`Enter verified ${friendlyField.toLowerCase()} value...`}
-                        className="w-full text-xs font-medium p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"
+                        className="w-full text-xs font-medium p-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors"
                       />
                     )}
                   </div>
@@ -362,7 +362,7 @@ export const ConflictResolutionPage: React.FC = () => {
                     <button
                       onClick={() => handleResolve(c)}
                       disabled={!currentDecision}
-                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed"
+                      className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 text-zinc-50 rounded-lg text-xs font-medium shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
                     >
                       <Check className="w-4 h-4" /> Apply Resolution
                     </button>
@@ -373,12 +373,12 @@ export const ConflictResolutionPage: React.FC = () => {
           })}
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center shadow-xs">
-          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-200/60 flex items-center justify-center mx-auto mb-3">
+        <div className="bg-white rounded-xl border border-zinc-200/90 p-12 text-center shadow-2xs">
+          <div className="w-12 h-12 bg-zinc-100 text-zinc-900 rounded-xl border border-zinc-200 flex items-center justify-center mx-auto mb-3">
             <CheckCircle2 className="w-6 h-6" />
           </div>
-          <h3 className="font-bold text-base text-slate-900">No Open Conflicts</h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 leading-relaxed">
+          <h3 className="font-semibold text-base text-zinc-900">No Open Conflicts</h3>
+          <p className="text-xs text-zinc-500 max-w-sm mx-auto mt-1 leading-relaxed">
             All multi-campus student records are fully converged and in sync.
           </p>
         </div>

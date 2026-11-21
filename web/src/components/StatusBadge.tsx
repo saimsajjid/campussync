@@ -11,45 +11,33 @@ interface StatusBadgeProps {
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, size = 'sm' }) => {
   const configs = {
     synced: {
-      bg: 'bg-emerald-50',
-      text: 'text-emerald-700',
-      border: 'border-emerald-200/60',
+      bg: 'bg-zinc-100 text-zinc-900 border-zinc-200',
       icon: Check,
       defaultLabel: 'Synced',
     },
     pending: {
-      bg: 'bg-amber-50',
-      text: 'text-amber-800',
-      border: 'border-amber-200/60',
+      bg: 'bg-zinc-100 text-zinc-700 border-zinc-200',
       icon: Clock,
       defaultLabel: 'Saved locally',
     },
     syncing: {
-      bg: 'bg-blue-50',
-      text: 'text-blue-700',
-      border: 'border-blue-200/60',
+      bg: 'bg-zinc-100 text-zinc-900 border-zinc-200',
       icon: RefreshCw,
       defaultLabel: 'Syncing...',
       spin: true,
     },
     conflict: {
-      bg: 'bg-rose-50',
-      text: 'text-rose-700',
-      border: 'border-rose-200/60',
+      bg: 'bg-zinc-200 text-zinc-900 border-zinc-300 font-semibold',
       icon: AlertTriangle,
       defaultLabel: 'Conflict',
     },
     rejected: {
-      bg: 'bg-rose-50',
-      text: 'text-rose-700',
-      border: 'border-rose-200/60',
+      bg: 'bg-zinc-100 text-zinc-600 border-zinc-200',
       icon: XCircle,
       defaultLabel: 'Not saved',
     },
     locked: {
-      bg: 'bg-slate-100',
-      text: 'text-slate-600',
-      border: 'border-slate-200/60',
+      bg: 'bg-zinc-100 text-zinc-500 border-zinc-200',
       icon: Lock,
       defaultLabel: 'Locked',
     },
@@ -61,11 +49,11 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, size = 
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 font-semibold rounded-md border ${cfg.bg} ${cfg.text} ${cfg.border} ${
-        size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-xs'
+      className={`inline-flex items-center gap-1.5 font-medium rounded-full border transition-colors ${cfg.bg} ${
+        size === 'sm' ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'
       }`}
     >
-      <IconComponent className={`w-3.5 h-3.5 ${isSpin ? 'animate-spin' : ''}`} />
+      <IconComponent className={`w-3 h-3 ${isSpin ? 'animate-spin' : ''}`} />
       <span>{label || cfg.defaultLabel}</span>
     </span>
   );

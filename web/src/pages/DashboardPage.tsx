@@ -138,13 +138,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
             Dashboard
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-zinc-500 mt-1">
             {currentUser.role === 'faculty'
               ? `${currentUser.campus || 'Campus'} branch student roster and academic records.`
-              : 'Student records and cross-campus sync status.'}
+              : 'Multi-campus university records and synchronization telemetry.'}
           </p>
         </div>
 
@@ -152,7 +152,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
           {currentUser.role === 'admin' && (
             <button
               onClick={onOpenAddStudent}
-              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-50 text-xs font-medium rounded-lg shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               <span>Add Student</span>
@@ -162,35 +162,35 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
           <button
             onClick={() => syncNow()}
             disabled={isSyncing}
-            className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+            className="px-3.5 py-2 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${isSyncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
             <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
           </button>
         </div>
       </div>
 
-      {/* 2 Clean Metric Cards */}
+      {/* Metric Cards - shadcn card pattern */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Card 1: Total Enrolled */}
         <div
           onClick={() => onNavigate('students')}
-          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 cursor-pointer transition-all"
+          className="bg-white p-5 rounded-xl border border-zinc-200/90 shadow-2xs hover:border-zinc-300 cursor-pointer transition-colors"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">
+            <span className="text-xs font-medium text-zinc-500">
               {activeCampus === 'all' || facultyCampus ? 'Total Students' : `${activeCampus} Students`}
             </span>
-            <Users className="w-4 h-4 text-slate-400" />
+            <Users className="w-4 h-4 text-zinc-400" />
           </div>
-          <div className="text-2xl font-bold text-slate-900 mt-2">
+          <div className="text-3xl font-bold tracking-tight text-zinc-900 mt-2">
             {totalCount}
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">
+          <p className="text-[11px] text-zinc-500 mt-1">
             {facultyCampus
               ? `${facultyCampus} branch verified roster`
               : activeCampus === 'all'
-              ? 'Enrolled across all university branches'
+              ? 'Enrolled across all university campuses'
               : `${activeCampus} branch verified roster`}
           </p>
         </div>
@@ -198,16 +198,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
         {/* Card 2: Student Status */}
         <div
           onClick={() => onNavigate('students')}
-          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 cursor-pointer transition-all"
+          className="bg-white p-5 rounded-xl border border-zinc-200/90 shadow-2xs hover:border-zinc-300 cursor-pointer transition-colors"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Student Status</span>
-            <CheckCircle2 className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-medium text-zinc-500">Student Status</span>
+            <CheckCircle2 className="w-4 h-4 text-zinc-400" />
           </div>
-          <div className="text-2xl font-bold text-slate-900 mt-2">
-            {activeCount} <span className="text-xs font-normal text-slate-500">Active</span>
+          <div className="text-3xl font-bold tracking-tight text-zinc-900 mt-2">
+            {activeCount} <span className="text-xs font-normal text-zinc-500">Active</span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">
+          <p className="text-[11px] text-zinc-500 mt-1">
             {leaveCount} On leave • {graduatedCount} Graduated
           </p>
         </div>
@@ -216,29 +216,29 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
       {/* Main 2-Column Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column (8 cols): Searchable Student Roster */}
-        <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col justify-between">
+        <div className="lg:col-span-8 bg-white rounded-xl border border-zinc-200/90 shadow-2xs overflow-hidden flex flex-col justify-between">
           <div>
             {/* Table Header with Search */}
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 sm:p-5 border-b border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="font-semibold text-sm text-slate-900">
+                <h2 className="font-semibold text-sm text-zinc-900">
                   Student Directory
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-zinc-500 mt-0.5">
                   Showing {filteredStudents.length} of {totalCount} total students
                   {facultyCampus ? ` in ${facultyCampus}` : activeCampus !== 'all' ? ` in ${activeCampus}` : ''}
                 </p>
               </div>
 
-              {/* Instant Search Bar */}
+              {/* Instant Search Bar - shadcn Input */}
               <div className="relative w-full sm:w-64">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search name, CNIC, reg..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-400 focus:bg-white transition-all text-slate-900 placeholder:text-slate-400"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors text-zinc-900 placeholder:text-zinc-400"
                 />
               </div>
             </div>
@@ -247,7 +247,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50/70 border-b border-slate-100 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                  <tr className="bg-zinc-50/70 border-b border-zinc-200 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
                     <th className="py-3 px-4">Student</th>
                     <th className="py-3 px-4">Identity</th>
                     <th className="py-3 px-4">Campus & Program</th>
@@ -255,36 +255,32 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
                     <th className="py-3 px-4 text-right">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
+                <tbody className="divide-y divide-zinc-100 text-xs">
                   {filteredStudents.length > 0 ? (
                     filteredStudents.slice(0, 6).map((s) => (
-                      <tr key={s.id} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3.5 px-4 font-medium text-slate-900">
-                          <div className="font-semibold text-slate-900">{s.full_name}</div>
-                          <div className="text-[11px] text-slate-500 font-normal">{s.email}</div>
+                      <tr key={s.id} className="hover:bg-zinc-50/70 transition-colors">
+                        <td className="py-3.5 px-4 font-medium text-zinc-900">
+                          <div className="font-semibold text-zinc-900">{s.full_name}</div>
+                          <div className="text-[11px] text-zinc-500 font-normal">{s.email}</div>
                         </td>
-                        <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600">
+                        <td className="py-3.5 px-4 font-mono text-[11px] text-zinc-600">
                           <div>{s.reg_no}</div>
-                          <div className="text-[10px] text-slate-400">{s.cnic}</div>
+                          <div className="text-[10px] text-zinc-400">{s.cnic}</div>
                         </td>
                         <td className="py-3.5 px-4">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200/60">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-zinc-100 text-zinc-700 border border-zinc-200">
                             {s.campus}
                           </span>
-                          <div className="text-[11px] text-slate-500 mt-1">{s.program}</div>
+                          <div className="text-[11px] text-zinc-500 mt-1">{s.program}</div>
                         </td>
-                        <td className="py-3.5 px-4 text-slate-700 font-medium">
+                        <td className="py-3.5 px-4 text-zinc-700 font-medium">
                           Semester {s.semester}
                         </td>
                         <td className="py-3.5 px-4 text-right">
-                          <div className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700">
+                          <div className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-800">
                             <span
                               className={`w-1.5 h-1.5 rounded-full ${
-                                s.status === 'Active'
-                                  ? 'bg-emerald-500'
-                                  : s.status === 'On leave'
-                                  ? 'bg-amber-500'
-                                  : 'bg-slate-400'
+                                s.status === 'Active' ? 'bg-zinc-900' : 'bg-zinc-400'
                               }`}
                             />
                             <span>{s.status}</span>
@@ -294,9 +290,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-500">
-                        <p className="font-semibold text-xs text-slate-700">No students match your search</p>
-                        <p className="text-[11px] mt-0.5 text-slate-400">Try searching for a different name, CNIC, or campus.</p>
+                      <td colSpan={5} className="py-8 text-center text-zinc-500">
+                        <p className="font-semibold text-xs text-zinc-700">No students match your search</p>
+                        <p className="text-[11px] mt-0.5 text-zinc-400">Try searching for a different name, CNIC, or campus.</p>
                       </td>
                     </tr>
                   )}
@@ -306,13 +302,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
           </div>
 
           {/* Table Footer */}
-          <div className="p-3.5 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between text-xs">
-            <span className="text-slate-500">
+          <div className="p-3.5 bg-zinc-50/70 border-t border-zinc-200 flex items-center justify-between text-xs">
+            <span className="text-zinc-500">
               Showing top {Math.min(filteredStudents.length, 6)} records
             </span>
             <button
               onClick={() => onNavigate('students')}
-              className="font-semibold text-slate-800 hover:text-slate-900 hover:underline flex items-center gap-1"
+              className="font-medium text-zinc-900 hover:underline flex items-center gap-1 cursor-pointer"
             >
               <span>Open Full Directory</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -323,14 +319,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
         {/* Right Column (4 cols): Campus Enrollment Share & Recent Activity */}
         <div className="lg:col-span-4 space-y-6">
           {/* Breakdown Card: Program Breakdown for Faculty, Campus Breakdown for Admin */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
+          <div className="bg-white rounded-xl border border-zinc-200/90 p-5 shadow-2xs">
             {facultyCampus ? (
               <>
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <h2 className="font-semibold text-sm text-slate-900">
+                <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
+                  <h2 className="font-semibold text-sm text-zinc-900">
                     Program Enrollment
                   </h2>
-                  <span className="text-xs text-slate-500 font-mono">
+                  <span className="text-xs text-zinc-500 font-mono">
                     {totalCount} total
                   </span>
                 </div>
@@ -339,14 +335,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
                   {programBreakdown.map((item) => (
                     <div key={item.program}>
                       <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="font-medium text-slate-700">{item.program}</span>
-                        <span className="text-slate-500 font-mono text-[11px]">
+                        <span className="font-medium text-zinc-700">{item.program}</span>
+                        <span className="text-zinc-500 font-mono text-[11px]">
                           {item.count} student{item.count !== 1 ? 's' : ''} ({item.pct}%)
                         </span>
                       </div>
-                      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-slate-800 rounded-full transition-all duration-300"
+                          className="h-full bg-zinc-900 rounded-full transition-all duration-300"
                           style={{ width: `${item.pct}%` }}
                         />
                       </div>
@@ -356,11 +352,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
               </>
             ) : (
               <>
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <h2 className="font-semibold text-sm text-slate-900">
-                    Campus Enrollment
+                <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
+                  <h2 className="font-semibold text-sm text-zinc-900">
+                    Campus Distribution
                   </h2>
-                  <span className="text-xs text-slate-500 font-mono">
+                  <span className="text-xs text-zinc-500 font-mono">
                     {totalAllCampuses} total
                   </span>
                 </div>
@@ -369,33 +365,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
                   {/* Lahore */}
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-medium text-slate-700">Lahore</span>
-                      <span className="text-slate-500 font-mono text-[11px]">{lahoreCount} students ({lahorePct}%)</span>
+                      <span className="font-medium text-zinc-700">Lahore</span>
+                      <span className="text-zinc-500 font-mono text-[11px]">{lahoreCount} ({lahorePct}%)</span>
                     </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-slate-800 rounded-full transition-all duration-300" style={{ width: `${lahorePct}%` }} />
+                    <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-zinc-900 rounded-full transition-all duration-300" style={{ width: `${lahorePct}%` }} />
                     </div>
                   </div>
 
                   {/* Islamabad */}
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-medium text-slate-700">Islamabad</span>
-                      <span className="text-slate-500 font-mono text-[11px]">{islamabadCount} students ({islamabadPct}%)</span>
+                      <span className="font-medium text-zinc-700">Islamabad</span>
+                      <span className="text-zinc-500 font-mono text-[11px]">{islamabadCount} ({islamabadPct}%)</span>
                     </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-slate-800 rounded-full transition-all duration-300" style={{ width: `${islamabadPct}%` }} />
+                    <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-zinc-900 rounded-full transition-all duration-300" style={{ width: `${islamabadPct}%` }} />
                     </div>
                   </div>
 
                   {/* Abbottabad */}
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-medium text-slate-700">Abbottabad</span>
-                      <span className="text-slate-500 font-mono text-[11px]">{abbottabadCount} students ({abbottabadPct}%)</span>
+                      <span className="font-medium text-zinc-700">Abbottabad</span>
+                      <span className="text-zinc-500 font-mono text-[11px]">{abbottabadCount} ({abbottabadPct}%)</span>
                     </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-slate-800 rounded-full transition-all duration-300" style={{ width: `${abbottabadPct}%` }} />
+                    <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-zinc-900 rounded-full transition-all duration-300" style={{ width: `${abbottabadPct}%` }} />
                     </div>
                   </div>
                 </div>
@@ -404,69 +400,65 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onOpen
           </div>
 
           {/* Recent Updates Feed */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="bg-white rounded-xl border border-zinc-200/90 p-5 shadow-2xs">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
               <div className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                <h2 className="font-semibold text-sm text-slate-900">
+                <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                <h2 className="font-semibold text-sm text-zinc-900">
                   Recent Activity
                 </h2>
               </div>
               <button
                 onClick={() => onNavigate('history')}
-                className="text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:underline cursor-pointer"
+                className="text-[11px] font-medium text-zinc-500 hover:text-zinc-900 transition-colors cursor-pointer"
               >
                 View all
               </button>
             </div>
 
-            <div className="divide-y divide-slate-100 text-xs mt-1">
+            <div className="divide-y divide-zinc-100">
               {recentHistory && recentHistory.length > 0 ? (
-                recentHistory.map((h, i) => (
-                  <div key={h.id || i} className="py-2.5 flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium text-slate-900 truncate">
-                        {h.studentName}
-                      </p>
-                      <p className="text-[11px] text-slate-500 truncate">
-                        {h.type === 'create'
-                          ? 'Enrolled'
-                          : h.type === 'resolve'
-                          ? 'Conflict resolved'
-                          : `Updated ${h.field}`}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
-                        {h.actorCampus || 'Central'}
+                recentHistory.map((item) => (
+                  <div key={item.id} className="py-3 first:pt-3 last:pb-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-xs text-zinc-900 truncate max-w-[170px]">
+                        {item.studentName}
                       </span>
-                      <p className="text-[10px] text-slate-400 mt-0.5 font-mono">
-                        {formatRelativeTime(h.createdAt)}
-                      </p>
+                      <span className="text-[10px] text-zinc-400 font-mono">
+                        {formatRelativeTime(item.createdAt)}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-zinc-500 mt-0.5 flex items-center justify-between">
+                      <span className="truncate">
+                        Updated {item.field.replace(/_/g, ' ')}
+                      </span>
+                      <span className="font-mono text-[10px] text-zinc-400">
+                        by {item.actorName.split(' ')[0]}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : recentlyAdded.length > 0 ? (
+                recentlyAdded.map((s) => (
+                  <div key={s.id} className="py-3 first:pt-3 last:pb-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-xs text-zinc-900 truncate max-w-[170px]">
+                        {s.full_name}
+                      </span>
+                      <span className="text-[10px] text-zinc-400 font-mono">
+                        {formatRelativeTime(s.created_at)}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-zinc-500 mt-0.5 flex items-center justify-between">
+                      <span className="truncate">{s.program}</span>
+                      <span className="font-mono text-[10px] text-zinc-400">{s.campus}</span>
                     </div>
                   </div>
                 ))
               ) : (
-                recentlyAdded.map((s) => (
-                  <div key={s.id} className="py-2.5 flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium text-slate-900 truncate">
-                        {s.full_name}
-                      </p>
-                      <p className="text-[11px] text-slate-500 truncate">
-                        {s.program} • Semester {s.semester}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
-                        {s.campus}
-                      </span>
-                      <p className="text-[10px] text-slate-400 mt-0.5 font-mono">
-                        {formatRelativeTime(s.created_at)}
-                      </p>
-                    </div>
-                  </div>
-                ))
+                <div className="py-6 text-center text-xs text-zinc-400">
+                  No activity recorded yet
+                </div>
               )}
             </div>
           </div>

@@ -102,6 +102,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const isSyncingRef = useRef(false);
 
+  // Enforce pure light mode (No dark mode)
+  useEffect(() => {
+    document.documentElement.classList.remove('dark');
+    try {
+      localStorage.removeItem('campussync_theme');
+    } catch {
+      // ignore
+    }
+  }, []);
+
   // 1. Initial Authentication Check and Server Config
   useEffect(() => {
     let isMounted = true;

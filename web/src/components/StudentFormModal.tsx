@@ -98,37 +98,38 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       attendance: 90,
       remarks: 'Consistent academic performance',
     });
+    setDuplicateWarning(null);
+    setValidationError(null);
   };
 
+  // Sync state when opening
   useEffect(() => {
-    // Only re-initialize form state when modal transitions from closed to open
     if (isOpen && !prevIsOpenRef.current) {
-      isDirtyRef.current = false;
-      initialStudentRef.current = studentToEdit ? JSON.parse(JSON.stringify(studentToEdit)) : null;
-      setExternalUpdateNotice(false);
       if (studentToEdit) {
+        initialStudentRef.current = studentToEdit;
         setFormData({
-          reg_no: studentToEdit.reg_no,
-          cnic: studentToEdit.cnic,
-          full_name: studentToEdit.full_name,
-          program: studentToEdit.program,
-          campus: studentToEdit.campus,
-          semester: studentToEdit.semester,
-          status: studentToEdit.status,
-          phone: studentToEdit.phone,
-          email: studentToEdit.email,
-          address: studentToEdit.address,
-          emergency_contact: studentToEdit.emergency_contact,
-          attendance: studentToEdit.attendance,
+          reg_no: studentToEdit.reg_no || '',
+          cnic: studentToEdit.cnic || '',
+          full_name: studentToEdit.full_name || '',
+          program: studentToEdit.program || 'BS CS',
+          campus: studentToEdit.campus || 'Islamabad',
+          semester: studentToEdit.semester || 1,
+          status: studentToEdit.status || 'Active',
+          phone: studentToEdit.phone || '',
+          email: studentToEdit.email || '',
+          address: studentToEdit.address || '',
+          emergency_contact: studentToEdit.emergency_contact || '',
+          attendance: studentToEdit.attendance !== undefined ? studentToEdit.attendance : 85,
           remarks: studentToEdit.remarks || '',
         });
       } else {
+        initialStudentRef.current = null;
         setFormData({
           reg_no: '',
           cnic: '',
           full_name: '',
           program: 'BS CS',
-          campus: currentUser?.campus || 'Islamabad',
+          campus: currentUser?.campus || 'Lahore',
           semester: 1,
           status: 'Active',
           phone: '',
@@ -141,62 +142,34 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       }
       setDuplicateWarning(null);
       setValidationError(null);
+      setExternalUpdateNotice(false);
+      isDirtyRef.current = false;
     }
     prevIsOpenRef.current = isOpen;
-  }, [studentToEdit, isOpen, currentUser]);
+  }, [isOpen, studentToEdit, currentUser?.campus]);
 
-  // Monitor background database updates to this record while form is open (FR-12.2)
-  useEffect(() => {
-    if (!isOpen || !studentToEdit) return;
-
-    const checkBackgroundUpdate = async () => {
-      const currentInDb = await db.students.get(studentToEdit.id);
-      if (currentInDb && initialStudentRef.current) {
-        if (currentInDb.version > initialStudentRef.current.version) {
-          setExternalUpdateNotice(true);
-        }
-      }
-    };
-
-    const interval = setInterval(checkBackgroundUpdate, 500);
-    const handleSyncEvent = () => checkBackgroundUpdate();
-    window.addEventListener('campussync:sync_event', handleSyncEvent);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('campussync:sync_event', handleSyncEvent);
-    };
-  }, [isOpen, studentToEdit]);
-
-  // Subtle presenter shortcut: Alt+D to populate sample data without showing a prototype button
-  useEffect(() => {
-    if (!isOpen || isEditing) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.altKey && (e.key === 'd' || e.key === 'D')) {
-        e.preventDefault();
-        fillSampleData();
-        addToast('Sample record details loaded', 'info');
-      }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [isOpen, isEditing]);
-
-  // Real-time duplicate check (FR-10)
+  // Real-time duplicate check
   useEffect(() => {
     const checkDuplicate = async () => {
-      if (!formData.reg_no && !formData.cnic) return;
+      if (!formData.reg_no && !formData.cnic) {
+        setDuplicateWarning(null);
+        return;
+      }
       const match = await db.students
-        .filter(
-          (s) =>
-            (s.reg_no === formData.reg_no || s.cnic === formData.cnic) &&
-            (!studentToEdit || s.id !== studentToEdit.id)
-        )
+        .filter((s) => {
+          if (studentToEdit && s.id === studentToEdit.id) return false;
+          return (
+            (Boolean(formData.reg_no) && s.reg_no === formData.reg_no) ||
+            (Boolean(formData.cnic) && s.cnic === formData.cnic)
+          );
+        })
         .first();
 
       if (match) {
         setDuplicateWarning(
-          `Duplicate suspect found: ${match.full_name} (${match.reg_no}, Campus: ${match.campus}) already exists!`
+          `Record exists: ${match.full_name} (${match.campus}) already has this ${
+            match.reg_no === formData.reg_no ? 'Reg No' : 'CNIC'
+          }.`
         );
       } else {
         setDuplicateWarning(null);
@@ -207,7 +180,6 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
   if (!isOpen || !currentUser) return null;
 
-  // Permission helpers
   const canEditOfficial = currentUser.role === 'admin';
   const canEditContact = currentUser.role === 'admin' || currentUser.role === 'student';
   const canEditAcademic = currentUser.role === 'admin' || currentUser.role === 'faculty';
@@ -239,14 +211,12 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Cross-field validation: Graduated requires semester 8
     if (formData.status === 'Graduated' && formData.semester !== 8) {
       setValidationError('Validation Error: A student with status "Graduated" must be in Semester 8.');
       return;
     }
 
     if (isEditing && studentToEdit) {
-      // Find modified fields and queue operations using original baseVersion
       let changedCount = 0;
       const initial = initialStudentRef.current || studentToEdit;
       for (const [key, val] of Object.entries(formData)) {
@@ -268,14 +238,11 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       }
       onClose();
     } else {
-      // Create new student record with client-generated UUID (D8)
-      // Check if duplicate exists locally
       const match = await db.students
         .filter((s) => s.reg_no === formData.reg_no || s.cnic === formData.cnic)
         .first();
 
       if (match) {
-        // Open the Duplicate Record Dialog immediately (FR-6)
         setDuplicateRecordPrompt({
           isOpen: true,
           reason: `A student with ${match.reg_no === formData.reg_no ? 'registration number ' + match.reg_no : 'CNIC ' + match.cnic} already exists (${match.full_name}, ${match.campus}).`,
@@ -308,7 +275,6 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       await queueEditOperation(newId, '*', newStudent, null, 0, 'create', newStudent);
 
       if (!simulator.isOffline) {
-        // Online: sync immediately and check if server flagged duplicate_record
         await syncNow();
         const failedOp = await db.outbox.get(newId);
         if (failedOp && failedOp.status === 'failed' && (failedOp.errorReason?.includes('already exists') || failedOp.errorReason?.includes('Duplicate'))) {
@@ -323,31 +289,31 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             isOfflineSync: false,
           });
         } else {
-          addToast(`Student ${newStudent.full_name} (${newStudent.reg_no}) created and synced!`, 'success');
+          addToast(`Student ${newStudent.full_name} (${newStudent.reg_no}) registered!`, 'success');
         }
       } else {
-        addToast(`New student ${newStudent.full_name} (${newStudent.reg_no}) registered offline`, 'success');
+        addToast(`New student ${newStudent.full_name} (${newStudent.reg_no}) queued locally`, 'success');
       }
       onClose();
     }
   };
 
-  // ─── FACULTY WORKFLOW: MINIMALIST ACADEMIC EVALUATION ───
+  // FACULTY WORKFLOW
   if (currentUser.role === 'faculty' && isEditing && studentToEdit) {
     return (
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-zinc-200 overflow-hidden flex flex-col max-h-[90vh]">
           {/* Modal Header */}
-          <div className="px-6 py-4 border-b border-slate-200/80 bg-slate-50/70 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-zinc-200 bg-zinc-50/70 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                <GraduationCap className="w-5 h-5" />
+              <div className="w-8 h-8 rounded-lg bg-zinc-100 text-zinc-800 flex items-center justify-center">
+                <GraduationCap className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-bold text-base text-slate-900">
+                <h3 className="font-semibold text-base text-zinc-900">
                   Academic Evaluation
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-zinc-500">
                   {studentToEdit.campus} Campus • Verified Student Record
                 </p>
               </div>
@@ -356,29 +322,29 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               type="button"
               onClick={onClose}
               aria-label="Close modal"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Form Body */}
           <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1 text-left">
             {externalUpdateNotice && (
-              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-amber-900">
-                <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="p-3.5 rounded-lg bg-zinc-100 border border-zinc-200 flex items-start gap-3 text-zinc-800">
+                <AlertCircle className="w-4 h-4 text-zinc-600 flex-shrink-0 mt-0.5" />
                 <div className="text-xs">
-                  <span className="font-bold block">Notice:</span>
-                  <span>This record was updated by someone else.</span>
+                  <span className="font-medium block">Notice:</span>
+                  <span>This record was updated remotely by another terminal.</span>
                 </div>
               </div>
             )}
 
             {/* Verified Student Summary Card */}
-            <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-2xl">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-200/60">
+            <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-lg">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-lg bg-zinc-900 text-zinc-50 font-bold text-xs flex items-center justify-center">
                     {studentToEdit.full_name
                       ? studentToEdit.full_name
                           .split(' ')
@@ -389,28 +355,28 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                       : 'S'}
                   </div>
                   <div>
-                    <h4 className="font-bold text-sm text-slate-900">{studentToEdit.full_name}</h4>
-                    <p className="text-xs text-slate-500 font-mono">{studentToEdit.reg_no}</p>
+                    <h4 className="font-semibold text-sm text-zinc-900">{studentToEdit.full_name}</h4>
+                    <p className="text-xs text-zinc-500 font-mono">{studentToEdit.reg_no}</p>
                   </div>
                 </div>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-900 border border-zinc-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-900" />
                   {studentToEdit.status}
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-2.5 pt-3 text-xs">
                 <div>
-                  <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">Campus</span>
-                  <span className="font-semibold text-slate-800">{studentToEdit.campus}</span>
+                  <span className="text-[10px] uppercase font-medium text-zinc-400 block tracking-wider">Campus</span>
+                  <span className="font-medium text-zinc-800">{studentToEdit.campus}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">Program</span>
-                  <span className="font-semibold text-slate-800">{studentToEdit.program}</span>
+                  <span className="text-[10px] uppercase font-medium text-zinc-400 block tracking-wider">Program</span>
+                  <span className="font-medium text-zinc-800">{studentToEdit.program}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">Semester</span>
-                  <span className="font-semibold text-slate-800">Semester {studentToEdit.semester}</span>
+                  <span className="text-[10px] uppercase font-medium text-zinc-400 block tracking-wider">Semester</span>
+                  <span className="font-medium text-zinc-800">Semester {studentToEdit.semester}</span>
                 </div>
               </div>
             </div>
@@ -419,7 +385,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             <div className="space-y-4 pt-1">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-800">
+                  <label className="text-xs font-medium text-zinc-800">
                     Attendance Rate (%)
                   </label>
                   {renderFieldStatus('attendance')}
@@ -432,20 +398,20 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   required
                   value={formData.attendance}
                   onChange={(e) => setFormData({ ...formData, attendance: parseFloat(e.target.value) || 0 })}
-                  className="w-full text-sm font-semibold bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                  className="w-full text-sm font-semibold bg-transparent border border-zinc-200 rounded-lg px-3.5 py-2 text-zinc-900 focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors"
                 />
                 <div className="mt-1.5 flex items-center gap-1.5 text-[11px]">
                   {formData.attendance >= 85 ? (
-                    <span className="text-emerald-700 font-medium flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Good Standing (Eligible for Final Examinations)
+                    <span className="text-zinc-800 font-medium flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-900" /> Good Standing (Eligible for Final Examinations)
                     </span>
                   ) : formData.attendance >= 75 ? (
-                    <span className="text-amber-700 font-medium flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Warning Standing (Borderline Attendance)
+                    <span className="text-zinc-700 font-medium flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" /> Warning Standing (Borderline Attendance)
                     </span>
                   ) : (
-                    <span className="text-rose-700 font-medium flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Attendance Shortage (Course Ineligibility Risk)
+                    <span className="text-zinc-900 font-semibold flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-900" /> Attendance Shortage (Risk of Course Ineligibility)
                     </span>
                   )}
                 </div>
@@ -453,7 +419,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-800">
+                  <label className="text-xs font-medium text-zinc-800">
                     Faculty Remarks & Notes
                   </label>
                   {renderFieldStatus('remarks')}
@@ -463,23 +429,23 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.remarks}
                   onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
                   placeholder="Enter academic remarks, lab performance, or coursework notes..."
-                  className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl p-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all resize-none"
+                  className="w-full text-xs font-medium bg-transparent border border-zinc-200 rounded-lg p-3 text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors resize-none"
                 />
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">
+            <div className="pt-4 border-t border-zinc-200 flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                className="px-3.5 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-50 text-xs font-medium rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>Save Academic Record</span>
@@ -491,71 +457,78 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     );
   }
 
+  // ADMIN / GENERAL FORM
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl border border-zinc-200 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200/80 bg-slate-50/70 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-zinc-200 bg-zinc-50/70 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              {isEditing ? <Save className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
+            <div className="w-8 h-8 rounded-lg bg-zinc-100 text-zinc-800 flex items-center justify-center">
+              {isEditing ? <Save className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
             </div>
             <div>
-              <h3 className="font-bold text-base text-slate-900">
+              <h3 className="font-semibold text-base text-zinc-900">
                 {isEditing ? `Edit Student: ${studentToEdit?.full_name}` : 'Register New Student Record'}
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-zinc-500">
                 {isEditing ? `Registration: ${studentToEdit?.reg_no}` : 'Enter student details below'}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {!isEditing && (
+              <button
+                type="button"
+                onClick={fillSampleData}
+                className="px-2.5 py-1 text-xs font-medium text-zinc-600 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200/80 rounded-md transition-colors cursor-pointer"
+              >
+                Auto-fill Sample
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
               aria-label="Close modal"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1 text-left">
-          {/* Non-blocking External Update Notice (FR-12.2) */}
           {externalUpdateNotice && (
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-amber-900">
-              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-lg bg-zinc-100 border border-zinc-200 flex items-start gap-3 text-zinc-800">
+              <AlertCircle className="w-4 h-4 text-zinc-600 flex-shrink-0 mt-0.5" />
               <div className="text-xs">
-                <span className="font-bold block">Notice:</span>
-                <span>This record was updated by someone else.</span>
+                <span className="font-medium block">Notice:</span>
+                <span>This record was updated remotely by another terminal.</span>
               </div>
             </div>
           )}
 
-          {/* Duplicate Warning Alert */}
           {duplicateWarning && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200/80 flex items-start gap-3 text-rose-800">
-              <AlertTriangle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-lg bg-zinc-100 border border-zinc-200 flex items-start gap-3 text-zinc-900">
+              <AlertTriangle className="w-4 h-4 text-zinc-700 flex-shrink-0 mt-0.5" />
               <div className="text-xs">
-                <span className="font-bold block">Duplicate Record Detected:</span>
+                <span className="font-medium block">Duplicate Record Detected:</span>
                 <span>{duplicateWarning}</span>
               </div>
             </div>
           )}
 
-          {/* Validation Error Alert */}
           {validationError && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200/80 flex items-start gap-3 text-rose-800">
-              <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
-              <div className="text-xs font-semibold">{validationError}</div>
+            <div className="p-3.5 rounded-lg bg-zinc-100 border border-zinc-200 flex items-start gap-3 text-zinc-900">
+              <AlertCircle className="w-4 h-4 text-zinc-700 flex-shrink-0 mt-0.5" />
+              <div className="text-xs font-medium">{validationError}</div>
             </div>
           )}
 
           {/* Group 1: Identity & Official Records */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
               Official University Details
             </h4>
 
@@ -563,7 +536,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               {/* Full Name */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">Full Name</label>
+                  <label className="text-xs font-medium text-zinc-700">Full Name</label>
                   {renderFieldStatus('full_name')}
                 </div>
                 <input
@@ -573,14 +546,14 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                   placeholder="e.g. Muhammad Ahmed"
-                  className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all disabled:opacity-60 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className="w-full text-xs font-medium bg-transparent border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
               {/* Registration Number */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">Registration Number (Unique)</label>
+                  <label className="text-xs font-medium text-zinc-700">Registration Number (Unique)</label>
                   {renderFieldStatus('reg_no')}
                 </div>
                 <input
@@ -590,14 +563,14 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.reg_no}
                   onChange={(e) => setFormData({ ...formData, reg_no: e.target.value })}
                   placeholder="e.g. CS-2026-0147"
-                  className="w-full text-xs font-mono font-medium bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all disabled:opacity-60 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className="w-full text-xs font-mono font-medium bg-transparent border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
               {/* CNIC (National ID) */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">National ID / CNIC (13 Digits)</label>
+                  <label className="text-xs font-medium text-zinc-700">National ID / CNIC (13 Digits)</label>
                   {renderFieldStatus('cnic')}
                 </div>
                 <input
@@ -607,14 +580,14 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.cnic}
                   onChange={(e) => setFormData({ ...formData, cnic: e.target.value })}
                   placeholder="e.g. 37405-1234567-1"
-                  className="w-full text-xs font-mono font-medium bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all disabled:opacity-60 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className="w-full text-xs font-mono font-medium bg-transparent border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
               {/* Campus */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">Campus</label>
+                  <label className="text-xs font-medium text-zinc-700">Campus</label>
                   {renderFieldStatus('campus')}
                 </div>
                 <CustomDropdown<CampusCode>
@@ -629,7 +602,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               {/* Program */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">Program</label>
+                  <label className="text-xs font-medium text-zinc-700">Program</label>
                   {renderFieldStatus('program')}
                 </div>
                 <CustomDropdown<ProgramCode>
@@ -645,7 +618,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-700">Semester</label>
+                    <label className="text-xs font-medium text-zinc-700">Semester</label>
                     {renderFieldStatus('semester')}
                   </div>
                   <CustomDropdown<number>
@@ -659,7 +632,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-700">Status</label>
+                    <label className="text-xs font-medium text-zinc-700">Status</label>
                     {renderFieldStatus('status')}
                   </div>
                   <CustomDropdown<StudentStatus>
@@ -676,15 +649,15 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           </div>
 
           {/* Group 2: Personal / Contact Details */}
-          <div className="space-y-3 pt-3 border-t border-slate-200/80">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="space-y-3 pt-3 border-t border-zinc-200">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
               Contact Information
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">Mobile Phone</label>
+                  <label className="text-xs font-medium text-zinc-700">Mobile Phone</label>
                   {renderFieldStatus('phone')}
                 </div>
                 <input
@@ -694,13 +667,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="0300-1234567"
-                  className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all disabled:opacity-60 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className="w-full text-xs font-medium bg-transparent border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">Email Address</label>
+                  <label className="text-xs font-medium text-zinc-700">Email Address</label>
                   {renderFieldStatus('email')}
                 </div>
                 <input
@@ -710,13 +683,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="student@campussync.edu.pk"
-                  className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all disabled:opacity-60 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className="w-full text-xs font-medium bg-transparent border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">Emergency Contact</label>
+                  <label className="text-xs font-medium text-zinc-700">Emergency Contact</label>
                   {renderFieldStatus('emergency_contact')}
                 </div>
                 <input
@@ -726,13 +699,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.emergency_contact}
                   onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
                   placeholder="Name (Phone)"
-                  className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all disabled:opacity-60 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className="w-full text-xs font-medium bg-transparent border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">Home / Residency Address</label>
+                  <label className="text-xs font-medium text-zinc-700">Home / Residency Address</label>
                   {renderFieldStatus('address')}
                 </div>
                 <input
@@ -742,22 +715,22 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   placeholder="Street address, City"
-                  className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all disabled:opacity-60 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className="w-full text-xs font-medium bg-transparent border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
           </div>
 
           {/* Group 3: Academic Fields */}
-          <div className="space-y-3 pt-3 border-t border-slate-200/80">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="space-y-3 pt-3 border-t border-zinc-200">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
               Academic Records
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">Attendance Rate (%)</label>
+                  <label className="text-xs font-medium text-zinc-700">Attendance Rate (%)</label>
                   {renderFieldStatus('attendance')}
                 </div>
                 <input
@@ -769,13 +742,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   disabled={!canEditAcademic}
                   value={formData.attendance}
                   onChange={(e) => setFormData({ ...formData, attendance: parseFloat(e.target.value) || 0 })}
-                  className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all disabled:opacity-60 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className="w-full text-xs font-medium bg-transparent border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">Faculty Remarks</label>
+                  <label className="text-xs font-medium text-zinc-700">Faculty Remarks</label>
                   {renderFieldStatus('remarks')}
                 </div>
                 <input
@@ -784,24 +757,24 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   value={formData.remarks}
                   onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
                   placeholder="e.g. Lab performance notes"
-                  className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:bg-white transition-all disabled:opacity-60 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className="w-full text-xs font-medium bg-transparent border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-zinc-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-4 border-t border-slate-200/80 flex items-center justify-end gap-3">
+          <div className="pt-4 border-t border-zinc-200 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              className="px-3.5 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs shadow-blue-500/10 flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-4 py-2 text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-50 rounded-lg shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{isEditing ? 'Save Changes' : 'Register Student'}</span>
@@ -812,3 +785,4 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     </div>
   );
 };
+
