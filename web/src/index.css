@@ -136,3 +136,37 @@ select option:checked {
 .pulse-green {
   animation: pulse-dot 2s infinite;
 }
+
+/* Print Optimization for Official Student Verification Certificate */
+@media print {
+  header, nav, aside, .no-print, button, #failure-simulator-drawer, .toast-container {
+    display: none !important;
+  }
+
+  body, html, #root, main {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-certificate-container {
+    box-shadow: none !important;
+    border: 2px solid #0f172a !important;
+    padding: 2.5rem !important;
+    margin: 1rem auto !important;
+    max-width: 800px !important;
+    page-break-inside: avoid !important;
+  }
+}
+
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
