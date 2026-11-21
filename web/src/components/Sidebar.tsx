@@ -5,7 +5,6 @@ import {
   GitMerge,
   History,
   RefreshCw,
-  Activity,
   Building2,
   UserCheck,
   CreditCard
@@ -84,7 +83,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
         badge: pendingOutboxCount && pendingOutboxCount > 0 ? pendingOutboxCount : undefined,
         badgeColor: 'bg-[var(--color-status-pending-bg)] text-[var(--color-status-warning-orange)]',
       },
-      { id: 'integrity', label: 'System health', icon: Activity },
     ];
   }
 

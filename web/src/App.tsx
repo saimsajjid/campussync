@@ -10,7 +10,6 @@ import { StudentsPage } from './pages/StudentsPage';
 import { ConflictResolutionPage } from './pages/ConflictResolutionPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { SyncCenterPage } from './pages/SyncCenterPage';
-import { IntegritySuitePage } from './pages/IntegritySuitePage';
 import { StudentPortalPage } from './pages/StudentPortalPage';
 import { LoginPage } from './pages/LoginPage';
 import { BrandLogo } from './components/BrandLogo';
@@ -219,9 +218,9 @@ export const AppContent: React.FC = () => {
             <HistoryPage initialStudentId={selectedStudentHistoryId} />
           )}
 
-          {effectiveTab === 'sync' && <SyncCenterPage />}
+          {effectiveTab === 'sync' && <SyncCenterPage initialSection="outbox" />}
 
-          {effectiveTab === 'integrity' && <IntegritySuitePage />}
+          {effectiveTab === 'integrity' && <SyncCenterPage initialSection="integrity" />}
         </main>
       </div>
 
