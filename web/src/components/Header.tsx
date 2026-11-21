@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Building2, UserCircle2, LogOut } from 'lucide-react';
+import { Menu, Building2, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import type { CampusCode } from '../types';
 import { CustomDropdown } from './CustomDropdown';
@@ -61,15 +61,26 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
 
       {/* Right: User Profile Info & Logout */}
       <div className="flex items-center gap-2 shrink-0">
-        <div className="flex items-center gap-2.5 pl-2">
-          <UserCircle2 className="w-8 h-8 text-slate-400 shrink-0" />
-          <div className="hidden sm:flex flex-col text-left">
-            <span className="text-xs font-semibold text-slate-900 leading-tight">
-              {currentUser?.name || 'User'}
-            </span>
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
-              {currentUser?.role || 'Guest'} {currentUser?.campus ? `• ${currentUser.campus}` : '• Central'}
-            </span>
+        <div className="flex items-center gap-3 pl-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0 border border-blue-200/50">
+              {currentUser?.name
+                ? currentUser.name
+                    .split(' ')
+                    .map((n) => n[0])
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase()
+                : 'U'}
+            </div>
+            <div className="hidden sm:flex flex-col text-left">
+              <span className="text-xs font-semibold text-slate-900 leading-tight">
+                {currentUser?.name || 'User'}
+              </span>
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
+                {currentUser?.role || 'Guest'} {currentUser?.campus ? `• ${currentUser.campus}` : '• Central'}
+              </span>
+            </div>
           </div>
           <button
             onClick={logout}

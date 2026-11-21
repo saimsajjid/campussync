@@ -139,41 +139,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, isOpe
             );
           })}
         </nav>
-
-        {/* User Account Profile (Read-Only) */}
-        <div className="p-3 border-t border-slate-200/80 bg-slate-50/60">
-          <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 shadow-2xs flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
-                {currentUser.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .slice(0, 2)
-                  .join('')
-                  .toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-semibold text-slate-900 truncate">
-                  {currentUser.name}
-                </div>
-                <div className="text-[10px] text-slate-500 truncate capitalize">
-                  {currentUser.role} {currentUser.campus ? `• ${currentUser.campus}` : '• Central'}
-                </div>
-              </div>
-            </div>
-            <span
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase border shrink-0 ${
-                currentUser.role === 'admin'
-                  ? 'bg-blue-50 text-blue-700 border-blue-200/60'
-                  : currentUser.role === 'faculty'
-                  ? 'bg-purple-50 text-purple-700 border-purple-200/60'
-                  : 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
-              }`}
-            >
-              {currentUser.role}
-            </span>
-          </div>
-        </div>
       </aside>
     </>
   );
